@@ -69,3 +69,51 @@ export function compute_percentile(value: number, dataset: number[]): number {
   if (index === -1) return 100;
   return Math.round((index / sorted.length) * 100);
 }
+
+// ── System B: Exponential Moving Average Fatigue Detection ──
+
+/**
+ * EMA smoothing factor. α = 2/(N+1) where N=9 gives a 9-trial window.
+ * Higher α reacts faster; lower α is more stable.
+ */
+const EMA_ALPHA = 0.2; // ≈ 9-trial window
+
+/**
+ * Compute the next EMA value given the previous EMA and a new observation.
+ * EMA_t = α × value + (1 - α) × EMA_{t-1}
+ */
+export function compute_ema_step(prevEma: number, newValue: number): number {
+  return EMA_ALPHA * newValue + (1 - EMA_ALPHA) * prevEma;
+}
+
+/**
+ * Initialize EMA from the first observed value.
+ * Seeds the EMA with the first value to avoid cold-start bias.
+ */
+export function init_ema(firstValue: number): number {
+  return firstValue;
+}
+
+/**
+ * Detect if the current EMA has risen ≥ threshold% above the baseline EMA.
+ *
+ * The baseline is established from the first MIN_BASELINE_TRIALS correct trials.
+ * A rise of 20% means the user's reaction times are getting consistently slower —
+ * indicating cognitive fatigue, not just a single slow trial.
+ *
+ * @param baselineEma  - EMA after the warm-up window (trials 1-5)
+ * @param currentEma   - Current EMA value
+ * @param threshold    - Rise fraction (default 0.20 = 20%)
+ */
+export function detect_ema_fatigue(
+  baselineEma: number,
+  currentEma: number,
+  threshold = 0.20
+): boolean {
+  if (baselineEma <= 0) return false;
+  return currentEma > baselineEma * (1 + threshold);
+}
+
+/** Number of trials used to establish the baseline EMA before monitoring begins */
+export const EMA_BASELINE_TRIALS = 5;
+

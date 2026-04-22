@@ -83,5 +83,31 @@
   "insight.dual": "Dual-task exercises like N-Back are the only computerized training shown to transfer to fluid intelligence (DOI: 10.1073/pnas.0801268105).",
   "insight.neuroplasticity": "Your brain forms approximately 700 new neurons daily in the hippocampus. Cognitive training helps integrate these neurons into functional circuits.",
   "insight.aiDependency": "Relying on AI for semantic synthesis reduces activation in Broca's area. Exercises like Semantic Linker force your prefrontal cortex to rebuild those pathways.",
-  "insight.contextSwitch": "The average person's context-switching cost is 400ms of cognitive \"dead time.\" Training reduces this refractory period, building resilience to digital fragmentation."
+  "insight.contextSwitch": "The average person's context-switching cost is 400ms of cognitive \"dead time.\" Training reduces this refractory period, building resilience to digital fragmentation.",
+  
+  "calibration.intro.badge": "ONE-TIME CALIBRATION",
+  "calibration.intro.title": "Hardware Calibration",
+  "calibration.intro.instruction": "Click the target {count} times as fast as you can to establish your hardware noise floor.",
+  "calibration.intro.begin": "Click the circle to begin",
+  "calibration.tapping.counter": "{current} / {total}",
+  "calibration.tapping.instruction": "Keep tapping!",
+  "calibration.measuring": "Analyzing hardware...",
+  "calibration.result.excellent": "Excellent",
+  "calibration.result.good": "Good",
+  "calibration.result.fair": "Fair",
+  "calibration.result.poor": "Poor",
+  "calibration.result.jitter": "Jitter SD: {ms}ms",
+  "calibration.result.timer": "Timer resolution: {ms}ms",
+  "calibration.result.frame": "Frame period: {ms}ms",
+  "calibration.result.continue": "Start Training",
+  "calibration.warning.fair": "Hardware latency detected (±{ms}ms jitter). Focus on trend data rather than absolute millisecond values.",
+  "calibration.warning.poor": "High hardware latency detected. Absolute reaction time values may be offset by up to one display frame (≈16ms). Trend comparisons remain valid.",
+  
+  "fatigue.toast.title": "Cognitive Fatigue Detected",
+  "fatigue.toast.desc": "EMA +{rise}% above baseline ({base}ms → {curr}ms). Consider finishing this session and resting.",
+  
+  "results.fsrs.memory": "Memory Strength",
+  "results.fsrs.nextReview": "Next Review",
+  "results.fsrs.tomorrow": "Tomorrow",
+  "results.fsrs.days": "{days} days"
 }

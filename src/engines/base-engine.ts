@@ -4,9 +4,10 @@
 // Provides: init → update → render → cleanup loop
 // ============================================================
 
-import type { Trial, ExerciseType, CognitivePillar, EngineCallbacks, TrialResults } from '@shared/types.ts';
-import { compute_mean, compute_sd, compute_cv, compute_accuracy, compute_focus_score, filter_valid_rts } from '@core/analytics/analytics.ts';
+import type { Trial, ExerciseType, CognitivePillar, EngineCallbacks, TrialResults, FatigueEvent } from '@shared/types.ts';
+import { compute_mean, compute_sd, compute_cv, compute_accuracy, compute_focus_score, filter_valid_rts, compute_ema_step, init_ema, detect_ema_fatigue, EMA_BASELINE_TRIALS } from '@core/analytics/analytics.ts';
 import { precise_now } from '@shared/utils.ts';
+import { TIMING } from '@shared/constants.ts';
 
 export type EngineState = 'idle' | 'running' | 'paused' | 'complete';
 
@@ -21,6 +22,12 @@ export abstract class BaseEngine {
   protected trials: Omit<Trial, 'id' | 'sessionId'>[] = [];
   protected currentTrial: number = 0;
   protected callbacks: EngineCallbacks;
+
+  // ── System B: EMA Fatigue Tracking ──
+  private _ema: number = 0;
+  private _ema_baseline: number = 0;
+  private _ema_correct_count: number = 0;
+  private _fatigue_fired: boolean = false;
 
   private _animFrameId: number = 0;
   private _lastTimestamp: number = 0;
@@ -45,6 +52,10 @@ export abstract class BaseEngine {
     this.state = 'running';
     this.trials = [];
     this.currentTrial = 0;
+    this._ema = 0;
+    this._ema_baseline = 0;
+    this._ema_correct_count = 0;
+    this._fatigue_fired = false;
 
     this._resize_canvas();
 
@@ -70,11 +81,45 @@ export abstract class BaseEngine {
     this.on_cleanup();
   }
 
-  /** Record a completed trial */
+  /** Record a completed trial and update EMA fatigue tracking */
   protected record_trial(trial: Omit<Trial, 'id' | 'sessionId'>): void {
     this.trials.push(trial);
     this.currentTrial++;
     this.callbacks.onTrialComplete(trial);
+
+    // ── EMA update on valid correct trials only ──
+    if (trial.isCorrect && trial.reactionTimeMs >= TIMING.MIN_REACTION_MS && trial.reactionTimeMs <= TIMING.MAX_REACTION_MS) {
+      this._ema_correct_count++;
+
+      if (this._ema_correct_count === 1) {
+        // Seed EMA with first observation
+        this._ema = init_ema(trial.reactionTimeMs);
+      } else {
+        this._ema = compute_ema_step(this._ema, trial.reactionTimeMs);
+      }
+
+      // Lock in baseline after warm-up window
+      if (this._ema_correct_count === EMA_BASELINE_TRIALS) {
+        this._ema_baseline = this._ema;
+      }
+
+      // Check for fatigue after baseline is established
+      if (
+        this._ema_baseline > 0 &&
+        !this._fatigue_fired &&
+        detect_ema_fatigue(this._ema_baseline, this._ema)
+      ) {
+        this._fatigue_fired = true; // Fire once per session
+        const risePercent = ((this._ema - this._ema_baseline) / this._ema_baseline) * 100;
+        const event: FatigueEvent = {
+          trialNumber:    this.currentTrial,
+          baselineEmaMs:  Math.round(this._ema_baseline),
+          currentEmaMs:   Math.round(this._ema),
+          risePercent:    Math.round(risePercent),
+        };
+        this.callbacks.onFatigueDetected?.(event);
+      }
+    }
 
     if (this.currentTrial >= this.totalTrials) {
       this._complete_session();

@@ -3,7 +3,7 @@
 // Full-viewport exercise container with results screen
 // ============================================================
 
-import type { TrialResults, Trial, Session } from '@shared/types.ts';
+import type { TrialResults, Trial, Session, FatigueEvent } from '@shared/types.ts';
 import { ReactionTimeEngine } from '@engines/reaction/reaction-engine.ts';
 import { generate_uuid, format_ms } from '@shared/utils.ts';
 import { save_session } from '@shared/db.ts';
@@ -13,6 +13,7 @@ import { TIMING } from '@shared/constants.ts';
 import { detect_fatigue } from '@core/analytics/analytics.ts';
 import { show_loading, hide_loading } from '../components/loading-screen.ts';
 import type { BaseEngine } from '@engines/base-engine.ts';
+import { fsrsBridge } from '@core/fsrs/fsrs-bridge.ts';
 
 let _activeEngine: BaseEngine | null = null;
 
@@ -40,21 +41,22 @@ function _launch_engine(exerciseType: string): void {
 
   const callbacks = {
     onTrialComplete: (_trial: Omit<Trial, 'id' | 'sessionId'>) => {
-      // Could add real-time HUD updates here
+      // Real-time HUD updates can hook here
     },
     onSessionComplete: (results: TrialResults) => {
-      // Clean up engine
       _activeEngine?.stop();
       _activeEngine = null;
       container.remove();
-
-      // Save to IndexedDB
       _save_and_show_results(sessionId, results);
     },
     onExit: () => {
       _activeEngine?.stop();
       _activeEngine = null;
       container.remove();
+    },
+    // System B: Show a subtle fatigue warning overlay inside the session
+    onFatigueDetected: (event: FatigueEvent) => {
+      _show_fatigue_warning(container, event);
     },
   };
 
@@ -95,13 +97,34 @@ async function _save_and_show_results(sessionId: string, results: TrialResults):
     sessionId,
   }));
 
-  await save_session(session, trials);
+  // Run DB save and FSRS recalibration in parallel — both are non-blocking
+  const results_ = await Promise.allSettled([
+    save_session(session, trials),
+    fsrsBridge.recalibrate_after_session(
+      results.exerciseType,
+      results.pillar,
+      results.accuracy,
+      results.focusScore,
+      results.cvReactionTime,
+      trials
+    ),
+  ]);
 
-  // Show results screen
-  _render_results_screen(results);
+  // Extract FSRS scheduling info if the worker succeeded
+  const fsrsResult = results_[1];
+  const fsrsData = fsrsResult?.status === 'fulfilled' ? fsrsResult.value : null;
+
+  // Show results screen with optional FSRS metadata
+  _render_results_screen(results, fsrsData);
 }
 
-function _render_results_screen(results: TrialResults): void {
+interface FsrsDisplayData {
+  scheduledDays: number;
+  derivedRating: number;
+  retrievability: number;
+}
+
+function _render_results_screen(results: TrialResults, fsrs: FsrsDisplayData | null): void {
   const screen = document.createElement('div');
   screen.className = 'results-screen';
   screen.id = 'results-screen';
@@ -156,6 +179,24 @@ function _render_results_screen(results: TrialResults): void {
       ${cvLabel}${isFatigued ? ' 💤' : ''}
     </p>
 
+    ${fsrs ? `
+    <div class="glass-panel" style="padding: var(--space-md) var(--space-lg); margin-bottom: var(--space-lg); display: flex; gap: var(--space-xl); align-items: center; justify-content: center;">
+      <div style="text-align: center;">
+        <div style="font-size: var(--font-size-xs); color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px;">${t('results.fsrs.memory')}</div>
+        <div style="font-size: var(--font-size-lg); font-weight: 600; color: hsl(${Math.round(fsrs.retrievability * 120)}, 65%, 55%)">
+          ${Math.round(fsrs.retrievability * 100)}%
+        </div>
+      </div>
+      <div style="width: 1px; height: 40px; background: var(--glass-border);"></div>
+      <div style="text-align: center;">
+        <div style="font-size: var(--font-size-xs); color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px;">${t('results.fsrs.nextReview')}</div>
+        <div style="font-size: var(--font-size-lg); font-weight: 600; color: var(--color-accent-primary)">
+          ${fsrs.scheduledDays === 1 ? t('results.fsrs.tomorrow') : t('results.fsrs.days', { days: fsrs.scheduledDays })}
+        </div>
+      </div>
+    </div>
+    ` : ''}
+
     <div class="results-screen__actions">
       <button class="btn btn--ghost btn--large" id="btn-back-dashboard">${t('results.backToDashboard')}</button>
       <button class="btn btn--primary btn--large" id="btn-train-again">${t('results.trainAgain')}</button>
@@ -173,4 +214,54 @@ function _render_results_screen(results: TrialResults): void {
     screen.remove();
     start_exercise_session(results.exerciseType);
   });
+}
+
+/**
+ * System B: Non-blocking fatigue warning overlay.
+ * Appears inside the session container, auto-dismisses after 4 seconds.
+ * Does NOT interrupt the exercise — the user can continue or acknowledge.
+ */
+function _show_fatigue_warning(container: HTMLElement, event: FatigueEvent): void {
+  const toast = document.createElement('div');
+  toast.style.cssText = `
+    position: absolute;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: hsla(225, 35%, 12%, 0.92);
+    border: 1px solid hsl(38, 90%, 55%);
+    border-radius: 10px;
+    padding: 12px 20px;
+    font-family: Inter, sans-serif;
+    font-size: 13px;
+    color: hsl(220, 20%, 85%);
+    backdrop-filter: blur(12px);
+    z-index: 10;
+    text-align: center;
+    max-width: 320px;
+    animation: fadeIn 0.3s ease-out;
+    box-shadow: 0 4px 20px hsla(38, 90%, 30%, 0.25);
+  `;
+  toast.innerHTML = `
+    <div style="font-weight: 600; color: hsl(38, 90%, 60%); margin-bottom: 4px;">
+      💤 ${t('fatigue.toast.title')}
+    </div>
+    <div style="color: hsl(220, 15%, 60%); line-height: 1.5;">
+      ${t('fatigue.toast.desc', { 
+        rise: event.risePercent, 
+        base: event.baselineEmaMs, 
+        curr: event.currentEmaMs 
+      })}
+    </div>
+  `;
+
+  container.style.position = 'relative';
+  container.appendChild(toast);
+
+  // Auto-dismiss after 4s
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transition = 'opacity 0.5s ease-out';
+    setTimeout(() => toast.remove(), 500);
+  }, 4000);
 }

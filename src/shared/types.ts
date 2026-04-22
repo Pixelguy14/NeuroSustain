@@ -151,3 +151,63 @@ export interface TrialResults {
   exerciseType: ExerciseType;
   pillar: CognitivePillar;
 }
+
+// ── System A: Hardware Calibration ─────────────────────────
+
+/** Hardware latency profile measured at first launch */
+export interface HardwareProfile {
+  id?: number;
+  measuredAt: number;
+  /** Raw inter-click intervals from the calibration tap test (ms) */
+  rawIntervals: number[];
+  /** Timer resolution estimate (minimum detectable delta, ms) */
+  timerResolutionMs: number;
+  /** Standard deviation of inter-click intervals — noise floor */
+  jitterSdMs: number;
+  /** Estimated display frame budget error (ms) */
+  frameErrorMs: number;
+  /** Calibration grade: 'excellent' | 'good' | 'fair' | 'poor' */
+  grade: HardwareGrade;
+  /** Warning shown to user if grade is 'fair' or 'poor' */
+  warningShown: boolean;
+}
+
+export type HardwareGrade = 'excellent' | 'good' | 'fair' | 'poor';
+
+// ── System B: Fatigue Detection ─────────────────────────────
+
+/** Payload emitted when the EMA fatigue threshold is crossed */
+export interface FatigueEvent {
+  trialNumber: number;
+  baselineEmaMs: number;
+  currentEmaMs: number;
+  risePercent: number;
+}
+
+// ── System C: FSRS Journal / Crash Recovery ─────────────────
+
+/** Journal entry written before FSRS Worker dispatch, used for crash recovery */
+export interface FsrsJournalEntry {
+  id?: number;
+  /** Matches the FSRS Worker requestId for tracing */
+  sessionId: string;
+  exerciseType: ExerciseType;
+  pillar: CognitivePillar;
+  accuracy: number;
+  focusScore: number;
+  cvReactionTime: number;
+  status: 'pending' | 'completed' | 'failed';
+  createdAt: number;
+  completedAt?: number;
+}
+
+// ── Extended EngineCallbacks (with fatigue) ──────────────────
+
+/** Engine lifecycle callbacks — extended with fatigue signal */
+export interface EngineCallbacks {
+  onTrialComplete: (trial: Omit<Trial, 'id' | 'sessionId'>) => void;
+  onSessionComplete: (results: TrialResults) => void;
+  onExit: () => void;
+  /** Fired when EMA rises ≥20% above the baseline — optional */
+  onFatigueDetected?: (event: FatigueEvent) => void;
+}

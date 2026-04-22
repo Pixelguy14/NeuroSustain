@@ -83,5 +83,31 @@
   "insight.dual": "Los ejercicios de doble tarea como N-Back son el único entrenamiento computarizado que ha demostrado transferencia a la inteligencia fluida (DOI: 10.1073/pnas.0801268105).",
   "insight.neuroplasticity": "Tu cerebro genera aproximadamente 700 nuevas neuronas diarias en el hipocampo. El entrenamiento cognitivo ayuda a integrar estas neuronas en circuitos funcionales.",
   "insight.aiDependency": "Depender de la IA para síntesis semántica reduce la activación del área de Broca. Ejercicios como el Semantic Linker fuerzan a tu corteza prefrontal a reconstruir esas vías.",
-  "insight.contextSwitch": "El costo promedio del cambio de contexto de una persona es de 400ms de \"tiempo muerto\" cognitivo. Entrenar reduce este período refractario, construyendo resiliencia ante la fragmentación digital."
+  "insight.contextSwitch": "El costo promedio del cambio de contexto de una persona es de 400ms de \"tiempo muerto\" cognitivo. Entrenar reduce este período refractario, construyendo resiliencia ante la fragmentación digital.",
+  
+  "calibration.intro.badge": "CALIBRACIÓN ÚNICA",
+  "calibration.intro.title": "Calibración de Hardware",
+  "calibration.intro.instruction": "Haz clic en el objetivo {count} veces lo más rápido posible para establecer el umbral de ruido de tu hardware.",
+  "calibration.intro.begin": "Haz clic en el círculo para comenzar",
+  "calibration.tapping.counter": "{current} / {total}",
+  "calibration.tapping.instruction": "¡Sigue presionando!",
+  "calibration.measuring": "Analizando hardware...",
+  "calibration.result.excellent": "Excelente",
+  "calibration.result.good": "Bueno",
+  "calibration.result.fair": "Regular",
+  "calibration.result.poor": "Deficiente",
+  "calibration.result.jitter": "Jitter SD: {ms}ms",
+  "calibration.result.timer": "Resolución del reloj: {ms}ms",
+  "calibration.result.frame": "Periodo de frame: {ms}ms",
+  "calibration.result.continue": "Comenzar Entrenamiento",
+  "calibration.warning.fair": "Latencia de hardware detectada (±{ms}ms jitter). Enfócate en las tendencias más que en los valores absolutos de ms.",
+  "calibration.warning.poor": "Alta latencia de hardware detectada. Los valores absolutos de tiempo de reacción pueden estar desfasados hasta por un frame de pantalla (≈16ms). Las comparaciones de tendencias siguen siendo válidas.",
+  
+  "fatigue.toast.title": "Fatiga Cognitiva Detectada",
+  "fatigue.toast.desc": "EMA +{rise}% sobre la línea base ({base}ms → {curr}ms). Considera terminar esta sesión y descansar.",
+  
+  "results.fsrs.memory": "Fuerza de Memoria",
+  "results.fsrs.nextReview": "Próximo Repaso",
+  "results.fsrs.tomorrow": "Mañana",
+  "results.fsrs.days": "{days} días"
 }
