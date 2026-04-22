@@ -1,0 +1,87 @@
+{
+  "app.name": "NeuroSustain",
+  "app.tagline": "Sustain your neural pathways",
+
+  "nav.dashboard": "Dashboard",
+  "nav.train": "Train",
+  "nav.profile": "Profile",
+
+  "pillar.workingMemory": "Working Memory",
+  "pillar.cognitiveFlexibility": "Cognitive Flexibility",
+  "pillar.inhibitoryControl": "Inhibitory Control",
+  "pillar.sustainedAttention": "Sustained Attention",
+  "pillar.processingSpeed": "Processing Speed",
+
+  "dashboard.title": "Cognitive Dashboard",
+  "dashboard.welcome": "Welcome back",
+  "dashboard.firstTime": "Welcome to NeuroSustain",
+  "dashboard.firstTimeDesc": "Start your first session to establish your cognitive baseline.",
+  "dashboard.streak": "Focus Streak",
+  "dashboard.streakDays": "{days} days",
+  "dashboard.totalSessions": "Total Sessions",
+  "dashboard.lastSession": "Last Session",
+  "dashboard.noSessions": "No sessions yet",
+  "dashboard.startTraining": "Start Training",
+  "dashboard.radarTitle": "Neural Profile",
+  "dashboard.radarEmpty": "Complete exercises to see your cognitive profile",
+
+  "train.title": "Training Exercises",
+  "train.selectExercise": "Select an exercise to begin",
+  "train.locked": "Coming Soon",
+  "train.start": "Begin Session",
+  "train.trials": "{count} trials",
+
+  "exercise.reaction.name": "Reaction Time",
+  "exercise.reaction.description": "Press SPACE the instant the circle turns green. Measures your raw processing speed.",
+  "exercise.reaction.instruction": "Press SPACE when the circle turns green",
+  "exercise.reaction.wait": "Wait for it...",
+  "exercise.reaction.go": "NOW!",
+  "exercise.reaction.tooEarly": "Too early! Wait for green.",
+  "exercise.reaction.missed": "Too slow! Try to react faster.",
+  "exercise.reaction.result": "{ms}ms",
+
+  "exercise.stroop.name": "Stroop Task",
+  "exercise.stroop.description": "Identify the color of the text, not the word itself. Trains inhibitory control.",
+
+  "exercise.nback.name": "N-Back Dual",
+  "exercise.nback.description": "Remember positions and sounds from N turns ago. The gold standard for working memory.",
+
+  "exercise.setSwitch.name": "Set Switching",
+  "exercise.setSwitch.description": "Alternate between classification rules. Builds cognitive flexibility.",
+
+  "exercise.patternBreaker.name": "Pattern Breaker",
+  "exercise.patternBreaker.description": "Spot the anomaly in visual patterns. Trains sustained attention and processing speed.",
+
+  "results.title": "Session Complete",
+  "results.accuracy": "Accuracy",
+  "results.meanRT": "Mean Reaction Time",
+  "results.sdRT": "Std. Deviation",
+  "results.cv": "Consistency (CV)",
+  "results.focusScore": "Focus Score",
+  "results.trials": "Trials Completed",
+  "results.backToDashboard": "Back to Dashboard",
+  "results.trainAgain": "Train Again",
+  "results.cvExcellent": "Excellent consistency — deep focus detected",
+  "results.cvGood": "Good consistency — steady performance",
+  "results.cvFatigue": "Elevated variability — consider a break",
+
+  "profile.title": "Profile",
+  "profile.language": "Language",
+  "profile.memberSince": "Member since",
+  "profile.totalSessions": "Total Sessions",
+  "profile.currentStreak": "Current Streak",
+  "profile.longestStreak": "Longest Streak",
+
+  "loading.syncing": "Syncing neural patterns...",
+  "loading.calibrating": "Calibrating cognitive baseline...",
+  "loading.ready": "Neural pathways ready",
+
+  "insight.attention": "20 minutes of passive scrolling can reduce sustained attention capacity for up to 2 hours. This session is designed to recalibrate your prefrontal cortex.",
+  "insight.sleep": "Your reaction time consistency reflects cognitive freshness. Studies (DOI: 10.1093/sleep/zsaa170) show even 1 hour of sleep debt increases reaction time variability by 15%.",
+  "insight.exercise": "A 10-minute walk before cognitive training increases BDNF (brain-derived neurotrophic factor), which enhances synaptic plasticity during exercises like these.",
+  "insight.hydration": "Dehydration as mild as 2% body weight loss impairs working memory and attention. Your cognitive performance today may benefit from a glass of water.",
+  "insight.dual": "Dual-task exercises like N-Back are the only computerized training shown to transfer to fluid intelligence (DOI: 10.1073/pnas.0801268105).",
+  "insight.neuroplasticity": "Your brain forms approximately 700 new neurons daily in the hippocampus. Cognitive training helps integrate these neurons into functional circuits.",
+  "insight.aiDependency": "Relying on AI for semantic synthesis reduces activation in Broca's area. Exercises like Semantic Linker force your prefrontal cortex to rebuild those pathways.",
+  "insight.contextSwitch": "The average person's context-switching cost is 400ms of cognitive \"dead time.\" Training reduces this refractory period, building resilience to digital fragmentation."
+}

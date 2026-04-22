@@ -1,0 +1,87 @@
+{
+  "app.name": "NeuroSustain",
+  "app.tagline": "Sostén tus vías neuronales",
+
+  "nav.dashboard": "Panel",
+  "nav.train": "Entrenar",
+  "nav.profile": "Perfil",
+
+  "pillar.workingMemory": "Memoria de Trabajo",
+  "pillar.cognitiveFlexibility": "Flexibilidad Cognitiva",
+  "pillar.inhibitoryControl": "Control Inhibitorio",
+  "pillar.sustainedAttention": "Atención Sostenida",
+  "pillar.processingSpeed": "Velocidad de Procesamiento",
+
+  "dashboard.title": "Panel Cognitivo",
+  "dashboard.welcome": "Bienvenido de nuevo",
+  "dashboard.firstTime": "Bienvenido a NeuroSustain",
+  "dashboard.firstTimeDesc": "Inicia tu primera sesión para establecer tu línea base cognitiva.",
+  "dashboard.streak": "Racha de Enfoque",
+  "dashboard.streakDays": "{days} días",
+  "dashboard.totalSessions": "Sesiones Totales",
+  "dashboard.lastSession": "Última Sesión",
+  "dashboard.noSessions": "Sin sesiones aún",
+  "dashboard.startTraining": "Iniciar Entrenamiento",
+  "dashboard.radarTitle": "Perfil Neuronal",
+  "dashboard.radarEmpty": "Completa ejercicios para ver tu perfil cognitivo",
+
+  "train.title": "Ejercicios de Entrenamiento",
+  "train.selectExercise": "Selecciona un ejercicio para comenzar",
+  "train.locked": "Próximamente",
+  "train.start": "Iniciar Sesión",
+  "train.trials": "{count} pruebas",
+
+  "exercise.reaction.name": "Tiempo de Reacción",
+  "exercise.reaction.description": "Presiona ESPACIO en el instante que el círculo se ponga verde. Mide tu velocidad de procesamiento.",
+  "exercise.reaction.instruction": "Presiona ESPACIO cuando el círculo se ponga verde",
+  "exercise.reaction.wait": "Espera...",
+  "exercise.reaction.go": "¡AHORA!",
+  "exercise.reaction.tooEarly": "¡Muy pronto! Espera el verde.",
+  "exercise.reaction.missed": "¡Muy lento! Intenta reaccionar más rápido.",
+  "exercise.reaction.result": "{ms}ms",
+
+  "exercise.stroop.name": "Tarea Stroop",
+  "exercise.stroop.description": "Identifica el color del texto, no la palabra. Entrena el control inhibitorio.",
+
+  "exercise.nback.name": "N-Back Dual",
+  "exercise.nback.description": "Recuerda posiciones y sonidos de hace N turnos. El estándar de oro para la memoria de trabajo.",
+
+  "exercise.setSwitch.name": "Cambio de Reglas",
+  "exercise.setSwitch.description": "Alterna entre reglas de clasificación. Construye flexibilidad cognitiva.",
+
+  "exercise.patternBreaker.name": "Rompe Patrones",
+  "exercise.patternBreaker.description": "Detecta la anomalía en patrones visuales. Entrena atención sostenida y velocidad de procesamiento.",
+
+  "results.title": "Sesión Completada",
+  "results.accuracy": "Precisión",
+  "results.meanRT": "Tiempo de Reacción Promedio",
+  "results.sdRT": "Desviación Estándar",
+  "results.cv": "Consistencia (CV)",
+  "results.focusScore": "Puntuación de Enfoque",
+  "results.trials": "Pruebas Completadas",
+  "results.backToDashboard": "Volver al Panel",
+  "results.trainAgain": "Entrenar de Nuevo",
+  "results.cvExcellent": "Excelente consistencia — enfoque profundo detectado",
+  "results.cvGood": "Buena consistencia — rendimiento estable",
+  "results.cvFatigue": "Variabilidad elevada — considera tomar un descanso",
+
+  "profile.title": "Perfil",
+  "profile.language": "Idioma",
+  "profile.memberSince": "Miembro desde",
+  "profile.totalSessions": "Sesiones Totales",
+  "profile.currentStreak": "Racha Actual",
+  "profile.longestStreak": "Racha Más Larga",
+
+  "loading.syncing": "Sincronizando patrones neuronales...",
+  "loading.calibrating": "Calibrando línea base cognitiva...",
+  "loading.ready": "Vías neuronales listas",
+
+  "insight.attention": "20 minutos de scroll pasivo pueden reducir tu capacidad de atención sostenida hasta por 2 horas. Esta sesión está diseñada para recalibrar tu corteza prefrontal.",
+  "insight.sleep": "La consistencia de tu tiempo de reacción refleja frescura cognitiva. Estudios (DOI: 10.1093/sleep/zsaa170) muestran que incluso 1 hora de deuda de sueño incrementa la variabilidad del tiempo de reacción un 15%.",
+  "insight.exercise": "Una caminata de 10 minutos antes del entrenamiento cognitivo incrementa el BDNF (factor neurotrófico derivado del cerebro), que potencia la plasticidad sináptica durante ejercicios como estos.",
+  "insight.hydration": "La deshidratación tan leve como un 2% de pérdida de peso corporal deteriora la memoria de trabajo y la atención. Tu rendimiento cognitivo hoy podría beneficiarse de un vaso de agua.",
+  "insight.dual": "Los ejercicios de doble tarea como N-Back son el único entrenamiento computarizado que ha demostrado transferencia a la inteligencia fluida (DOI: 10.1073/pnas.0801268105).",
+  "insight.neuroplasticity": "Tu cerebro genera aproximadamente 700 nuevas neuronas diarias en el hipocampo. El entrenamiento cognitivo ayuda a integrar estas neuronas en circuitos funcionales.",
+  "insight.aiDependency": "Depender de la IA para síntesis semántica reduce la activación del área de Broca. Ejercicios como el Semantic Linker fuerzan a tu corteza prefrontal a reconstruir esas vías.",
+  "insight.contextSwitch": "El costo promedio del cambio de contexto de una persona es de 400ms de \"tiempo muerto\" cognitivo. Entrenar reduce este período refractario, construyendo resiliencia ante la fragmentación digital."
+}
