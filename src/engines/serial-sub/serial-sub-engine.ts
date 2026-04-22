@@ -136,16 +136,12 @@ export class SerialSubtractionEngine extends BaseEngine {
         break;
 
       case 'scribble':
-        if (elapsed >= 800) {
+        if (elapsed >= 1000) {
           this._advance_to_next();
         }
         break;
 
-      case 'subtrahend_change':
-        if (elapsed >= 1500) {
-          this._start_active();
-        }
-        break;
+      // Subtrahend change phase removed per user request
     }
   }
 
@@ -196,9 +192,7 @@ export class SerialSubtractionEngine extends BaseEngine {
         this._render_numpad(ctx);
         break;
 
-      case 'subtrahend_change':
-        this._render_subtrahend_change(ctx);
-        break;
+      // Subtrahend change phase removed
     }
   }
 
@@ -219,17 +213,15 @@ export class SerialSubtractionEngine extends BaseEngine {
     if (diff <= 3) {
       this._currentNumber = 50 + Math.floor(Math.random() * 51); // 50-100
       this._subtrahend = [3, 4, 5][Math.floor(Math.random() * 3)]!;
-      this._ruleChangeEvery = Infinity; // Never changes
     } else if (diff <= 7) {
       this._currentNumber = 100 + Math.floor(Math.random() * 401); // 100-500
       this._subtrahend = [7, 9, 11][Math.floor(Math.random() * 3)]!;
-      this._ruleChangeEvery = DIFFICULTY.SERIAL_SUB_RULE_CHANGE_EVERY;
     } else {
       this._currentNumber = 200 + Math.floor(Math.random() * 800); // 200-999
       this._subtrahend = [13, 17, 19][Math.floor(Math.random() * 3)]!;
-      this._ruleChangeEvery = 2;
     }
 
+    this._ruleChangeEvery = 1; // Change subtrahend every hit
     this._isAdding = false;
     this._compute_expected();
   }
@@ -286,7 +278,6 @@ export class SerialSubtractionEngine extends BaseEngine {
 
     // Check boundary
     if (!this._check_boundary()) {
-      // Can't continue — reinitialize
       this._init_arithmetic();
     }
 
@@ -295,9 +286,11 @@ export class SerialSubtractionEngine extends BaseEngine {
 
   private _change_subtrahend(): void {
     const diff = this.config.difficulty;
-    const pools = diff <= 7
-      ? [7, 9, 11, 13]
-      : [13, 17, 19, 23];
+    const pools = diff <= 4
+      ? [3, 4, 5, 6, 7]
+      : diff <= 7
+        ? [7, 8, 9, 11, 13, 17]
+        : [13, 17, 19, 23, 29];
 
     // Pick a different subtrahend
     let newSub: number;
@@ -305,9 +298,18 @@ export class SerialSubtractionEngine extends BaseEngine {
       newSub = pools[Math.floor(Math.random() * pools.length)]!;
     } while (newSub === this._subtrahend && pools.length > 1);
 
+    // Force exact 0 if it would go negative (and we aren't in addition mode)
+    if (this.config.difficulty < 8 && this._currentNumber - newSub < 0) {
+      newSub = this._currentNumber;
+      if (newSub === 0) {
+        // If already 0, we can't continue subtracting, so reinit
+        this._init_arithmetic();
+        return;
+      }
+    }
+
     this._subtrahend = newSub;
-    this._phase = 'subtrahend_change';
-    this._phaseStart = precise_now();
+    this._start_active();
     audioEngine.play_transition();
   }
 
@@ -407,14 +409,18 @@ export class SerialSubtractionEngine extends BaseEngine {
     const chalkH = this.height - 160;
     const cx = chalkX + chalkW / 2;
     const cy = chalkY + chalkH * 0.35;
-    const spread = 80;
+    const spread = 70; // Tighter spread
 
-    for (let i = 0; i < 5; i++) {
+    // Generate lines for a quick "eraser" effect
+    for (let i = 0; i < 25; i++) {
+      const x = cx - spread/2 + Math.random() * spread;
+      const y = cy - 20 + Math.random() * 40;
+      
       lines.push({
-        x1: cx - spread + Math.random() * spread * 0.5,
-        y1: cy - 15 + Math.random() * 30,
-        x2: cx + spread * 0.5 + Math.random() * spread * 0.5,
-        y2: cy - 15 + Math.random() * 30,
+        x1: x - 15 + Math.random() * 30,
+        y1: y - 8 + Math.random() * 16,
+        x2: x - 15 + Math.random() * 30,
+        y2: y - 8 + Math.random() * 16,
       });
     }
 
@@ -439,10 +445,17 @@ export class SerialSubtractionEngine extends BaseEngine {
     ctx.stroke();
 
     const centerX = chalkX + chalkW / 2;
+    const elapsed = precise_now() - this._phaseStart;
+
+    // Fade out logic ONLY during scribble/erasure per user request
+    let alpha = 1.0;
+    if (this._phase === 'scribble') {
+      alpha = Math.max(0, 1 - (elapsed / 600));
+    }
 
     // Current number (large)
     ctx.font = 'bold 64px Inter, sans-serif';
-    ctx.fillStyle = 'hsl(220, 20%, 90%)';
+    ctx.fillStyle = `hsla(220, 20%, 90%, ${alpha})`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(String(this._currentNumber), centerX, chalkY + chalkH * 0.35);
@@ -450,7 +463,7 @@ export class SerialSubtractionEngine extends BaseEngine {
     // Operation indicator
     const opSymbol = this._isAdding ? '+' : '−';
     ctx.font = 'bold 32px Inter, sans-serif';
-    ctx.fillStyle = 'hsl(175, 70%, 55%)';
+    ctx.fillStyle = `hsla(175, 70%, 55%, ${alpha})`;
     ctx.fillText(`${opSymbol}${this._subtrahend}`, centerX, chalkY + chalkH * 0.55);
 
     // Direction label for level 8+
@@ -465,31 +478,32 @@ export class SerialSubtractionEngine extends BaseEngine {
   }
 
   private _render_chalkboard_with_scribble(ctx: CanvasRenderingContext2D): void {
+    // Render the base number which is now fading via alpha in _render_chalkboard
     this._render_chalkboard(ctx);
 
-    // Draw scribble lines over the previous answer area
     const elapsed = precise_now() - this._phaseStart;
-    const progress = Math.min(1, elapsed / 600);
+    const progress = Math.min(1, elapsed / 1000);
 
-    ctx.strokeStyle = 'hsla(0, 65%, 50%, 0.7)';
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'hsl(225, 45%, 6%)'; // Exact background color
+    ctx.lineWidth = 14; 
     ctx.lineCap = 'round';
 
-    for (let i = 0; i < this._scribbleLines.length; i++) {
+    const count = this._scribbleLines.length;
+    for (let i = 0; i < count; i++) {
+      const lineStartProgress = i / count;
+      if (progress < lineStartProgress) continue;
+
       const line = this._scribbleLines[i]!;
-      const lineProgress = Math.min(1, (progress - i * 0.1) / 0.3);
-      if (lineProgress <= 0) continue;
+      const lineLocalProgress = Math.min(1, (progress - lineStartProgress) * 4);
 
       ctx.beginPath();
       ctx.moveTo(line.x1, line.y1);
       ctx.lineTo(
-        line.x1 + (line.x2 - line.x1) * lineProgress,
-        line.y1 + (line.y2 - line.y1) * lineProgress
+        line.x1 + (line.x2 - line.x1) * lineLocalProgress,
+        line.y1 + (line.y2 - line.y1) * lineLocalProgress
       );
       ctx.stroke();
     }
-
-    // Removed the previous answer drawing since we just scribble over the existing base number
   }
 
   private _render_numpad(ctx: CanvasRenderingContext2D): void {
@@ -566,33 +580,5 @@ export class SerialSubtractionEngine extends BaseEngine {
       ctx.fillStyle = 'hsl(0, 75%, 55%)';
       ctx.fillText(`Answer: ${this._feedbackText}`, cx, cy);
     }
-  }
-
-  private _render_subtrahend_change(ctx: CanvasRenderingContext2D): void {
-    const cx = this.width / 2;
-    const cy = this.height / 2;
-    const elapsed = precise_now() - this._phaseStart;
-    const pulse = 1 + Math.sin(elapsed * 0.008) * 0.08;
-
-    // "Rule Change" badge
-    ctx.font = '600 14px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(38, 90%, 55%, 0.8)';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('RULE CHANGE', cx, cy - 60);
-
-    // New subtrahend (pulsing)
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.scale(pulse, pulse);
-    const opSymbol = this._isAdding ? '+' : '−';
-    ctx.font = 'bold 56px Inter, sans-serif';
-    ctx.fillStyle = 'hsl(175, 70%, 55%)';
-    ctx.fillText(`${opSymbol}${this._subtrahend}`, 0, 0);
-    ctx.restore();
-
-    ctx.font = '400 14px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.6)';
-    ctx.fillText('New subtrahend — adapt!', cx, cy + 60);
   }
 }

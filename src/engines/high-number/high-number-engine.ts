@@ -13,8 +13,8 @@
 
 import { BaseEngine } from '../base-engine.ts';
 import type { ExerciseType, CognitivePillar, Trial, EngineCallbacks } from '@shared/types.ts';
-import { DIFFICULTY } from '@shared/constants.ts';
-import { precise_now } from '@shared/utils.ts';
+import { precise_now, shuffle } from '@shared/utils.ts';
+import { ObjectPool } from '@core/utils/object-pool.ts';
 
 interface NumberOption {
   value: number;
@@ -24,6 +24,8 @@ interface NumberOption {
   rotation: number;       // radians
   driftSpeed: number;     // px/s drift for level 8+
   driftAngle: number;     // drift direction
+  fontSizeBase: number;   // for dynamic scaling
+  pulseOffset: number;    // for asynchronous breathing
   hitRect: { x: number; y: number; w: number; h: number };
 }
 
@@ -45,9 +47,22 @@ export class HighNumberEngine extends BaseEngine {
 
   // Click handler stored for cleanup
   private _canvasClickHandler: ((e: PointerEvent) => void) | null = null;
+  private _pool: ObjectPool<NumberOption>;
 
   constructor(canvas: HTMLCanvasElement, callbacks: EngineCallbacks) {
     super(canvas, callbacks);
+
+    this._pool = new ObjectPool<NumberOption>(() => ({
+      value: 0,
+      fontSize: 0,
+      x: 0, y: 0,
+      rotation: 0,
+      driftSpeed: 0,
+      driftAngle: 0,
+      fontSizeBase: 0,
+      pulseOffset: 0,
+      hitRect: { x: 0, y: 0, w: 0, h: 0 }
+    }), 10);
   }
 
   protected on_start(): void {
@@ -75,20 +90,22 @@ export class HighNumberEngine extends BaseEngine {
       }
 
       case 'presenting':
-        // Animate drift at level 8+
-        if (this.config.difficulty >= 8) {
-          const dtSec = dt / 1000;
-          for (const opt of this._options) {
-            opt.x += Math.cos(opt.driftAngle) * opt.driftSpeed * dtSec;
-            opt.y += Math.sin(opt.driftAngle) * opt.driftSpeed * dtSec;
+        // Animate drift at all levels (speed scales with difficulty)
+        const dtSec = dt / 1000;
+        for (const opt of this._options) {
+          opt.x += Math.cos(opt.driftAngle) * opt.driftSpeed * dtSec;
+          opt.y += Math.sin(opt.driftAngle) * opt.driftSpeed * dtSec;
 
-            // Bounce off edges
-            const margin = opt.fontSize;
-            if (opt.x < margin || opt.x > this.width - margin) opt.driftAngle = Math.PI - opt.driftAngle;
-            if (opt.y < margin + 50 || opt.y > this.height - margin) opt.driftAngle = -opt.driftAngle;
+          // Dynamic Scaling: "Breathe" the size so physical size isn't a cue
+          const pulse = Math.sin((precise_now() / 1000) * 2 + opt.pulseOffset);
+          opt.fontSize = opt.fontSizeBase + pulse * 15;
 
-            this._update_hit_rect(opt);
-          }
+          // Bounce off edges
+          const margin = opt.fontSize;
+          if (opt.x < margin || opt.x > this.width - margin) opt.driftAngle = Math.PI - opt.driftAngle;
+          if (opt.y < margin + 50 || opt.y > this.height - margin) opt.driftAngle = -opt.driftAngle;
+
+          this._update_hit_rect(opt);
         }
 
         // Auto-miss after 5 seconds
@@ -174,48 +191,41 @@ export class HighNumberEngine extends BaseEngine {
   // ── Trial Generation ─────────────────────────────────────
 
   private _generate_trial(): void {
+    // Release previous options back to the pool
+    for (const opt of this._options) {
+      this._pool.release(opt);
+    }
+    this._options = [];
+
     const diff = this.config.difficulty;
-    const numOptions = diff >= 8 ? Math.min(diff - 4, DIFFICULTY.HIGH_NUMBER_OPTIONS_HARD) : 2;
+    const numOptions = diff >= 7 ? 5 : diff >= 4 ? 4 : 3;
 
     // Generate distinct random numbers
-    const values = this._generate_values(numOptions, diff);
+    const values = shuffle(this._generate_values(numOptions, diff));
     this._correctValue = Math.max(...values);
 
-    // Assign font sizes — the trick: incongruent sizing
-    const options: NumberOption[] = values.map((value) => {
-      const isCorrect = value === this._correctValue;
+    for (const value of values) {
+      // Font size logic: decoupled from value to prevent cheating
+      // Even at high levels, sizes are randomized and will "breathe" in on_update
+      const fontSizeBase = 40 + Math.random() * 60;
+      const rotation = (Math.random() - 0.5) * 0.3;
 
-      // Font size logic based on difficulty
-      let fontSize: number;
-      if (diff <= 3) {
-        // Minimal incongruence — sizes are similar
-        fontSize = 60 + Math.random() * 20;
-      } else {
-        // Maximum incongruence — correct answer gets SMALL font, distractors get LARGE
-        if (isCorrect) {
-          fontSize = 36 + Math.random() * 12; // Small
-        } else {
-          fontSize = 80 + Math.random() * 40; // Large — this is the trap
-        }
-      }
-
-      const rotation = diff >= 8 ? (Math.random() - 0.5) * 0.3 : 0;
-
-      return {
-        value,
-        fontSize,
-        x: 0, y: 0, // Positioned below
-        rotation,
-        driftSpeed: diff >= 8 ? 20 + Math.random() * 30 : 0,
-        driftAngle: Math.random() * Math.PI * 2,
-        hitRect: { x: 0, y: 0, w: 0, h: 0 },
-      };
-    });
+      const opt = this._pool.acquire();
+      opt.value = value;
+      opt.fontSizeBase = fontSizeBase;
+      opt.fontSize = fontSizeBase;
+      opt.pulseOffset = Math.random() * Math.PI * 2;
+      opt.x = 0;
+      opt.y = 0;
+      opt.rotation = rotation;
+      opt.driftSpeed = 15 + (diff * 5) + Math.random() * 20;
+      opt.driftAngle = Math.random() * Math.PI * 2;
+      
+      this._options.push(opt);
+    }
 
     // Position numbers with spacing
-    this._position_options(options, numOptions);
-
-    this._options = options;
+    this._position_options(this._options, numOptions);
     this._phase = 'presenting';
     this._phaseStart = precise_now();
     this._trialReactionStart = precise_now();
@@ -237,7 +247,7 @@ export class HighNumberEngine extends BaseEngine {
       }
     } else {
       // Close values (hard discrimination)
-      const base = 3 + Math.floor(Math.random() * 5); // 3-7
+      const base = 5 + Math.floor(Math.random() * (10 + difficulty * 8)); // Can go very high
       while (values.size < count) {
         values.add(base + values.size);
       }
@@ -257,10 +267,11 @@ export class HighNumberEngine extends BaseEngine {
       options[1]!.x = cx + spreadX;
       options[1]!.y = cy;
     } else {
-      // Arrange in a circle
+      // Arrange in a circle with random starting rotation
       const radius = Math.min(this.width, this.height) * 0.25;
+      const startAngle = Math.random() * Math.PI * 2;
       for (let i = 0; i < count; i++) {
-        const angle = (i / count) * Math.PI * 2 - Math.PI / 2;
+        const angle = startAngle + (i / count) * Math.PI * 2;
         options[i]!.x = cx + Math.cos(angle) * radius;
         options[i]!.y = cy + Math.sin(angle) * radius;
       }
@@ -275,12 +286,10 @@ export class HighNumberEngine extends BaseEngine {
   private _update_hit_rect(opt: NumberOption): void {
     const halfW = opt.fontSize * 0.6;
     const halfH = opt.fontSize * 0.6;
-    opt.hitRect = {
-      x: opt.x - halfW,
-      y: opt.y - halfH,
-      w: halfW * 2,
-      h: halfH * 2,
-    };
+    opt.hitRect.x = opt.x - halfW;
+    opt.hitRect.y = opt.y - halfH;
+    opt.hitRect.w = halfW * 2;
+    opt.hitRect.h = halfH * 2;
   }
 
   // ── Input ────────────────────────────────────────────────

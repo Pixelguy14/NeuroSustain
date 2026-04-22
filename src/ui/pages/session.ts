@@ -14,7 +14,7 @@ import { t } from '@shared/i18n.ts';
 import { router } from '../router.ts';
 import { TIMING } from '@shared/constants.ts';
 import { detect_fatigue } from '@core/analytics/analytics.ts';
-import { show_loading, hide_loading } from '../components/loading-screen.ts';
+import { show_loading } from '../components/loading-screen.ts';
 import type { BaseEngine } from '@engines/base-engine.ts';
 import { fsrsBridge } from '@core/fsrs/fsrs-bridge.ts';
 import { audioEngine } from '@core/audio/audio-engine.ts';
@@ -24,22 +24,20 @@ let _neuralStormTimeout: number | null = null;
 
 /** Start an exercise session */
 export function start_exercise_session(exerciseType: string, difficulty: number = 1): void {
-  show_loading('loading.calibrating');
+  // If debug override exists, use it
+  const debugDiff = localStorage.getItem('DEBUG_DIFFICULTY');
+  if (debugDiff) difficulty = parseInt(debugDiff, 10);
 
-  setTimeout(() => {
-    hide_loading();
+  show_loading('loading.calibrating', true).then(() => {
     _launch_engine(exerciseType, false, difficulty);
-  }, 1200);
+  });
 }
 
 /** Start a Neural Storm session (mixed mode) */
 export function start_neural_storm(): void {
-  show_loading('loading.neural_storm');
-
-  setTimeout(() => {
-    hide_loading();
+  show_loading('loading.neural_storm', true).then(() => {
     _launch_neural_storm();
-  }, 1500);
+  });
 }
 
 function _launch_engine(exerciseType: string, isNeuralStorm: boolean = false, overrideDifficulty: number = 1): void {
@@ -107,7 +105,7 @@ function _launch_engine(exerciseType: string, isNeuralStorm: boolean = false, ov
   }
 
   _activeEngine.start({ 
-    difficulty: isNeuralStorm ? 5 : overrideDifficulty, 
+    difficulty: overrideDifficulty, 
     inputMode: 'auto',
     neuralStorm: isNeuralStorm
   });
@@ -116,9 +114,11 @@ function _launch_engine(exerciseType: string, isNeuralStorm: boolean = false, ov
 function _launch_neural_storm(): void {
   const STORM_DURATION_MS = 180_000; // 3 minutes
   const SWITCH_INTERVAL_MS = 30_000; // 30 seconds
+  const GRACE_PERIOD_MS = 2000; // 2 seconds of transition
   const pool = ['ReactionTime', 'HighNumber', 'SerialSubtraction'];
   
   let elapsed = 0;
+  let lastType = '';
   
   const switch_exercise = () => {
     if (elapsed >= STORM_DURATION_MS) {
@@ -131,11 +131,56 @@ function _launch_neural_storm(): void {
     }
 
     audioEngine.play_transition();
-    const type = pool[Math.floor(Math.random() * pool.length)]!;
-    _launch_engine(type, true);
     
-    elapsed += SWITCH_INTERVAL_MS;
-    _neuralStormTimeout = window.setTimeout(switch_exercise, SWITCH_INTERVAL_MS);
+    // Create container if it doesn't exist
+    let container = document.getElementById('session-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.className = 'session-canvas';
+      container.id = 'session-container';
+      const canvas = document.createElement('canvas');
+      container.appendChild(canvas);
+      document.body.appendChild(container);
+    }
+
+    // Show Grace Period UI
+    if (container) {
+      const overlay = document.createElement('div');
+      overlay.className = 'grace-period-overlay';
+      overlay.style.cssText = `
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg-primary);
+        z-index: 100;
+        font-family: var(--font-family);
+        color: var(--color-text-primary);
+        font-size: var(--font-size-2xl);
+        font-weight: 700;
+        letter-spacing: 0.1em;
+      `;
+      overlay.textContent = 'RECALIBRATING';
+      container.appendChild(overlay);
+
+      setTimeout(() => {
+        overlay.remove();
+        
+        // Prevent same minigame in sequence
+        const availablePool = pool.filter(t => t !== lastType);
+        const type = availablePool[Math.floor(Math.random() * availablePool.length)]!;
+        lastType = type;
+        
+        // Wacky dynamic difficulty for Neural Storm (levels 3 to 10)
+        const stormDiff = 3 + Math.floor(Math.random() * 8);
+        _launch_engine(type, true, stormDiff);
+        
+        // Timer only advances after grace period
+        elapsed += SWITCH_INTERVAL_MS;
+        _neuralStormTimeout = window.setTimeout(switch_exercise, SWITCH_INTERVAL_MS);
+      }, GRACE_PERIOD_MS);
+    }
   };
 
   switch_exercise();
@@ -164,22 +209,28 @@ async function _save_and_show_results(sessionId: string, results: TrialResults):
     sessionId,
   }));
 
-  // Run DB save and FSRS recalibration in parallel — both are non-blocking
-  const results_ = await Promise.allSettled([
-    save_session(session, trials),
-    fsrsBridge.recalibrate_after_session(
-      results.exerciseType,
-      results.pillar,
-      results.accuracy,
-      results.focusScore,
-      results.cvReactionTime,
-      trials
-    ),
-  ]);
+  // Data Insulation for Neural Storm
+  const isStorm = results.trials[0]?.isNeuralStorm === true;
+  let fsrsData = null;
 
-  // Extract FSRS scheduling info if the worker succeeded
-  const fsrsResult = results_[1];
-  const fsrsData = fsrsResult?.status === 'fulfilled' ? fsrsResult.value : null;
+  if (!isStorm) {
+    // Run DB save and FSRS recalibration in parallel — both are non-blocking
+    const results_ = await Promise.allSettled([
+      save_session(session, trials),
+      fsrsBridge.recalibrate_after_session(
+        results.exerciseType,
+        results.pillar,
+        results.accuracy,
+        results.focusScore,
+        results.cvReactionTime,
+        trials
+      ),
+    ]);
+
+    // Extract FSRS scheduling info if the worker succeeded
+    const fsrsResult = results_[1];
+    fsrsData = fsrsResult?.status === 'fulfilled' ? fsrsResult.value : null;
+  }
 
   // Show results screen with optional FSRS metadata
   _render_results_screen(results, fsrsData);

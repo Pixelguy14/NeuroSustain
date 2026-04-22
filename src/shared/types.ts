@@ -48,6 +48,8 @@ export interface Trial {
   difficulty: number;
   isCorrect: boolean;
   reactionTimeMs: number;
+  difficultyWeightedRT?: number; // Cleaned RT scaled by Glicko-2 level
+  isNeuralStorm?: boolean;       // If true, exclude from FSRS and EMA
   metadata: Record<string, unknown>;
 }
 

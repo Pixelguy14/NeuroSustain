@@ -47,6 +47,10 @@ export function render_profile(): HTMLElement {
         <span class="profile-field__label">${t('profile.audioFocus', { defaultValue: 'Focus Ambience Audio' })}</span>
         <input type="checkbox" id="toggle-audio-focus" style="transform: scale(1.2);" />
       </div>
+      <div class="profile-field">
+        <span class="profile-field__label" style="color: var(--color-warning);">[DEBUG] Override Difficulty (1-10)</span>
+        <input type="number" id="debug-difficulty-input" min="1" max="10" placeholder="Auto" style="width: 80px; text-align: center; background: var(--bg-secondary); color: white; border: 1px solid var(--glass-border); border-radius: 4px; padding: 4px;" />
+      </div>
       <div class="profile-field" style="border-bottom: none; flex-direction: column; align-items: flex-start; gap: var(--space-sm);">
         <span class="profile-field__label">${t('profile.dataSovereignty', { defaultValue: 'Data Sovereignty' })}</span>
         <div style="display: flex; gap: var(--space-sm); margin-top: var(--space-xs);">
@@ -88,6 +92,23 @@ export function render_profile(): HTMLElement {
       }
     }
   });
+
+  // Debug Difficulty
+  const debugInput = page.querySelector('#debug-difficulty-input') as HTMLInputElement;
+  if (debugInput) {
+    const currentDebug = localStorage.getItem('DEBUG_DIFFICULTY');
+    if (currentDebug) debugInput.value = currentDebug;
+    
+    debugInput.addEventListener('change', () => {
+      const val = parseInt(debugInput.value, 10);
+      if (!isNaN(val) && val >= 1 && val <= 10) {
+        localStorage.setItem('DEBUG_DIFFICULTY', val.toString());
+      } else {
+        debugInput.value = '';
+        localStorage.removeItem('DEBUG_DIFFICULTY');
+      }
+    });
+  }
 
   // Data Sovereignty Bindings
   page.querySelector('#btn-export-json')?.addEventListener('click', async () => {

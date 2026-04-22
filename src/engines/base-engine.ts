@@ -12,6 +12,7 @@
 
 import type { Trial, ExerciseType, CognitivePillar, EngineCallbacks, TrialResults, FatigueEvent, SessionConfig } from '@shared/types.ts';
 import { compute_mean, compute_sd, compute_cv, compute_accuracy, compute_focus_score, filter_valid_rts, compute_ema_step, init_ema, detect_ema_fatigue, EMA_BASELINE_TRIALS } from '@core/analytics/analytics.ts';
+import { clean_reaction_time, compute_difficulty_weighted_rt } from '@core/input/latency-normalizer.ts';
 import { precise_now } from '@shared/utils.ts';
 import { TIMING } from '@shared/constants.ts';
 import { audioEngine } from '@core/audio/audio-engine.ts';
@@ -112,20 +113,27 @@ export abstract class BaseEngine {
 
   /** Record a completed trial with audio feedback and EMA tracking */
   protected record_trial(trial: Omit<Trial, 'id' | 'sessionId'>): void {
-    this.trials.push(trial);
-    this.currentTrial++;
-    this.callbacks.onTrialComplete(trial);
+    
+    // Asynchronous normalization — we use an IIFE to not block the current frame
+    (async () => {
+      trial.isNeuralStorm = this.config.neuralStorm;
+      const cleanRT = await clean_reaction_time(trial.reactionTimeMs);
+      trial.difficultyWeightedRT = compute_difficulty_weighted_rt(cleanRT, trial.difficulty);
 
-    // ── Audio feedback ──
-    if (trial.isCorrect) {
-      audioEngine.play_correct();
-    } else {
-      audioEngine.play_error();
-    }
+      this.trials.push(trial);
+      this.currentTrial++;
+      this.callbacks.onTrialComplete(trial);
 
-    // ── EMA update on valid correct trials only ──
-    if (trial.isCorrect && trial.reactionTimeMs >= TIMING.MIN_REACTION_MS && trial.reactionTimeMs <= TIMING.MAX_REACTION_MS) {
-      this._ema_correct_count++;
+      // ── Audio feedback ──
+      if (trial.isCorrect) {
+        audioEngine.play_correct();
+      } else {
+        audioEngine.play_error();
+      }
+
+      // ── EMA update on valid correct trials only (Isolate Neural Storm) ──
+      if (!this.config.neuralStorm && trial.isCorrect && trial.reactionTimeMs >= TIMING.MIN_REACTION_MS && trial.reactionTimeMs <= TIMING.MAX_REACTION_MS) {
+        this._ema_correct_count++;
 
       if (this._ema_correct_count === 1) {
         this._ema = init_ema(trial.reactionTimeMs);
@@ -159,7 +167,8 @@ export abstract class BaseEngine {
     if (this.currentTrial >= this.totalTrials) {
       this._complete_session();
     }
-  }
+  })();
+}
 
   /** Aggregate results and notify completion */
   private _complete_session(): void {

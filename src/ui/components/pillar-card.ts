@@ -43,7 +43,7 @@ export class PillarCard extends HTMLElement {
           </div>
           <div class="pillar-card__title-group">
             <h3 class="pillar-card__title">${t(meta.labelKey)}</h3>
-            <div class="pillar-card__rating">
+            <div class="pillar-card__rating" title="${t('glicko.tooltip', { defaultValue: 'Glicko-2 Skill Rating. RD indicates uncertainty (lower is more accurate).' })}">
               <span class="pillar-card__rating-val">${Math.round(this._rating)}</span>
               <span class="pillar-card__rating-label">RD ${Math.round(this._rd)}</span>
             </div>

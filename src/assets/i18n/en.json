@@ -24,6 +24,8 @@
   "dashboard.startTraining": "Start Training",
   "dashboard.radarTitle": "Neural Profile",
   "dashboard.radarEmpty": "Complete exercises to see your cognitive profile",
+  "dashboard.historyTitle": "Longitudinal History",
+  "dashboard.historyEmpty": "Training history requires at least 3 active days to unlock neural trend analysis. Keep pushing!",
 
   "train.title": "Training Exercises",
   "train.selectExercise": "Select an exercise to begin",
@@ -74,6 +76,9 @@
   "profile.totalSessions": "Total Sessions",
   "profile.currentStreak": "Current Streak",
   "profile.longestStreak": "Longest Streak",
+  "profile.audioFocus": "Focus Ambience Audio",
+  "profile.dataSovereignty": "Data Sovereignty",
+  "glicko.tooltip": "Glicko-2 Skill Rating. RD indicates uncertainty (lower is more accurate).",
 
   "loading.syncing": "Syncing neural patterns...",
   "loading.calibrating": "Calibrating cognitive baseline...",

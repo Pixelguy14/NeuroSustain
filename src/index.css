@@ -255,6 +255,14 @@ button {
   color: var(--color-accent-primary);
 }
 
+/* ── Stats Grid ── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-md);
+  width: 100%;
+}
+
 /* ── Exercise Card ── */
 .exercise-card {
   padding: var(--space-lg);

@@ -24,6 +24,8 @@
   "dashboard.startTraining": "Iniciar Entrenamiento",
   "dashboard.radarTitle": "Perfil Neuronal",
   "dashboard.radarEmpty": "Completa ejercicios para ver tu perfil cognitivo",
+  "dashboard.historyTitle": "Historial Longitudinal",
+  "dashboard.historyEmpty": "El historial de entrenamiento requiere al menos 3 días activos para desbloquear el análisis de tendencias neuronales. ¡Sigue así!",
 
   "train.title": "Ejercicios de Entrenamiento",
   "train.selectExercise": "Selecciona un ejercicio para comenzar",
@@ -74,6 +76,9 @@
   "profile.totalSessions": "Sesiones Totales",
   "profile.currentStreak": "Racha Actual",
   "profile.longestStreak": "Racha Más Larga",
+  "profile.audioFocus": "Audio de Ambiente de Concentración",
+  "profile.dataSovereignty": "Soberanía de Datos",
+  "glicko.tooltip": "Calificación Glicko-2. RD indica incertidumbre (menor es más preciso).",
 
   "loading.syncing": "Sincronizando patrones neuronales...",
   "loading.calibrating": "Calibrando línea base cognitiva...",

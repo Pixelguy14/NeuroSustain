@@ -31,6 +31,7 @@ export class ReactionTimeEngine extends BaseEngine {
   private _lastReactionMs: number = 0;
   private _countdownValue: number = 3;
   private _isFakeout: boolean = false;
+  private _isFakeoutError: boolean = false;
 
   // Visual animation state
   private _circleRadius: number = 0;
@@ -79,10 +80,10 @@ export class ReactionTimeEngine extends BaseEngine {
         this._circleRadius += (this._circleTargetRadius - this._circleRadius) * 0.15;
         this._pulsePhase += dt * 0.003;
 
-        // Level 8+: animate position
-        if (this.config.difficulty >= 8) {
+        // Level 2+: animate position
+        if (this.config.difficulty >= 2) {
           this._movementTime += dt * 0.001;
-          const speed = DIFFICULTY.MOVEMENT_SPEED_BASE * (this.config.difficulty - 7);
+          const speed = 1.0 + (this.config.difficulty * 0.2);
           this._stimulusX = this._movementCenterX + Math.sin(this._movementTime * speed) * (this.width * 0.15);
           this._stimulusY = this._movementCenterY + Math.cos(this._movementTime * speed * 0.7) * (this.height * 0.1);
         }
@@ -91,16 +92,21 @@ export class ReactionTimeEngine extends BaseEngine {
           this.record_trial(this._make_trial(false, TIMING.MAX_REACTION_MS, false));
           this._show_feedback(TIMING.MAX_REACTION_MS, false);
         }
+
+        // Clamp to screen
+        const rMargin = this._circleTargetRadius * 1.5;
+        this._stimulusX = Math.max(rMargin, Math.min(this.width - rMargin, this._stimulusX));
+        this._stimulusY = Math.max(rMargin, Math.min(this.height - rMargin, this._stimulusY));
         break;
 
       case 'fakeout':
         this._circleRadius += (this._circleTargetRadius - this._circleRadius) * 0.15;
         this._pulsePhase += dt * 0.003;
 
-        // Level 8+: animate fakeout position too
-        if (this.config.difficulty >= 8) {
+        // Level 2+: animate fakeout position too
+        if (this.config.difficulty >= 2) {
           this._movementTime += dt * 0.001;
-          const speed = DIFFICULTY.MOVEMENT_SPEED_BASE * (this.config.difficulty - 7);
+          const speed = 1.0 + (this.config.difficulty * 0.2);
           this._stimulusX = this._movementCenterX + Math.sin(this._movementTime * speed) * (this.width * 0.15);
           this._stimulusY = this._movementCenterY + Math.cos(this._movementTime * speed * 0.7) * (this.height * 0.1);
         }
@@ -110,6 +116,11 @@ export class ReactionTimeEngine extends BaseEngine {
           // Survived the fakeout — not counted as a trial (it's a test of restraint)
           this._start_waiting();
         }
+
+        // Clamp to screen
+        const margin = this._circleTargetRadius * 1.5;
+        this._stimulusX = Math.max(margin, Math.min(this.width - margin, this._stimulusX));
+        this._stimulusY = Math.max(margin, Math.min(this.height - margin, this._stimulusY));
         break;
 
       case 'too_early':
@@ -155,7 +166,7 @@ export class ReactionTimeEngine extends BaseEngine {
         this._render_countdown(ctx, cx, cy);
         break;
       case 'waiting':
-        this._render_waiting(ctx, cx, cy);
+        this._render_waiting(ctx, this._stimulusX, this._stimulusY);
         break;
       case 'ready':
         this._render_stimulus(ctx, this._stimulusX, this._stimulusY, 'hsl(145, 70%, 58%)', 'hsl(145, 65%, 40%)');
@@ -191,6 +202,7 @@ export class ReactionTimeEngine extends BaseEngine {
 
       case 'fakeout':
         // User pressed during a fakeout — WRONG
+        this._isFakeoutError = true;
         this.record_trial(this._make_trial(false, timestamp - this._stimulusTime, true));
         this._show_feedback(-1, false);
         break;
@@ -224,32 +236,34 @@ export class ReactionTimeEngine extends BaseEngine {
     this._circleTargetRadius = 0;
     this._pulsePhase = 0;
     this._isFakeout = false;
+    this._isFakeoutError = false;
     this._movementTime = 0;
-  }
 
-  /** Decide stimulus position and whether it's a fakeout, then enter the right phase */
-  private _begin_stimulus(): void {
+    // Calculate position early so the waiting pulse spawns there
     const diff = this.config.difficulty;
-
-    // Calculate position
-    if (diff >= 3) {
-      // Random quadrant
+    if (diff >= 2) {
       const margin = Math.min(this.width, this.height) * 0.2;
       this._stimulusX = margin + Math.random() * (this.width - margin * 2);
       this._stimulusY = margin + Math.random() * (this.height - margin * 2);
     } else {
-      // Center
       this._stimulusX = this.width / 2;
       this._stimulusY = this.height / 2;
     }
 
     this._movementCenterX = this._stimulusX;
     this._movementCenterY = this._stimulusY;
+  }
+
+  /** Decide stimulus position and whether it's a fakeout, then enter the right phase */
+  private _begin_stimulus(): void {
+    const diff = this.config.difficulty;
+
+    // Position is already decided in _start_waiting() so the pulse decays into the actual target.
 
     // Determine if fakeout
-    const fakeoutChance = diff >= 8
+    const fakeoutChance = diff >= 6
       ? DIFFICULTY.FAKEOUT_CHANCE_HARD
-      : diff >= 5
+      : diff >= 2
         ? DIFFICULTY.FAKEOUT_CHANCE_BASE
         : 0;
 
@@ -395,11 +409,13 @@ export class ReactionTimeEngine extends BaseEngine {
     ctx.globalAlpha = this._feedbackOpacity;
 
     if (this._lastReactionMs < 0) {
-      ctx.font = '500 18px Inter, sans-serif';
-      ctx.fillStyle = 'hsl(38, 90%, 55%)';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(t('exercise.reaction.missed'), cx, cy);
+      if (this._isFakeoutError) {
+        ctx.fillStyle = 'hsl(0, 75%, 65%)';
+        ctx.fillText('Hit only when GREEN!', cx, cy);
+      } else {
+        ctx.fillStyle = 'hsl(38, 90%, 55%)';
+        ctx.fillText(t('exercise.reaction.missed'), cx, cy);
+      }
     } else {
       ctx.font = 'bold 56px Inter, sans-serif';
       ctx.textAlign = 'center';
