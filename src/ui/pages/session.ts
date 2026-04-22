@@ -5,6 +5,9 @@
 
 import type { TrialResults, Trial, Session, FatigueEvent } from '@shared/types.ts';
 import { ReactionTimeEngine } from '@engines/reaction/reaction-engine.ts';
+import { HighNumberEngine } from '@engines/high-number/high-number-engine.ts';
+import { SerialSubtractionEngine } from '@engines/serial-sub/serial-sub-engine.ts';
+import { FreeDrawEngine } from '@engines/free-draw/free-draw-engine.ts';
 import { generate_uuid, format_ms } from '@shared/utils.ts';
 import { save_session } from '@shared/db.ts';
 import { t } from '@shared/i18n.ts';
@@ -14,56 +17,88 @@ import { detect_fatigue } from '@core/analytics/analytics.ts';
 import { show_loading, hide_loading } from '../components/loading-screen.ts';
 import type { BaseEngine } from '@engines/base-engine.ts';
 import { fsrsBridge } from '@core/fsrs/fsrs-bridge.ts';
+import { audioEngine } from '@core/audio/audio-engine.ts';
 
 let _activeEngine: BaseEngine | null = null;
+let _neuralStormTimeout: number | null = null;
 
 /** Start an exercise session */
-export function start_exercise_session(exerciseType: string): void {
+export function start_exercise_session(exerciseType: string, difficulty: number = 1): void {
   show_loading('loading.calibrating');
 
   setTimeout(() => {
     hide_loading();
-    _launch_engine(exerciseType);
+    _launch_engine(exerciseType, false, difficulty);
   }, 1200);
 }
 
-function _launch_engine(exerciseType: string): void {
-  // Create full-viewport container
-  const container = document.createElement('div');
-  container.className = 'session-canvas';
-  container.id = 'session-container';
+/** Start a Neural Storm session (mixed mode) */
+export function start_neural_storm(): void {
+  show_loading('loading.neural_storm');
 
-  const canvas = document.createElement('canvas');
-  container.appendChild(canvas);
-  document.body.appendChild(container);
+  setTimeout(() => {
+    hide_loading();
+    _launch_neural_storm();
+  }, 1500);
+}
+
+function _launch_engine(exerciseType: string, isNeuralStorm: boolean = false, overrideDifficulty: number = 1): void {
+  // Create full-viewport container (only if it doesn't exist)
+  let container = document.getElementById('session-container');
+  let canvas: HTMLCanvasElement;
+
+  if (!container) {
+    container = document.createElement('div');
+    container.className = 'session-canvas';
+    container.id = 'session-container';
+    canvas = document.createElement('canvas');
+    container.appendChild(canvas);
+    document.body.appendChild(container);
+  } else {
+    canvas = container.querySelector('canvas')!;
+  }
 
   const sessionId = generate_uuid();
 
   const callbacks = {
-    onTrialComplete: (_trial: Omit<Trial, 'id' | 'sessionId'>) => {
-      // Real-time HUD updates can hook here
-    },
+    onTrialComplete: (_trial: Omit<Trial, 'id' | 'sessionId'>) => {},
     onSessionComplete: (results: TrialResults) => {
       _activeEngine?.stop();
       _activeEngine = null;
-      container.remove();
-      _save_and_show_results(sessionId, results);
+      if (!isNeuralStorm) {
+        container?.remove();
+        _save_and_show_results(sessionId, results);
+      }
     },
     onExit: () => {
       _activeEngine?.stop();
       _activeEngine = null;
-      container.remove();
+      if (_neuralStormTimeout !== null) {
+        window.clearTimeout(_neuralStormTimeout);
+        _neuralStormTimeout = null;
+      }
+      container?.remove();
+      router.navigate('/train');
     },
-    // System B: Show a subtle fatigue warning overlay inside the session
     onFatigueDetected: (event: FatigueEvent) => {
-      _show_fatigue_warning(container, event);
+      if (!isNeuralStorm) _show_fatigue_warning(container!, event);
     },
   };
 
-  // Create engine based on type
+  audioEngine.unlock();
+
   switch (exerciseType) {
     case 'ReactionTime':
       _activeEngine = new ReactionTimeEngine(canvas, callbacks);
+      break;
+    case 'HighNumber':
+      _activeEngine = new HighNumberEngine(canvas, callbacks);
+      break;
+    case 'SerialSubtraction':
+      _activeEngine = new SerialSubtractionEngine(canvas, callbacks);
+      break;
+    case 'FreeDraw':
+      _activeEngine = new FreeDrawEngine(canvas, callbacks);
       break;
     default:
       console.warn(`Exercise type "${exerciseType}" not implemented`);
@@ -71,7 +106,39 @@ function _launch_engine(exerciseType: string): void {
       return;
   }
 
-  _activeEngine.start();
+  _activeEngine.start({ 
+    difficulty: isNeuralStorm ? 5 : overrideDifficulty, 
+    inputMode: 'auto',
+    neuralStorm: isNeuralStorm
+  });
+}
+
+function _launch_neural_storm(): void {
+  const STORM_DURATION_MS = 180_000; // 3 minutes
+  const SWITCH_INTERVAL_MS = 30_000; // 30 seconds
+  const pool = ['ReactionTime', 'HighNumber', 'SerialSubtraction'];
+  
+  let elapsed = 0;
+  
+  const switch_exercise = () => {
+    if (elapsed >= STORM_DURATION_MS) {
+      const container = document.getElementById('session-container');
+      _activeEngine?.stop();
+      _activeEngine = null;
+      container?.remove();
+      router.navigate('/train');
+      return;
+    }
+
+    audioEngine.play_transition();
+    const type = pool[Math.floor(Math.random() * pool.length)]!;
+    _launch_engine(type, true);
+    
+    elapsed += SWITCH_INTERVAL_MS;
+    _neuralStormTimeout = window.setTimeout(switch_exercise, SWITCH_INTERVAL_MS);
+  };
+
+  switch_exercise();
 }
 
 async function _save_and_show_results(sessionId: string, results: TrialResults): Promise<void> {
@@ -243,20 +310,29 @@ function _show_fatigue_warning(container: HTMLElement, event: FatigueEvent): voi
     box-shadow: 0 4px 20px hsla(38, 90%, 30%, 0.25);
   `;
   toast.innerHTML = `
-    <div style="font-weight: 600; color: hsl(38, 90%, 60%); margin-bottom: 4px;">
-      💤 ${t('fatigue.toast.title')}
-    </div>
-    <div style="color: hsl(220, 15%, 60%); line-height: 1.5;">
-      ${t('fatigue.toast.desc', { 
-        rise: event.risePercent, 
-        base: event.baselineEmaMs, 
-        curr: event.currentEmaMs 
-      })}
+    <div class="fatigue-warning__icon">⚠️</div>
+    <div class="fatigue-warning__content">
+      <div class="fatigue-warning__title">${t('fatigue.toast.title')}</div>
+      <div class="fatigue-warning__desc">
+        ${t('fatigue.toast.desc', { 
+          rise: event.risePercent, 
+          base: event.baselineEmaMs, 
+          curr: event.currentEmaMs 
+        })}
+      </div>
+      <button class="btn btn--ghost btn--small fatigue-warning__action" id="fatigue-break-btn">
+        Take a Break
+      </button>
     </div>
   `;
 
-  container.style.position = 'relative';
   container.appendChild(toast);
+
+  toast.querySelector('#fatigue-break-btn')?.addEventListener('click', () => {
+    _activeEngine?.stop();
+    toast.remove();
+    _launch_engine('FreeDraw');
+  });
 
   // Auto-dismiss after 4s
   setTimeout(() => {

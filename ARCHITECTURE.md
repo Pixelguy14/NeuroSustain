@@ -10,8 +10,8 @@ NeuroSustain is a local-first Progressive Web App (PWA) designed to deliver evid
 
 **Stack:** Vanilla TypeScript, Web Components, Canvas 2D API, Web Audio API, Three.js (lazy-loaded).
 
-*   **App Shell (`src/ui`):** Built with pure Web Components (extending `HTMLElement`). This avoids the overhead of Virtual DOM reconciliation (React/Vue/Lit), ensuring UI updates do not cause frame drops during cognitive measurements.
-*   **Exercise Engines (`src/engines`):** Rendered entirely via the Canvas 2D API. The Canvas provides direct pixel manipulation and avoids browser layout/reflow cycles, which is critical for maintaining a stable 60fps render loop during tasks that measure processing speed.
+*   **App Shell (`src/ui`):** Built with pure Web Components (extending `HTMLElement`) and a CSS Grid "Bento Box" layout. This avoids the overhead of Virtual DOM reconciliation (React/Vue/Lit), ensuring UI updates do not cause frame drops during cognitive measurements.
+*   **Exercise Engines (`src/engines`):** Rendered entirely via the Canvas 2D API. The Canvas provides direct pixel manipulation and avoids browser layout/reflow cycles. Engines inherit from `BaseEngine`, which standardizes the init/update/render/cleanup lifecycle, session configuration (dynamic difficulty), and HUD elements (like the Abort button).
 *   **Routing:** A custom, minimal hash-based Single Page Application (SPA) router manages view transitions without triggering full page reloads.
 
 ### 2. Core Logic Layer (Mathematical Engines)
@@ -20,7 +20,9 @@ NeuroSustain is a local-first Progressive Web App (PWA) designed to deliver evid
 
 This layer is strictly isolated from the presentation layer. It handles all statistical analysis, procedural generation, and adaptive difficulty calculations.
 
-*   **Analytics Engine (`src/core/analytics`):** Computes mean reaction times, standard deviations, and the critical Coefficient of Variation (CV) for fatigue detection.
+*   **Analytics Engine (`src/core/analytics`):** Computes mean reaction times, standard deviations, and dual fatigue metrics (CV for overall variability and EMA for real-time drift detection).
+*   **Input Bridge (`src/core/input`):** A normalization layer that treats physical keyboard events and touch/pointer events as identical sub-millisecond interrupts, essential for equitable reaction time tracking across devices.
+*   **Audio Engine (`src/core/audio`):** Generates procedural feedback cues and focus-enhancing white noise via the Web Audio API, eliminating asset fetching delays and ensuring zero-latency auditory stimuli.
 *   **Adaptive Engine (`src/core/glicko2`):** Implements the Glicko-2 rating system to adjust exercise difficulty dynamically based on the user's performance history and volatility.
 *   **Spaced Repetition (`src/core/fsrs`):** Implements the Free Spaced Repetition Scheduler (FSRS).
     *   **Concurrency Model:** The FSRS engine runs in a dedicated **Web Worker**. Recalibrating stability and difficulty parameters across thousands of historical trials is computationally intensive. By moving this to a background thread, we guarantee that the main thread's frame budget is preserved, preventing UI stuttering or latency artifacts during active training sessions.

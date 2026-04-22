@@ -60,7 +60,46 @@ export interface EngineCallbacks {
 }
 ```
 
-## 4. Spaced Repetition Worker API (`src/workers/fsrs.worker.ts`)
+## 4. Input Bridge API (`src/core/input/input-bridge.ts`)
+
+Normalizes input across physical keyboards and touch/pointer events to guarantee equitable sub-millisecond timestamps.
+
+### Core Interface
+
+```typescript
+export interface InputEvent {
+  type: 'key' | 'click';
+  value: string; // The logical value: '0'-'9', 'Enter', 'Space'
+  timestamp: number; // High-res performance.now()
+  inputMode: 'keyboard' | 'touch'; // For FSRS segmentation
+}
+```
+
+*   `new InputBridge(canvas, hitTestFn)`
+    *   Initializes the bridge with a spatial mapping function.
+*   `on_input(callback: (event: InputEvent) => void)`
+    *   Registers a listener for normalized events.
+*   `destroy()`
+    *   Cleans up DOM event listeners to prevent memory leaks.
+
+## 5. Audio Engine API (`src/core/audio/audio-engine.ts`)
+
+A procedural synthesis engine utilizing the Web Audio API to provide deterministic, asset-free auditory feedback.
+
+### Core Methods
+
+*   `unlock(): void`
+    *   Must be called on the first user interaction to resume the `AudioContext` and bypass browser autoplay restrictions.
+*   `play_correct(): void`
+    *   Synthesizes an 880Hz sine wave (high tone) for positive reinforcement.
+*   `play_error(): void`
+    *   Synthesizes a 110Hz sawtooth wave (low buzz) for negative reinforcement.
+*   `play_transition(): void`
+    *   Plays a rapid ascending sweep to indicate phase changes or rule shifts.
+*   `start_noise(): void` / `stop_noise(): void`
+    *   Generates a continuous, LFO-modulated white noise signal to mask environmental distractions and enhance focus.
+
+## 6. Spaced Repetition Worker API (`src/workers/fsrs.worker.ts`)
 
 Communication with the FSRS engine occurs across the Web Worker boundary via asynchronous message passing to protect the main thread.
 
@@ -84,7 +123,7 @@ interface FsrsWorkerResponse {
 }
 ```
 
-## 5. Localization API (`src/shared/i18n.ts`)
+## 7. Localization API (`src/shared/i18n.ts`)
 
 Provides reactive, runtime translation capabilities.
 

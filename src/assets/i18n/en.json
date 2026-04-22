@@ -30,6 +30,9 @@
   "train.locked": "Coming Soon",
   "train.start": "Begin Session",
   "train.trials": "{count} trials",
+  "train.storm.title": "NEURAL STORM",
+  "train.storm.desc": "Chaotic 3-minute mixed mode. Rapid exercise switching to maximize cognitive flexibility. No FSRS impact.",
+  "train.storm.start": "START →",
 
   "exercise.reaction.name": "Reaction Time",
   "exercise.reaction.description": "Press SPACE the instant the circle turns green. Measures your raw processing speed.",
@@ -75,6 +78,7 @@
   "loading.syncing": "Syncing neural patterns...",
   "loading.calibrating": "Calibrating cognitive baseline...",
   "loading.ready": "Neural pathways ready",
+  "loading.neural_storm": "Initializing Neural Storm...",
 
   "insight.attention": "20 minutes of passive scrolling can reduce sustained attention capacity for up to 2 hours. This session is designed to recalibrate your prefrontal cortex.",
   "insight.sleep": "Your reaction time consistency reflects cognitive freshness. Studies (DOI: 10.1093/sleep/zsaa170) show even 1 hour of sleep debt increases reaction time variability by 15%.",
@@ -109,5 +113,21 @@
   "results.fsrs.memory": "Memory Strength",
   "results.fsrs.nextReview": "Next Review",
   "results.fsrs.tomorrow": "Tomorrow",
-  "results.fsrs.days": "{days} days"
+  "results.fsrs.days": "{days} days",
+
+  "exercise.highNumber.name": "High Number",
+  "exercise.highNumber.description": "Select the numerically highest value — ignore the physical size. Trains inhibitory control against visual interference.",
+  "exercise.highNumber.instruction": "Select the highest number",
+
+  "exercise.serialSub.name": "Serial Subtraction",
+  "exercise.serialSub.description": "Subtract repeatedly from a starting number. The previous answer disappears — hold it in working memory.",
+  "exercise.serialSub.ruleChange": "RULE CHANGE",
+  "exercise.serialSub.adapt": "New subtrahend — adapt!",
+  "exercise.serialSub.addMode": "ADDITION MODE",
+  "exercise.serialSub.subMode": "SUBTRACTION MODE",
+
+  "exercise.fakeout.wait": "✕ WAIT",
+
+  "session.abort": "Esc  Abort",
+  "session.difficulty": "LV {level}"
 }

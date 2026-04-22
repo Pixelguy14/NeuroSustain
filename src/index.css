@@ -303,17 +303,215 @@ button {
   position: relative;
 }
 
-/* ── Grid Layouts ── */
-.stats-grid {
+/* ── Bento Box Grid ── */
+.bento-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: var(--space-md);
+  grid-template-columns: repeat(6, 1fr);
+  grid-template-rows: repeat(2, auto);
+  gap: var(--space-lg);
+  width: 100%;
 }
 
-.exercises-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: var(--space-lg);
+/* ── Pillar Card ── */
+.pillar-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-lg);
+  position: relative;
+  overflow: hidden;
+  grid-column: span 2;
+}
+
+.pillar-card--fatigued {
+  opacity: 0.6;
+  filter: grayscale(0.4);
+  pointer-events: none;
+}
+
+.pillar-card__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-xl);
+}
+
+.pillar-card__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  box-shadow: inset 0 0 12px hsla(0, 0%, 0%, 0.1);
+}
+
+.pillar-card__title-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.pillar-card__title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.pillar-card__rating {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs);
+}
+
+.pillar-card__rating-val {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent-primary);
+}
+
+.pillar-card__rating-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.pillar-card__exercises {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.exercise-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: hsla(225, 30%, 12%, 0.4);
+  border: 1px solid hsla(220, 20%, 30%, 0.2);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.exercise-item:hover {
+  background: hsla(225, 30%, 18%, 0.6);
+  border-color: hsla(220, 20%, 40%, 0.4);
+  transform: translateX(4px);
+}
+
+.exercise-item--locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.exercise-item--locked:hover {
+  transform: none;
+  background: hsla(225, 30%, 12%, 0.4);
+}
+
+.exercise-item__glyph {
+  font-size: 1.1rem;
+}
+
+.exercise-item__name {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.exercise-item__arrow {
+  font-size: 0.9rem;
+  color: var(--color-text-tertiary);
+  transition: transform var(--transition-fast);
+}
+
+.exercise-item:hover .exercise-item__arrow {
+  color: var(--color-accent-primary);
+  transform: translateX(2px);
+}
+
+.pillar-card__fatigue-overlay {
+  position: absolute;
+  inset: 0;
+  background: hsla(225, 45%, 6%, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: grayscale(1) blur(2px);
+  z-index: 5;
+}
+
+.pillar-card__fatigue-icon {
+  font-size: 2rem;
+  margin-bottom: var(--space-xs);
+}
+
+.pillar-card__fatigue-text {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* ── Neural Storm Card ── */
+.neural-storm-card {
+  grid-column: span 6;
+  background: linear-gradient(135deg, hsla(280, 55%, 20%, 0.4), hsla(175, 70%, 20%, 0.4));
+  border: 1px solid hsla(280, 55%, 58%, 0.3);
+  padding: var(--space-xl);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--space-lg);
+  cursor: pointer;
+}
+
+.neural-storm-card:hover {
+  border-color: var(--color-accent-tertiary);
+  box-shadow: 0 0 32px hsla(280, 55%, 58%, 0.2);
+}
+
+.neural-storm-card__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.neural-storm-card__title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  background: linear-gradient(135deg, var(--color-accent-tertiary), var(--color-accent-primary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.neural-storm-card__desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  max-width: 500px;
+}
+
+.neural-storm-card__action {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-accent-tertiary);
+}
+
+/* ── Responsive Bento ── */
+@media (max-width: 1024px) {
+  .pillar-card {
+    grid-column: span 3;
+  }
+}
+
+@media (max-width: 640px) {
+  .pillar-card {
+    grid-column: span 6;
+  }
 }
 
 /* ── Radar Chart Container ── */
@@ -614,4 +812,48 @@ button {
   .page-content {
     padding: var(--space-lg);
   }
+}
+
+/* ── Fatigue Warning Toast ── */
+.fatigue-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  text-align: left !important;
+}
+
+.fatigue-warning__icon {
+  font-size: 1.5rem;
+  margin-top: 2px;
+}
+
+.fatigue-warning__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.fatigue-warning__title {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-warning);
+  font-size: var(--font-size-sm);
+}
+
+.fatigue-warning__desc {
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+  margin-bottom: var(--space-xs);
+}
+
+.fatigue-warning__action {
+  align-self: flex-start;
+  padding: var(--space-2xs) var(--space-sm) !important;
+  font-size: 11px !important;
+  border-color: hsla(38, 90%, 55%, 0.4) !important;
+  color: var(--color-warning) !important;
+}
+
+.fatigue-warning__action:hover {
+  background: hsla(38, 90%, 55%, 0.1) !important;
+  border-color: var(--color-warning) !important;
 }

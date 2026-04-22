@@ -13,8 +13,8 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { path: '/dashboard', labelKey: 'nav.dashboard', icon: '📊' },
-  { path: '/train',     labelKey: 'nav.train',     icon: '🧠' },
-  { path: '/profile',   labelKey: 'nav.profile',   icon: '👤' },
+  { path: '/train', labelKey: 'nav.train', icon: '🧠' },
+  { path: '/profile', labelKey: 'nav.profile', icon: '👤' },
 ];
 
 export class SidebarNav extends HTMLElement {
@@ -51,7 +51,7 @@ export class SidebarNav extends HTMLElement {
           `).join('')}
         </nav>
         <div class="sidebar__footer">
-          <span class="sidebar__version">v0.1.0 · Sprint 1</span>
+          <span class="sidebar__version">v0.1.3 · Sprint 3</span>
         </div>
       </aside>
     `;

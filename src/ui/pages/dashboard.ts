@@ -4,8 +4,9 @@
 // ============================================================
 
 import { t, on_locale_change } from '@shared/i18n.ts';
-import { get_profile, get_ratings, get_recent_sessions } from '@shared/db.ts';
+import { get_profile, get_ratings, get_recent_sessions, get_sessions_history } from '@shared/db.ts';
 import { render_radar_chart } from '../components/radar-chart.ts';
+import { render_line_chart } from '../components/line-chart.ts';
 import { GLICKO2_DEFAULTS } from '@shared/constants.ts';
 import { router } from '../router.ts';
 import type { CognitivePillar, PillarRating } from '@shared/types.ts';
@@ -53,6 +54,18 @@ export function render_dashboard(): HTMLElement {
       </p>
     </div>
 
+    <div class="glass-panel" id="history-container" style="margin-bottom: var(--space-xl); padding: var(--space-lg);">
+      <h2 class="radar-container__title" style="margin-bottom: var(--space-md);">${t('dashboard.historyTitle')}</h2>
+      <div id="history-charts" style="display: flex; flex-direction: column; gap: var(--space-md); width: 100%;">
+        <div style="height: 120px; width: 100%;"><canvas id="chart-focus"></canvas></div>
+        <div style="height: 120px; width: 100%;"><canvas id="chart-accuracy"></canvas></div>
+        <div style="height: 120px; width: 100%;"><canvas id="chart-rt"></canvas></div>
+      </div>
+      <p id="history-empty" style="display:none; color: var(--color-text-tertiary); font-size: var(--font-size-sm); margin-top: var(--space-md);">
+        ${t('dashboard.historyEmpty')}
+      </p>
+    </div>
+
     <div style="display: flex; justify-content: center;">
       <button class="btn btn--primary btn--large" id="btn-start-training">
         ${t('dashboard.startTraining')}
@@ -96,10 +109,11 @@ export function render_dashboard(): HTMLElement {
 }
 
 async function _populate_dashboard(page: HTMLElement): Promise<void> {
-  const [profile, ratings, recentSessions] = await Promise.all([
+  const [profile, ratings, recentSessions, history] = await Promise.all([
     get_profile(),
     get_ratings(),
     get_recent_sessions(1),
+    get_sessions_history(30),
   ]);
 
   // Subtitle
@@ -159,5 +173,33 @@ async function _populate_dashboard(page: HTMLElement): Promise<void> {
       });
       if (emptyMsg) emptyMsg.style.display = 'block';
     }
+  }
+
+  // Render History
+  const historyEmpty = page.querySelector('#history-empty') as HTMLElement;
+  const historyCharts = page.querySelector('#history-charts') as HTMLElement;
+  if (history.length >= 3) {
+    if (historyEmpty) historyEmpty.style.display = 'none';
+    if (historyCharts) historyCharts.style.display = 'flex';
+    
+    render_line_chart(page.querySelector('#chart-focus') as HTMLCanvasElement, history, {
+      metric: 'meanFocusScore',
+      color: 'hsl(215, 90%, 65%)', // Secondary accent
+      label: 'Focus Score'
+    });
+    render_line_chart(page.querySelector('#chart-accuracy') as HTMLCanvasElement, history, {
+      metric: 'meanAccuracy',
+      color: 'hsl(145, 65%, 45%)', // Success
+      label: 'Accuracy'
+    });
+    render_line_chart(page.querySelector('#chart-rt') as HTMLCanvasElement, history, {
+      metric: 'meanRT',
+      color: 'hsl(38, 90%, 55%)',  // Primary accent
+      label: 'Mean Reaction Time (ms)',
+      isInverse: true
+    });
+  } else {
+    if (historyEmpty) historyEmpty.style.display = 'block';
+    if (historyCharts) historyCharts.style.display = 'none';
   }
 }

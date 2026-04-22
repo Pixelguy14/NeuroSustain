@@ -40,6 +40,17 @@ class NeuroSustainDB extends Dexie {
       hardwareProfiles: '++id, measuredAt',
       fsrsJournal: '++id, status, createdAt, exerciseType',
     });
+
+    // v3: Profile audio focus ambience preference
+    this.version(3).stores({
+      profile: '++id, createdAt', // Schema unchanged
+    }).upgrade(tx => {
+      return tx.table('profile').toCollection().modify(profile => {
+        if (profile.audioFocusAmbience === undefined) {
+          profile.audioFocusAmbience = false;
+        }
+      });
+    });
   }
 }
 
@@ -56,6 +67,7 @@ export async function initialize_db(): Promise<void> {
       currentStreak: 0,
       longestStreak: 0,
       lastSessionDate: '',
+      audioFocusAmbience: false,
     });
   }
 
@@ -177,3 +189,113 @@ export async function recover_orphaned_journals(): Promise<number> {
 
   return orphans.length;
 }
+
+// ── System D: Analytics & Portability ──────────────────────
+
+export interface DailyAggregate {
+  date: string;
+  meanFocusScore: number;
+  meanAccuracy: number;
+  meanRT: number;
+  sdRT: number;
+  sessionCount: number;
+}
+
+/** Get sessions history grouped by day for the last N days */
+export async function get_sessions_history(days: number): Promise<DailyAggregate[]> {
+  const cutoff = Date.now() - (days * 86400000);
+  const sessions = await db.sessions.where('startedAt').aboveOrEqual(cutoff).toArray();
+  
+  const grouped = new Map<string, Session[]>();
+  for (const s of sessions) {
+    const date = new Date(s.startedAt).toISOString().slice(0, 10);
+    if (!grouped.has(date)) grouped.set(date, []);
+    grouped.get(date)!.push(s);
+  }
+
+  const result: DailyAggregate[] = [];
+  // Sort dates chronologically
+  const sortedDates = Array.from(grouped.keys()).sort();
+  
+  for (const date of sortedDates) {
+    const daySessions = grouped.get(date)!;
+    const sessionCount = daySessions.length;
+    let sumFocus = 0, sumAcc = 0, sumRT = 0;
+    
+    for (const s of daySessions) {
+      sumFocus += s.focusScore;
+      sumAcc += s.accuracy;
+      sumRT += s.meanReactionTimeMs;
+    }
+    
+    const meanRT = sumRT / sessionCount;
+    // Compute SD of RT across sessions for this day
+    let sumSq = 0;
+    for (const s of daySessions) {
+      sumSq += Math.pow(s.meanReactionTimeMs - meanRT, 2);
+    }
+    const sdRT = sessionCount > 1 ? Math.sqrt(sumSq / (sessionCount - 1)) : 0;
+
+    result.push({
+      date,
+      meanFocusScore: sumFocus / sessionCount,
+      meanAccuracy: sumAcc / sessionCount,
+      meanRT,
+      sdRT,
+      sessionCount
+    });
+  }
+  
+  return result;
+}
+
+export async function export_data_json(): Promise<string> {
+  const data = {
+    profile: await db.profile.toArray(),
+    ratings: await db.ratings.toArray(),
+    fsrsCards: await db.fsrsCards.toArray(),
+    sessions: await db.sessions.toArray(),
+    trials: await db.trials.toArray(),
+  };
+  return JSON.stringify(data, null, 2);
+}
+
+export async function export_data_csv(): Promise<string> {
+  const sessions = await db.sessions.toArray();
+  if (sessions.length === 0) return "sessionId,startedAt,exerciseType,pillar,accuracy,meanReactionTimeMs,focusScore\n";
+  
+  let csv = "sessionId,startedAt,exerciseType,pillar,accuracy,meanReactionTimeMs,focusScore\n";
+  for (const s of sessions) {
+    const dateStr = new Date(s.startedAt).toISOString();
+    csv += `${s.sessionId},${dateStr},${s.exerciseType},${s.pillar},${s.accuracy},${s.meanReactionTimeMs},${s.focusScore}\n`;
+  }
+  return csv;
+}
+
+export async function import_data_json(json: string): Promise<void> {
+  const data = JSON.parse(json);
+  
+  await db.transaction('rw', [db.profile, db.ratings, db.fsrsCards, db.sessions, db.trials], async () => {
+    if (data.profile?.length) {
+      await db.profile.clear();
+      await db.profile.bulkAdd(data.profile);
+    }
+    if (data.ratings?.length) {
+      await db.ratings.clear();
+      await db.ratings.bulkAdd(data.ratings);
+    }
+    if (data.fsrsCards?.length) {
+      await db.fsrsCards.clear();
+      await db.fsrsCards.bulkAdd(data.fsrsCards);
+    }
+    if (data.sessions?.length) {
+      await db.sessions.clear();
+      await db.sessions.bulkAdd(data.sessions);
+    }
+    if (data.trials?.length) {
+      await db.trials.clear();
+      await db.trials.bulkAdd(data.trials);
+    }
+  });
+}
+

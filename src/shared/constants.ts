@@ -102,4 +102,38 @@ export const EXERCISES: ExerciseInfo[] = [
     trialsPerSession: 15,
     available: false,
   },
+  {
+    type: 'HighNumber',
+    primaryPillar: 'InhibitoryControl',
+    secondaryPillars: ['ProcessingSpeed'],
+    nameKey: 'exercise.highNumber.name',
+    descriptionKey: 'exercise.highNumber.description',
+    iconGlyph: '🔢',
+    trialsPerSession: 20,
+    available: true,
+  },
+  {
+    type: 'SerialSubtraction',
+    primaryPillar: 'WorkingMemory',
+    secondaryPillars: ['CognitiveFlexibility'],
+    nameKey: 'exercise.serialSub.name',
+    descriptionKey: 'exercise.serialSub.description',
+    iconGlyph: '🧮',
+    trialsPerSession: 15,
+    available: true,
+  },
 ];
+
+/** Difficulty scaling parameters */
+export const DIFFICULTY = {
+  /** Fakeout probability at difficulty levels 5-7 */
+  FAKEOUT_CHANCE_BASE: 0.15,
+  /** Fakeout probability at difficulty levels 8-10 */
+  FAKEOUT_CHANCE_HARD: 0.30,
+  /** Base movement speed (px/frame) for moving targets at level 8+ */
+  MOVEMENT_SPEED_BASE: 0.5,
+  /** Serial Subtraction: subtrahend changes every N correct answers */
+  SERIAL_SUB_RULE_CHANGE_EVERY: 3,
+  /** High Number: number of options at levels 8-10 */
+  HIGH_NUMBER_OPTIONS_HARD: 4,
+} as const;

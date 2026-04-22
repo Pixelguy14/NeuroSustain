@@ -29,6 +29,9 @@ async function boot(): Promise<void> {
     await initialize_db();
 
     // 2. System C: Check for orphaned FSRS journal entries from crashed sessions
+    const overlayText = document.querySelector('.loading-overlay__text');
+    if (overlayText) overlayText.textContent = 'Checking neural data integrity...';
+
     const recovered = await recover_orphaned_journals();
     if (recovered > 0) {
       console.info(`[Boot] Recovered ${recovered} interrupted FSRS calibration(s).`);

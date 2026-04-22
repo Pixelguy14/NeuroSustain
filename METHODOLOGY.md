@@ -24,6 +24,17 @@ A low CV indicates a tight clustering of reaction times around the mean — a st
 *   `0.15 ≤ CV ≤ 0.35`: Normal/Good consistency.
 *   `CV > 0.35`: Elevated variability (Fatigue detected — triggers rest recommendations).
 
+### System B: Exponential Moving Average (EMA) Drift
+
+While CV captures overall session variability, it is a lagging indicator. To detect acute attentional lapses in real-time, NeuroSustain employs an EMA threshold system.
+
+**Mathematical Definition:**
+`EMA_t = α * RT_t + (1 - α) * EMA_{t-1}`
+Where `α` (Alpha) is the smoothing factor (set to `0.2`), giving 20% weight to the current reaction time and 80% to the historical average.
+
+**Business Logic:**
+After a 5-trial warm-up period, the system establishes an `EMA_baseline`. If the user's `EMA_t` exceeds `EMA_baseline * 1.5` (a 50% degradation in sustained processing speed), the system flags an acute fatigue event. This instantly triggers a non-blocking UI intervention recommending a transition to the **Free Draw** refractory engine, allowing the Default Mode Network (DMN) to recover.
+
 ## 2. Adaptive Difficulty: Glicko-2
 
 To maintain users in the "Zone of Proximal Development" (where tasks are neither too easy nor too frustrating), NeuroSustain uses the Glicko-2 rating system, originally developed for chess.
@@ -68,3 +79,12 @@ Traditional apps measure streaks in days logged in. NeuroSustain measures *quali
 
 **Rationale:**
 A user who rapidly clicks through an exercise with 50% accuracy and wild reaction times (high CV) will receive a low Focus Score, breaking their streak, even if they spent 20 minutes in the app. A user who performs a 2-minute session with 95% accuracy and tight reaction times (low CV) maintains their streak. This metric directly gamifies *attention span* rather than *time spent*.
+
+## 5. Clinical Exercise Design
+
+NeuroSustain's exercises are digital implementations of validated clinical neuropsychological tests, adapted for continuous Glicko-2 difficulty scaling.
+
+*   **Reaction Time (Processing Speed):** A pure measure of sensory-motor latency. At higher difficulty tiers, the engine introduces spatial randomization, "fakeout" distractor colors, and target drift to increase cognitive load.
+*   **High Number (Inhibitory Control):** Based on the Numerical Stroop effect. Users must select the numerically larger number while ignoring incongruent physical font sizes (e.g., a massive "3" next to a tiny "8"). High difficulties introduce spatial rotation and multiple distractors.
+*   **Serial Subtraction (Working Memory):** A classic clinical stress test. The user subtracts a specific number (e.g., 7) from a starting base (e.g., 100). The base is then scribbled out, forcing the user to hold the new base (93) in working memory for the next operation. High difficulties introduce direction flips (subtraction to addition).
+*   **Neural Storm (Cognitive Flexibility):** A 3-minute, high-intensity mode that switches active exercises every 30 seconds. It forces the brain to rapidly switch context rules. Because of its chaotic nature, trials completed in Neural Storm bypass the FSRS engine to prevent polluting the user's specific pillar stability metrics.

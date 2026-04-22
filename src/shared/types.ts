@@ -17,13 +17,26 @@ export type ExerciseType =
   | 'StroopTask'
   | 'NBackDual'
   | 'SetSwitching'
+  | 'HighNumber'
+  | 'SerialSubtraction'
   | 'PianoPlayer'
   | 'WordScramble'
   | 'CPT'
   | 'BlockCount3D'
   | 'SemanticLinker'
   | 'ContextSwitcher'
-  | 'PatternBreaker';
+  | 'PatternBreaker'
+  | 'FreeDraw';
+
+/** Session configuration passed to engine on start */
+export interface SessionConfig {
+  /** Difficulty level 1-10 controlling procedural generation */
+  difficulty: number;
+  /** Input modality preference */
+  inputMode: 'keyboard' | 'touch' | 'auto';
+  /** If true, this is a Neural Storm session — FSRS won't record */
+  neuralStorm?: boolean;
+}
 
 /** Single trial result — the atomic unit of measurement */
 export interface Trial {
@@ -87,6 +100,7 @@ export interface UserProfile {
   currentStreak: number;
   longestStreak: number;
   lastSessionDate: string;
+  audioFocusAmbience: boolean;
 }
 
 /** Weekly cognitive snapshot for PDF export */
@@ -133,12 +147,7 @@ export interface Route {
   render: () => HTMLElement;
 }
 
-/** Engine lifecycle callbacks */
-export interface EngineCallbacks {
-  onTrialComplete: (trial: Omit<Trial, 'id' | 'sessionId'>) => void;
-  onSessionComplete: (results: TrialResults) => void;
-  onExit: () => void;
-}
+// EngineCallbacks defined below with fatigue extension
 
 /** Aggregated trial results after a session */
 export interface TrialResults {

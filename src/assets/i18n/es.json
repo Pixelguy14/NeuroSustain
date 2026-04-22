@@ -6,7 +6,7 @@
   "nav.train": "Entrenar",
   "nav.profile": "Perfil",
 
-  "pillar.workingMemory": "Memoria de Trabajo",
+  "pillar.workingMemory": "Trabajar la Memoria",
   "pillar.cognitiveFlexibility": "Flexibilidad Cognitiva",
   "pillar.inhibitoryControl": "Control Inhibitorio",
   "pillar.sustainedAttention": "Atención Sostenida",
@@ -30,6 +30,9 @@
   "train.locked": "Próximamente",
   "train.start": "Iniciar Sesión",
   "train.trials": "{count} pruebas",
+  "train.storm.title": "TORMENTA NEURONAL",
+  "train.storm.desc": "Modo mixto caótico de 3 minutos. Cambio rápido de ejercicios para maximizar flexibilidad cognitiva. Sin impacto en FSRS.",
+  "train.storm.start": "INICIAR →",
 
   "exercise.reaction.name": "Tiempo de Reacción",
   "exercise.reaction.description": "Presiona ESPACIO en el instante que el círculo se ponga verde. Mide tu velocidad de procesamiento.",
@@ -75,6 +78,7 @@
   "loading.syncing": "Sincronizando patrones neuronales...",
   "loading.calibrating": "Calibrando línea base cognitiva...",
   "loading.ready": "Vías neuronales listas",
+  "loading.neural_storm": "Iniciando Neural Storm...",
 
   "insight.attention": "20 minutos de scroll pasivo pueden reducir tu capacidad de atención sostenida hasta por 2 horas. Esta sesión está diseñada para recalibrar tu corteza prefrontal.",
   "insight.sleep": "La consistencia de tu tiempo de reacción refleja frescura cognitiva. Estudios (DOI: 10.1093/sleep/zsaa170) muestran que incluso 1 hora de deuda de sueño incrementa la variabilidad del tiempo de reacción un 15%.",
@@ -109,5 +113,21 @@
   "results.fsrs.memory": "Fuerza de Memoria",
   "results.fsrs.nextReview": "Próximo Repaso",
   "results.fsrs.tomorrow": "Mañana",
-  "results.fsrs.days": "{days} días"
+  "results.fsrs.days": "{days} días",
+
+  "exercise.highNumber.name": "Número Mayor",
+  "exercise.highNumber.description": "Selecciona el valor numéricamente más alto — ignora el tamaño físico. Entrena el control inhibitorio contra interferencia visual.",
+  "exercise.highNumber.instruction": "Selecciona el número más alto",
+
+  "exercise.serialSub.name": "Resta Serial",
+  "exercise.serialSub.description": "Resta repetidamente desde un número inicial. La respuesta anterior desaparece — mantén el resultado en tu memoria de trabajo.",
+  "exercise.serialSub.ruleChange": "CAMBIO DE REGLA",
+  "exercise.serialSub.adapt": "Nuevo sustraendo — ¡adáptate!",
+  "exercise.serialSub.addMode": "MODO SUMA",
+  "exercise.serialSub.subMode": "MODO RESTA",
+
+  "exercise.fakeout.wait": "✕ ESPERA",
+
+  "session.abort": "Esc  Abortar",
+  "session.difficulty": "NV {level}"
 }

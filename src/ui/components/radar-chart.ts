@@ -29,7 +29,7 @@ export function render_radar_chart(
 
   const cx = size / 2;
   const cy = size / 2;
-  const maxRadius = size * 0.36;
+  const maxRadius = size * 0.30;
   const levels = 5;
 
   // Clear

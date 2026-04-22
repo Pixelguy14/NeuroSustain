@@ -1,11 +1,15 @@
 // ============================================================
-// NeuroSustain — Training Page
-// Exercise selection grid with availability status
+// NeuroSustain — Training Page (Bento Box Edition)
+// Exercise selection grid with pillar-based grouping
 // ============================================================
 
 import { t } from '@shared/i18n.ts';
-import { EXERCISES } from '@shared/constants.ts';
-import { start_exercise_session } from '../pages/session.ts';
+import { EXERCISES, ALL_PILLARS } from '@shared/constants.ts';
+import { start_exercise_session, start_neural_storm } from '../pages/session.ts';
+import { get_ratings } from '@shared/db.ts';
+import { fsrsBridge } from '@core/fsrs/fsrs-bridge.ts';
+import '../components/pillar-card.ts'; // Register Web Component
+import type { PillarCard } from '../components/pillar-card.ts';
 
 export function render_train(): HTMLElement {
   const page = document.createElement('div');
@@ -17,34 +21,60 @@ export function render_train(): HTMLElement {
       <h1 class="section-header__title">${t('train.title')}</h1>
       <p class="section-header__subtitle">${t('train.selectExercise')}</p>
     </div>
-    <div class="exercises-grid" id="exercises-grid">
-      ${EXERCISES.map(ex => `
-        <div class="glass-panel glass-panel--glow exercise-card ${!ex.available ? 'exercise-card--locked' : ''}"
-             data-exercise="${ex.type}"
-             id="exercise-card-${ex.type}">
-          <div class="exercise-card__icon">${ex.iconGlyph}</div>
-          <div class="exercise-card__name">${t(ex.nameKey)}</div>
-          <div class="exercise-card__desc">${t(ex.descriptionKey)}</div>
-          <div class="exercise-card__badge">
-            ${ex.available
-              ? t('train.trials', { count: ex.trialsPerSession })
-              : t('train.locked')
-            }
-          </div>
-        </div>
-      `).join('')}
+    
+    <div class="bento-grid" id="bento-grid">
+      <!-- Pillar cards injected here -->
+    </div>
+
+    <div class="neural-storm-card glass-panel" id="neural-storm-btn">
+      <div class="neural-storm-card__content">
+        <h2 class="neural-storm-card__title">${t('train.storm.title')}</h2>
+        <p class="neural-storm-card__desc">${t('train.storm.desc')}</p>
+      </div>
+      <div class="neural-storm-card__action">${t('train.storm.start')}</div>
     </div>
   `;
 
-  // Wire up available exercise cards
-  const cards = page.querySelectorAll('.exercise-card:not(.exercise-card--locked)');
-  cards.forEach(card => {
-    card.addEventListener('click', () => {
-      const exerciseType = (card as HTMLElement).dataset['exercise'];
-      if (exerciseType) {
-        start_exercise_session(exerciseType);
-      }
+  const grid = page.querySelector('#bento-grid') as HTMLElement;
+
+  // Load ratings and populate grid
+  let currentRatings: any[] = [];
+  Promise.all([get_ratings(), fsrsBridge.get_due_exercises()]).then(([ratings, dueCards]) => {
+    currentRatings = ratings;
+    grid.innerHTML = ''; // Clear skeleton
+
+    const dueTypes = dueCards.map(c => c.exerciseType);
+
+    ALL_PILLARS.forEach(pillar => {
+      const pillarRating = ratings.find(r => r.pillar === pillar);
+      const pillarExercises = EXERCISES.filter(ex => ex.primaryPillar === pillar);
+      
+      const card = document.createElement('pillar-card') as PillarCard;
+      card.data = {
+        pillar,
+        exercises: pillarExercises,
+        rating: pillarRating?.rating,
+        rd: pillarRating?.rd,
+        isFatigued: false,
+        dueExercises: dueTypes
+      };
+
+      grid.appendChild(card);
     });
+  });
+
+  // Listen for exercise selection from children
+  page.addEventListener('select-exercise', (e: any) => {
+    const exerciseType = e.detail.type;
+    const ex = EXERCISES.find(e => e.type === exerciseType);
+    const rating = currentRatings.find(r => r.pillar === ex?.primaryPillar)?.rating ?? 1500;
+    const difficulty = Math.min(10, Math.max(1, Math.floor((rating - 1300) / 100) + 1));
+    start_exercise_session(exerciseType, difficulty);
+  });
+
+  // Neural Storm handler
+  page.querySelector('#neural-storm-btn')?.addEventListener('click', () => {
+    start_neural_storm();
   });
 
   return page;
