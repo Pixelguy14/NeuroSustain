@@ -56,6 +56,17 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Isolate Three.js into its own lazy-loaded chunk (~680KB).
+          // Only downloaded when the user opens 3D Box Counting.
+          'three': ['three'],
+        },
+      },
+    },
+  },
   worker: {
     format: 'es',
   },

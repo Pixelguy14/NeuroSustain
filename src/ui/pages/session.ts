@@ -12,6 +12,9 @@ import { FallacyDetectorEngine } from '@engines/fallacy-detector/fallacy-detecto
 import { HanoiEngine } from '@engines/hanoi/hanoi-engine.ts';
 import { SetSwitchingEngine } from '@engines/set-switching/set-switching-engine.ts';
 import { FreeDrawEngine } from '@engines/free-draw/free-draw-engine.ts';
+import { NBackEngine } from '@engines/nback/nback-engine.ts';
+import { ChangeMakerEngine } from '@engines/change-maker/change-maker-engine.ts';
+import { WordScrambleEngine } from '@engines/word-scramble/word-scramble-engine.ts';
 import { generate_uuid, format_ms } from '@shared/utils.ts';
 import { save_session } from '@shared/db.ts';
 import { t } from '@shared/i18n.ts';
@@ -44,7 +47,7 @@ export function start_neural_storm(): void {
   });
 }
 
-function _launch_engine(exerciseType: string, isNeuralStorm: boolean = false, overrideDifficulty: number = 1): void {
+async function _launch_engine(exerciseType: string, isNeuralStorm: boolean = false, overrideDifficulty: number = 1): Promise<void> {
   // Create full-viewport container (only if it doesn't exist)
   let container = document.getElementById('session-container');
   let canvas: HTMLCanvasElement;
@@ -114,6 +117,26 @@ function _launch_engine(exerciseType: string, isNeuralStorm: boolean = false, ov
     case 'FreeDraw':
       _activeEngine = new FreeDrawEngine(canvas, callbacks);
       break;
+    case 'NBackDual':
+      _activeEngine = new NBackEngine(canvas, callbacks);
+      break;
+    case 'ChangeMaker':
+      _activeEngine = new ChangeMakerEngine(canvas, callbacks);
+      break;
+    case 'WordScramble':
+      _activeEngine = new WordScrambleEngine(canvas, callbacks);
+      break;
+    case 'BlockCount3D': {
+      const { BoxCountEngine } = await import('@engines/box-count/box-count-engine.ts');
+      
+      // RACECONDITION FIX: Check if container is still in DOM or if user navigated away
+      if (!document.getElementById('session-container') || document.getElementById('session-container') !== container) {
+        return;
+      }
+      
+      _activeEngine = new BoxCountEngine(canvas, callbacks);
+      break;
+    }
     default:
       console.warn(`Exercise type "${exerciseType}" not implemented`);
       container.remove();
@@ -131,7 +154,7 @@ function _launch_neural_storm(): void {
   const STORM_DURATION_MS = 180_000; // 3 minutes
   const SWITCH_INTERVAL_MS = 30_000; // 30 seconds
   const GRACE_PERIOD_MS = 2000; // 2 seconds of transition
-  const pool = ['ReactionTime', 'HighNumber', 'SerialSubtraction', 'PianoPlayer', 'FallacyDetector', 'TowerOfHanoi', 'SetSwitching'];
+  const pool = ['ReactionTime', 'HighNumber', 'SerialSubtraction', 'PianoPlayer', 'FallacyDetector', 'TowerOfHanoi', 'SetSwitching', 'NBackDual', 'ChangeMaker', 'WordScramble', 'BlockCount3D'];
   
   let elapsed = 0;
   let lastType = '';

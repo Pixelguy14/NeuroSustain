@@ -28,6 +28,7 @@ export type ExerciseType =
   | 'SemanticLinker'
   | 'ContextSwitcher'
   | 'PatternBreaker'
+  | 'ChangeMaker'
   | 'FreeDraw';
 
 /** Session configuration passed to engine on start */

@@ -150,14 +150,9 @@ export class PianoPlayerEngine extends BaseEngine {
             this._encodingIndex++;
           }
         } else {
+          // No shuffle — maintain spatial-identity binding for clinical consistency
           this._phase = 'retention';
           this._phaseStart = precise_now();
-          
-          // Spatial Shuffle Interference for Level 8+
-          if (this.config.difficulty >= 8) {
-            this._shuffle_pad_positions();
-            audioEngine.play_transition();
-          }
         }
         break;
       }
@@ -175,7 +170,7 @@ export class PianoPlayerEngine extends BaseEngine {
           this._activePadId = null;
         }
         
-        if (precise_now() - Math.max(this._recallStartTime, this._lastClickTime) > 5000) {
+        if (precise_now() - Math.max(this._recallStartTime, this._lastClickTime) > 10000) {
            this._finish_trial(false);
         }
         break;
@@ -236,12 +231,17 @@ export class PianoPlayerEngine extends BaseEngine {
 
       case 'recall':
         this._render_pads(ctx);
-        // Visual Slots
         this._render_visual_slots(ctx, cx, 75);
-        ctx.font = '500 16px Inter, sans-serif';
-        ctx.fillStyle = 'hsl(145, 70%, 58%)';
-        ctx.textAlign = 'center';
-        ctx.fillText(this._isReverse ? 'Repeat in REVERSE' : 'Your Turn', cx, 50);
+        ctx.font = '600 16px Inter, sans-serif';
+        
+        if (this._isReverse) {
+          const pulse = Math.sin(precise_now() / 200) * 0.2 + 0.8;
+          ctx.fillStyle = `hsla(145, 70%, 58%, ${pulse})`;
+          ctx.fillText('Repeat in REVERSE', cx, 50);
+        } else {
+          ctx.fillStyle = 'hsl(145, 70%, 58%)';
+          ctx.fillText('Your Turn', cx, 50);
+        }
         break;
 
       case 'feedback':
@@ -261,11 +261,9 @@ export class PianoPlayerEngine extends BaseEngine {
   }
 
   private _render_pads(ctx: CanvasRenderingContext2D): void {
-    const isBlindEncoding = this.config.difficulty >= 8 && this._phase === 'encoding';
-
     for (const pad of this._pads) {
       let isActive = false;
-      if (this._phase === 'encoding' && !isBlindEncoding) {
+      if (this._phase === 'encoding') {
         const timeSinceNote = precise_now() - this._encodingNoteStart;
         if (this._sequence[this._encodingIndex] === pad.id && timeSinceNote < this._noteDurationMs) {
           isActive = true;
@@ -317,8 +315,9 @@ export class PianoPlayerEngine extends BaseEngine {
       ctx.beginPath();
       ctx.roundRect(sx, y, slotW, slotH, 4);
 
-      // For reverse mode, slots fill right-to-left
-      const fillIndex = this._isReverse ? (total - 1 - i) : i;
+      // Visual slots fill in the order the user inputs, even in reverse mode.
+      // This provides more intuitive feedback than right-to-left filling.
+      const fillIndex = i;
 
       if (fillIndex < current) {
         // Filled — use the color of the pad the user pressed
@@ -335,6 +334,13 @@ export class PianoPlayerEngine extends BaseEngine {
         ctx.stroke();
       }
     }
+  }
+
+  protected on_key_event(e: KeyboardEvent, timestamp: number): void {
+    if (this._phase !== 'recall') return;
+    if (e.repeat) return; // Prevent double-triggering when holding key
+    
+    super.on_key_event(e, timestamp);
   }
 
   protected on_key_down(code: string, _timestamp: number): void {
@@ -413,27 +419,19 @@ export class PianoPlayerEngine extends BaseEngine {
     }
   }
 
-  private _shuffle_pad_positions(): void {
-    const positions = this._pads.map(p => ({ col: p.col, row: p.row }));
-    shuffle(positions);
-    
-    for (let i = 0; i < this._pads.length; i++) {
-      this._pads[i]!.col = positions[i]!.col;
-      this._pads[i]!.row = positions[i]!.row;
-    }
-    
-    const maxCol = Math.max(...this._pads.map(p => p.col));
-    const maxRow = Math.max(...this._pads.map(p => p.row));
-    this._layout_pads(maxCol + 1, maxRow + 1);
-  }
+  // Removed shuffle logic to preserve spatial mapping integrity
+
 
   private _start_trial(): void {
     const diff = this.config.difficulty;
     
+    // Reset grid FIRST to ensure this._pads is correctly sized for current difficulty
+    this._init_grid();
+
     let seqLength: number;
     if (diff <= 3) seqLength = 3;
-    else if (diff <= 7) seqLength = 4 + Math.floor(Math.random() * 2); // 4-5
-    else seqLength = 5 + Math.floor(Math.random() * 2); // 5-6
+    else if (diff <= 7) seqLength = 5 + Math.floor(Math.random() * 2); // 5-6
+    else seqLength = 7 + Math.floor(Math.random() * 4); // 7-10
 
     this._sequence = [];
     for (let i = 0; i < seqLength; i++) {
@@ -458,8 +456,7 @@ export class PianoPlayerEngine extends BaseEngine {
     this._encodingNoteStart = precise_now();
     this._firstTapTime = 0;
     
-    // Reset grid if it was shuffled
-    this._init_grid();
+    // Grid already reset at start of function
 
     this._phase = 'encoding';
     this._phaseStart = precise_now();
@@ -491,17 +488,23 @@ export class PianoPlayerEngine extends BaseEngine {
 
     this._userSequence.push(padId);
 
-    // Verify against _recallSequence (which may be reversed)
-    const stepIndex = this._userSequence.length - 1;
-    if (this._userSequence[stepIndex] !== this._recallSequence[stepIndex]) {
-      audioEngine.play_error();
-      this._finish_trial(false);
-      return;
-    }
-
+    // Deferred evaluation: wait until the sequence is fully entered
     if (this._userSequence.length === this._recallSequence.length) {
-      audioEngine.play_correct();
-      this._finish_trial(true);
+      let isPerfect = true;
+      for (let i = 0; i < this._recallSequence.length; i++) {
+        if (this._userSequence[i] !== this._recallSequence[i]) {
+          isPerfect = false;
+          break;
+        }
+      }
+
+      if (isPerfect) {
+        audioEngine.play_correct();
+        this._finish_trial(true);
+      } else {
+        audioEngine.play_error();
+        this._finish_trial(false);
+      }
     }
   }
 

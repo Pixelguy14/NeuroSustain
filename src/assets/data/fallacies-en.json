@@ -178,5 +178,125 @@
     "isValid": true,
     "fallacyType": null,
     "difficulty": 5
+  },
+  {
+    "argument": "If inflation increases, prices go up. Prices went up. Therefore, inflation increased.",
+    "isValid": false,
+    "fallacyType": "Affirming the Consequent",
+    "difficulty": 6
+  },
+  {
+    "argument": "Our proposal to reduce the fiscal deficit is the only reasonable one, because no one has proven there is a better option without cutting services.",
+    "isValid": false,
+    "fallacyType": "Appeal to Ignorance",
+    "difficulty": 6
+  },
+  {
+    "argument": "Anyone who studies engineering is good at math. John does not study engineering, so John is not good at math.",
+    "isValid": false,
+    "fallacyType": "Denying the Antecedent",
+    "difficulty": 6
+  },
+  {
+    "argument": "The candidate argues that we must increase investment in public education, but we know he sends his kids to private schools. Therefore, his argument is false.",
+    "isValid": false,
+    "fallacyType": "Tu Quoque",
+    "difficulty": 6
+  },
+  {
+    "argument": "If companies are allowed to set their own safety standards, they will inevitably ignore safety entirely and thousands of people will die.",
+    "isValid": false,
+    "fallacyType": "Slippery Slope",
+    "difficulty": 6
+  },
+  {
+    "argument": "P implies Q, and Q implies R. Knowing that R is false, we can conclude with absolute certainty that P is false.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 7
+  },
+  {
+    "argument": "No mammal can breathe underwater without special equipment. Whales are mammals. Therefore, whales cannot breathe underwater without equipment.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 7
+  },
+  {
+    "argument": "The correlation between saturated fat consumption and heart disease irrefutably proves that eating saturated fats directly causes heart attacks.",
+    "isValid": false,
+    "fallacyType": "False Cause",
+    "difficulty": 7
+  },
+  {
+    "argument": "The famous neuroscientist Dr. Smith claims that the global economy will collapse next year. We should prepare for the recession.",
+    "isValid": false,
+    "fallacyType": "Appeal to False Authority",
+    "difficulty": 7
+  },
+  {
+    "argument": "If you do not support the construction of the new highway, it is because you hate the technological progress of our city.",
+    "isValid": false,
+    "fallacyType": "False Dilemma",
+    "difficulty": 7
+  },
+  {
+    "argument": "It is impossible for machines to ever possess true consciousness, because consciousness is a strictly biological property and no machine is biological.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 8
+  },
+  {
+    "argument": "Some politicians are corrupt. Some union leaders are corrupt. Therefore, some politicians are union leaders.",
+    "isValid": false,
+    "fallacyType": "Undistributed Middle",
+    "difficulty": 8
+  },
+  {
+    "argument": "Every swan observed in Europe up until 1697 was white, so it is obvious that all swans in the world are white.",
+    "isValid": false,
+    "fallacyType": "Hasty Generalization",
+    "difficulty": 8
+  },
+  {
+    "argument": "We either reduce the public health budget or we will face imminent state bankruptcy in less than six months.",
+    "isValid": false,
+    "fallacyType": "False Dilemma",
+    "difficulty": 8
+  },
+  {
+    "argument": "Quantum physics proves that reality is subjective and molded by our deepest beliefs.",
+    "isValid": false,
+    "fallacyType": "False Analogy / Pseudoscience",
+    "difficulty": 8
+  },
+  {
+    "argument": "Given that all men are mortal and Socrates is mortal, Socrates is a man.",
+    "isValid": false,
+    "fallacyType": "Affirming the Consequent",
+    "difficulty": 9
+  },
+  {
+    "argument": "There is no way your optimization algorithm works in polynomial time. If it did, you would have won the Turing Award by now, and you haven't.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 9
+  },
+  {
+    "argument": "Almost 90% of developers use that specific framework, so logically it is the best existing framework to build the application.",
+    "isValid": false,
+    "fallacyType": "Ad Populum",
+    "difficulty": 9
+  },
+  {
+    "argument": "Since we have not been able to find a flaw in the biometric security system, we must conclude that the system is absolutely infallible.",
+    "isValid": false,
+    "fallacyType": "Appeal to Ignorance",
+    "difficulty": 9
+  },
+  {
+    "argument": "If P then (Q or R). Knowing that P is true and Q is false, then R must be true.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 10
   }
 ]

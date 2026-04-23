@@ -178,5 +178,125 @@
     "isValid": true,
     "fallacyType": null,
     "difficulty": 5
+  },
+  {
+    "argument": "Si la inflación aumenta, los precios suben. Los precios subieron. Por lo tanto, la inflación aumentó.",
+    "isValid": false,
+    "fallacyType": "Afirmación del Consecuente",
+    "difficulty": 6
+  },
+  {
+    "argument": "Nuestra propuesta para reducir el déficit fiscal es la única razonable, porque nadie ha demostrado que exista una mejor opción sin recortar servicios.",
+    "isValid": false,
+    "fallacyType": "Apelación a la Ignorancia",
+    "difficulty": 6
+  },
+  {
+    "argument": "Cualquier persona que estudia ingeniería es buena en matemáticas. Juan no estudia ingeniería, así que Juan no es bueno en matemáticas.",
+    "isValid": false,
+    "fallacyType": "Negación del Antecedente",
+    "difficulty": 6
+  },
+  {
+    "argument": "El candidato argumenta que debemos aumentar la inversión en educación pública, pero sabemos que él envía a sus hijos a escuelas privadas. Por tanto, su argumento es falso.",
+    "isValid": false,
+    "fallacyType": "Tu Quoque",
+    "difficulty": 6
+  },
+  {
+    "argument": "Si se permite a las empresas establecer sus propios estándares de seguridad, inevitablemente ignorarán la seguridad por completo y miles de personas morirán.",
+    "isValid": false,
+    "fallacyType": "Pendiente Resbaladiza",
+    "difficulty": 6
+  },
+  {
+    "argument": "P implica Q, y Q implica R. Sabiendo que R es falso, podemos concluir con total certeza que P es falso.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 7
+  },
+  {
+    "argument": "Ningún mamífero puede respirar bajo el agua sin equipo especial. Las ballenas son mamíferos. Por lo tanto, las ballenas no pueden respirar bajo el agua sin equipo.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 7
+  },
+  {
+    "argument": "La correlación entre el consumo de grasas saturadas y las enfermedades cardíacas prueba irrefutablemente que comer grasas saturadas causa ataques al corazón directamente.",
+    "isValid": false,
+    "fallacyType": "Causa Falsa",
+    "difficulty": 7
+  },
+  {
+    "argument": "El famoso neurocientífico Dr. Smith afirma que la economía mundial colapsará el próximo año. Deberíamos prepararnos para la recesión.",
+    "isValid": false,
+    "fallacyType": "Apelación a la Falsa Autoridad",
+    "difficulty": 7
+  },
+  {
+    "argument": "Si no apoyas la construcción de la nueva autopista, es porque odias el progreso tecnológico de nuestra ciudad.",
+    "isValid": false,
+    "fallacyType": "Falso Dilema",
+    "difficulty": 7
+  },
+  {
+    "argument": "Es imposible que las máquinas alguna vez posean verdadera consciencia, porque la consciencia es una propiedad estrictamente biológica y ninguna máquina es biológica.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 8
+  },
+  {
+    "argument": "Algunos políticos son corruptos. Algunos líderes sindicales son corruptos. Por lo tanto, algunos políticos son líderes sindicales.",
+    "isValid": false,
+    "fallacyType": "Término Medio No Distribuido",
+    "difficulty": 8
+  },
+  {
+    "argument": "Todo cisne observado en Europa hasta 1697 era blanco, así que es obvio que todos los cisnes del mundo son blancos.",
+    "isValid": false,
+    "fallacyType": "Generalización Apresurada",
+    "difficulty": 8
+  },
+  {
+    "argument": "O reducimos el presupuesto de salud pública o nos enfrentaremos a la quiebra inminente del estado en menos de seis meses.",
+    "isValid": false,
+    "fallacyType": "Falso Dilema",
+    "difficulty": 8
+  },
+  {
+    "argument": "La física cuántica demuestra que la realidad es subjetiva y moldeada por nuestras creencias más profundas.",
+    "isValid": false,
+    "fallacyType": "Falsa Analogía / Pseudociencia",
+    "difficulty": 8
+  },
+  {
+    "argument": "Dado que todos los hombres son mortales y Sócrates es mortal, Sócrates es un hombre.",
+    "isValid": false,
+    "fallacyType": "Afirmación del Consecuente",
+    "difficulty": 9
+  },
+  {
+    "argument": "No hay forma de que su algoritmo de optimización funcione en tiempo polinómico. Si funcionara, ya habría ganado el premio Turing, y no lo ha hecho.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 9
+  },
+  {
+    "argument": "Casi el 90% de los desarrolladores usan ese framework específico, por lo que lógicamente es el mejor framework existente para construir la aplicación.",
+    "isValid": false,
+    "fallacyType": "Ad Populum",
+    "difficulty": 9
+  },
+  {
+    "argument": "Como no hemos podido encontrar una falla en el sistema de seguridad biométrica, debemos concluir que el sistema es absolutamente infalible.",
+    "isValid": false,
+    "fallacyType": "Apelación a la Ignorancia",
+    "difficulty": 9
+  },
+  {
+    "argument": "Si P entonces (Q o R). Sabiendo que P es verdadero y Q es falso, entonces R debe ser verdadero.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 10
   }
 ]

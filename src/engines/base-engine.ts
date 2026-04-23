@@ -11,7 +11,7 @@
 // ============================================================
 
 import type { Trial, ExerciseType, CognitivePillar, EngineCallbacks, TrialResults, FatigueEvent, SessionConfig } from '@shared/types.ts';
-import { compute_mean, compute_sd, compute_cv, compute_accuracy, compute_focus_score, filter_valid_rts, compute_ema_step, init_ema, detect_ema_fatigue, EMA_BASELINE_TRIALS } from '@core/analytics/analytics.ts';
+import { compute_mean, compute_sd, compute_cv, compute_accuracy, compute_focus_score, compute_ema_step, init_ema, detect_ema_fatigue, EMA_BASELINE_TRIALS } from '@core/analytics/analytics.ts';
 import { clean_reaction_time, compute_difficulty_weighted_rt } from '@core/input/latency-normalizer.ts';
 import { precise_now } from '@shared/utils.ts';
 import { TIMING } from '@shared/constants.ts';
@@ -60,6 +60,7 @@ export abstract class BaseEngine {
   abstract readonly exerciseType: ExerciseType;
   abstract readonly primaryPillar: CognitivePillar;
   abstract readonly totalTrials: number;
+  protected validReactionTimeMax: number = TIMING.MAX_REACTION_MS;
 
   constructor(canvas: HTMLCanvasElement, callbacks: EngineCallbacks) {
     this.canvas = canvas;
@@ -132,7 +133,7 @@ export abstract class BaseEngine {
       }
 
       // ── EMA update on valid correct trials only (Isolate Neural Storm) ──
-      if (!this.config.neuralStorm && trial.isCorrect && trial.reactionTimeMs >= TIMING.MIN_REACTION_MS && trial.reactionTimeMs <= TIMING.MAX_REACTION_MS) {
+      if (!this.config.neuralStorm && trial.isCorrect && trial.reactionTimeMs >= TIMING.MIN_REACTION_MS && trial.reactionTimeMs <= this.validReactionTimeMax) {
         this._ema_correct_count++;
 
       if (this._ema_correct_count === 1) {
@@ -175,9 +176,9 @@ export abstract class BaseEngine {
     this.state = 'complete';
     cancelAnimationFrame(this._animFrameId);
 
-    const validRTs = filter_valid_rts(
-      this.trials.filter(t => t.isCorrect).map(t => t.reactionTimeMs)
-    );
+    const validRTs = this.trials
+      .filter(t => t.isCorrect && t.reactionTimeMs >= TIMING.MIN_REACTION_MS && t.reactionTimeMs <= this.validReactionTimeMax)
+      .map(t => t.reactionTimeMs);
     const correctCount = this.trials.filter(t => t.isCorrect).length;
 
     const accuracy = compute_accuracy(correctCount, this.trials.length);
@@ -250,7 +251,15 @@ export abstract class BaseEngine {
     }
 
     e.preventDefault();
-    this.on_key_down(e.code, precise_now());
+    this.on_key_event(e, precise_now());
+  }
+
+  /**
+   * Override this if you need access to the full KeyboardEvent (e.g. e.key for i18n input)
+   * By default, it delegates to on_key_down(e.code) for backward compatibility.
+   */
+  protected on_key_event(e: KeyboardEvent, timestamp: number): void {
+    this.on_key_down(e.code, timestamp);
   }
 
   /** Handle clicks on the exit button */

@@ -286,10 +286,10 @@ export class FallacyDetectorEngine extends BaseEngine {
       this._usedIndices.add(pick.idx);
     }
 
-    // Time limit — more generous to allow reading
-    if (diff <= 3) this._timeLimitMs = 10000;
-    else if (diff <= 7) this._timeLimitMs = 8000;
-    else this._timeLimitMs = 6000;
+    // Time limit — more generous to allow reading complex paragraphs
+    if (diff <= 3) this._timeLimitMs = 15000;
+    else if (diff <= 7) this._timeLimitMs = 12000;
+    else this._timeLimitMs = 10000;
 
 
     // Pre-wrap text for Zero-Allocation rendering

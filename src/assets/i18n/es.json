@@ -48,15 +48,6 @@
   "exercise.stroop.name": "Tarea Stroop",
   "exercise.stroop.description": "Identifica el color del texto, no la palabra. Entrena el control inhibitorio.",
 
-  "exercise.nback.name": "N-Back Dual",
-  "exercise.nback.description": "Recuerda posiciones y sonidos de hace N turnos. El estándar de oro para la memoria de trabajo.",
-
-  "exercise.setSwitch.name": "Cambio de Reglas",
-  "exercise.setSwitch.description": "Alterna entre reglas de clasificación. Construye flexibilidad cognitiva.",
-
-  "exercise.patternBreaker.name": "Rompe Patrones",
-  "exercise.patternBreaker.description": "Detecta la anomalía en patrones visuales. Entrena atención sostenida y velocidad de procesamiento.",
-
   "results.title": "Sesión Completada",
   "results.accuracy": "Precisión",
   "results.meanRT": "Tiempo de Reacción Promedio",
@@ -145,6 +136,24 @@
 
   "exercise.hanoi.name": "Torre de Hanói",
   "exercise.hanoi.description": "Mueve todos los discos de la clavija 1 a la 3 sin colocar un disco grande sobre uno pequeño. Entrena la planificación a futuro y la atención sostenida.",
+
+  "exercise.setSwitch.name": "Cambio de Reglas",
+  "exercise.setSwitch.description": "Empareja cartas según la regla activa (Color o Forma). Entrena la flexibilidad cognitiva.",
+
+  "exercise.changeMaker.name": "Dar Cambio",
+  "exercise.changeMaker.description": "Calcula el cambio exacto usando monedas y billetes. Entrena la aritmética mental y flexibilidad cognitiva.",
+
+  "exercise.wordScramble.name": "Palabras Ocultas",
+  "exercise.wordScramble.description": "Ordena las letras para formar una palabra. Entrena la flexibilidad lingüística y la rotación mental.",
+
+  "exercise.blockCount3d.name": "Conteo 3D",
+  "exercise.blockCount3d.description": "Calcula el número total de cubos en la estructura 3D, incluyendo los ocultos. Entrena la visualización espacial.",
+
+  "exercise.nback.name": "Dual N-Back",
+  "exercise.nback.description": "Rastrea estímulos auditivos y visuales de N pasos atrás. El estándar de oro para la memoria de trabajo.",
+
+  "exercise.patternBreaker.name": "Rompe Patrones",
+  "exercise.patternBreaker.description": "Encuentra la anomalía sutil en un patrón repetitivo. Entrena la atención sostenida.",
 
   "session.abort": "Esc  Abortar",
   "session.difficulty": "NV {level}"

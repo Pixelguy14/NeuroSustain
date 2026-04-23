@@ -76,6 +76,7 @@ export class SerialSubtractionEngine extends BaseEngine {
   // Cached render strings (Zero-Allocation)
   private _cachedOpString: string = '';
   private _cachedNumberString: string = '';
+  private _timeLimitMs: number = 0;
 
   // Animation
   private _scribbleLines: { x1: number; y1: number; x2: number; y2: number }[] = [];
@@ -101,6 +102,7 @@ export class SerialSubtractionEngine extends BaseEngine {
     this._consecutiveCorrect = 0;
     this._chainLength = 0;
     this._isAdding = false;
+    this._timeLimitMs = this.config.difficulty <= 3 ? 15000 : this.config.difficulty <= 7 ? 10000 : 6000;
 
     // Initialize arithmetic based on difficulty
     this._init_arithmetic();
@@ -128,7 +130,9 @@ export class SerialSubtractionEngine extends BaseEngine {
       }
 
       case 'active':
-        // Waiting for user input — nothing to animate
+        if (elapsed >= this._timeLimitMs) {
+          this._submit_answer();
+        }
         break;
 
       case 'feedback':
@@ -140,11 +144,13 @@ export class SerialSubtractionEngine extends BaseEngine {
         }
         break;
 
-      case 'scribble':
-        if (elapsed >= 800) {
+      case 'scribble': {
+        const eraserMs = this.config.difficulty <= 3 ? 1500 : this.config.difficulty <= 7 ? 800 : 200;
+        if (elapsed >= eraserMs) {
           this._advance_to_next();
         }
         break;
+      }
 
       // Subtrahend change phase removed per user request
     }
@@ -354,9 +360,7 @@ export class SerialSubtractionEngine extends BaseEngine {
   }
 
   private _submit_answer(): void {
-    if (this._userInput.length === 0) return;
-
-    const userAnswer = parseInt(this._userInput, 10);
+    const userAnswer = this._userInput.length > 0 ? parseInt(this._userInput, 10) : NaN;
     const reactionMs = precise_now() - this._trialStartTime;
     const isCorrect = userAnswer === this._expectedAnswer;
 

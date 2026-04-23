@@ -48,15 +48,6 @@
   "exercise.stroop.name": "Stroop Task",
   "exercise.stroop.description": "Identify the color of the text, not the word itself. Trains inhibitory control.",
 
-  "exercise.nback.name": "N-Back Dual",
-  "exercise.nback.description": "Remember positions and sounds from N turns ago. The gold standard for working memory.",
-
-  "exercise.setSwitch.name": "Set Switching",
-  "exercise.setSwitch.description": "Alternate between classification rules. Builds cognitive flexibility.",
-
-  "exercise.patternBreaker.name": "Pattern Breaker",
-  "exercise.patternBreaker.description": "Spot the anomaly in visual patterns. Trains sustained attention and processing speed.",
-
   "results.title": "Session Complete",
   "results.accuracy": "Accuracy",
   "results.meanRT": "Mean Reaction Time",
@@ -145,6 +136,24 @@
 
   "exercise.hanoi.name": "Tower of Hanoi",
   "exercise.hanoi.description": "Move all discs from peg 1 to peg 3 without placing a larger disc on a smaller one. Trains forward-thinking and sustained planning.",
+
+  "exercise.setSwitch.name": "Set Switching",
+  "exercise.setSwitch.description": "Match cards based on the active rule (Color or Shape). Trains cognitive flexibility.",
+
+  "exercise.changeMaker.name": "Change Maker",
+  "exercise.changeMaker.description": "Calculate exact change using a cash tray. Trains mental arithmetic and cognitive flexibility.",
+
+  "exercise.wordScramble.name": "Word Scramble",
+  "exercise.wordScramble.description": "Unscramble the letters to form a word. Trains linguistic flexibility and mental rotation.",
+
+  "exercise.blockCount3d.name": "3D Box Counting",
+  "exercise.blockCount3d.description": "Calculate the total number of cubes in the 3D structure, including hidden ones. Trains spatial visualization.",
+
+  "exercise.nback.name": "Dual N-Back",
+  "exercise.nback.description": "Track audio and visual stimuli from N steps ago. The gold standard for working memory.",
+
+  "exercise.patternBreaker.name": "Pattern Breaker",
+  "exercise.patternBreaker.description": "Find the subtle anomaly in a repeating pattern. Trains sustained attention.",
 
   "session.abort": "Esc  Abort",
   "session.difficulty": "LV {level}"

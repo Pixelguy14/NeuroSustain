@@ -9,11 +9,14 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@types/three": "^0.184.0",
     "typescript": "~6.0.2",
     "vite": "^7.3.2"
   },
   "dependencies": {
     "dexie": "^4.4.2",
+    "three": "^0.184.0",
     "vite-plugin-pwa": "^1.2.0"
   }
 }

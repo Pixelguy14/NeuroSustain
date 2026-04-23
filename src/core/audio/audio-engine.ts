@@ -15,6 +15,8 @@
 // the context hasn't been unlocked yet.
 // ============================================================
 
+import { NBACK_AUDIO } from './nback-letters.ts';
+
 class AudioEngine {
   private _ctx: AudioContext | null = null;
   private _enabled: boolean = true;
@@ -22,6 +24,7 @@ class AudioEngine {
   private _ambienceLfo: OscillatorNode | null = null;
   private _ambienceSource: AudioBufferSourceNode | null = null;
   private _ambienceActive: boolean = false;
+  private _nbackBuffers: AudioBuffer[] = [];
 
   // ── Lazy Initialization ──────────────────────────────────
 
@@ -136,6 +139,15 @@ class AudioEngine {
   }
 
   /**
+   * Play a distinct, clean tone at a given frequency.
+   * Used by N-Back for auditory stimuli (pentatonic scale).
+   * Sine wave with smooth attack/decay for encoding clarity.
+   */
+  play_tone(frequency: number, durationMs: number = 300): void {
+    this._play_tone(frequency, 'sine', durationMs / 1000, 0.2);
+  }
+
+  /**
    * Play a rich, additive synthesis tone mimicking a jazz piano/electric piano.
    * Uses multiple oscillators for harmonics and a per-note envelope.
    */
@@ -190,6 +202,54 @@ class AudioEngine {
     setTimeout(() => {
       masterGain.disconnect();
     }, durationMs + 200);
+  }
+
+  private async _init_nback_audio(): Promise<void> {
+    if (this._nbackBuffers.length > 0) return;
+    const ctx = this._ensure_context();
+    if (!ctx) return;
+    
+    const letters = ['C', 'H', 'K', 'L', 'Q', 'R', 'S', 'T'];
+    for (const l of letters) {
+      const b64 = (NBACK_AUDIO as any)[l];
+      if (!b64) continue;
+      
+      const base64Data = b64.split(',')[1];
+      if (!base64Data) continue;
+      
+      const binaryStr = atob(base64Data);
+      const len = binaryStr.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+      }
+      try {
+        const buffer = await ctx.decodeAudioData(bytes.buffer);
+        this._nbackBuffers.push(buffer);
+      } catch (e) {
+        console.error('Failed to decode nback audio for', l, e);
+      }
+    }
+  }
+
+  play_nback_letter(index: number): void {
+    if (!this._enabled) return;
+    const ctx = this._ensure_context();
+    if (!ctx) return;
+    
+    if (this._nbackBuffers.length === 0) {
+      this._init_nback_audio();
+      this.play_musical_tone(300 + index * 100, 150);
+      return;
+    }
+    
+    const buffer = this._nbackBuffers[index % this._nbackBuffers.length];
+    if (!buffer) return;
+    
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+    source.start(ctx.currentTime);
   }
 
   // ── Focus Ambience ───────────────────────────────────────
@@ -301,6 +361,7 @@ class AudioEngine {
   /** Unlock the AudioContext (call from a user gesture handler) */
   unlock(): void {
     this._ensure_context();
+    this._init_nback_audio(); // Pre-decode N-Back buffers on first gesture
   }
 }
 
