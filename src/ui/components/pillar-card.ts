@@ -88,6 +88,7 @@ export class PillarCard extends HTMLElement {
         <span class="exercise-item__name">${t(ex.nameKey)}</span>
         ${isDue && !isLocked ? '<span class="exercise-item__due-badge" style="margin-left: auto; margin-right: 8px; font-size: 10px; color: var(--color-warning); border: 1px solid var(--color-warning); padding: 2px 6px; border-radius: 4px; font-weight: 600;">🔥 Due</span>' : ''}
         ${isLocked ? '<span class="exercise-item__lock">🔒</span>' : '<span class="exercise-item__arrow">→</span>'}
+        <div class="exercise-item__tooltip">${isLocked ? t('train.locked') : t(ex.descriptionKey)}</div>
       </div>
     `;
   }

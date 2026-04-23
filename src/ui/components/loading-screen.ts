@@ -14,6 +14,10 @@ const INSIGHT_KEYS = [
   'insight.neuroplasticity',
   'insight.aiDependency',
   'insight.contextSwitch',
+  'insight.prefrontal',
+  'insight.inhibition',
+  'insight.deepWork',
+  'insight.brainDrain',
 ];
 
 let _loadingOverlay: HTMLElement | null = null;

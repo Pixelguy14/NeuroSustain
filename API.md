@@ -62,7 +62,7 @@ export interface EngineCallbacks {
 
 ## 4. Input Bridge API (`src/core/input/input-bridge.ts`)
 
-Normalizes input across physical keyboards and touch/pointer events to guarantee equitable sub-millisecond timestamps.
+Normalizes input across physical keyboards and touch/pointer events. Now supports **Choice RT** recording for exercises with multiple valid response keys (Hick's Law normalization).
 
 ### Core Interface
 
@@ -96,6 +96,8 @@ A procedural synthesis engine utilizing the Web Audio API to provide determinist
     *   Synthesizes a 110Hz sawtooth wave (low buzz) for negative reinforcement.
 *   `play_transition(): void`
     *   Plays a rapid ascending sweep to indicate phase changes or rule shifts.
+*   `play_tick(): void`
+    *   Plays a short, percussive tone for sequence feedback (Piano, Hanoi).
 *   `start_noise(): void` / `stop_noise(): void`
     *   Generates a continuous, LFO-modulated white noise signal to mask environmental distractions and enhance focus.
 

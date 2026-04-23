@@ -10,8 +10,9 @@ NeuroSustain is a local-first Progressive Web App (PWA) designed to deliver evid
 
 **Stack:** Vanilla TypeScript, Web Components, Canvas 2D API, Web Audio API, Three.js (lazy-loaded).
 
-*   **App Shell (`src/ui`):** Built with pure Web Components (extending `HTMLElement`) and a CSS Grid "Bento Box" layout. This avoids the overhead of Virtual DOM reconciliation (React/Vue/Lit), ensuring UI updates do not cause frame drops during cognitive measurements.
-*   **Exercise Engines (`src/engines`):** Rendered entirely via the Canvas 2D API. The Canvas provides direct pixel manipulation and avoids browser layout/reflow cycles. Engines inherit from `BaseEngine`, which standardizes the init/update/render/cleanup lifecycle, session configuration (dynamic difficulty), and HUD elements (like the Abort button).
+*   **App Shell (`src/ui`):** Built with pure Web Components (extending `HTMLElement`) and a CSS Grid "Bento Box" layout. This avoids the overhead of Virtual DOM reconciliation (React/Vue/Lit), ensuring UI updates do not cause frame drops during cognitive measurements. Includes a glassmorphic design system for premium visual fidelity without sacrificing performance.
+*   **Exercise Engines (`src/engines`):** Rendered entirely via the Canvas 2D API. The Canvas provides direct pixel manipulation and avoids browser layout/reflow cycles. Engines inherit from `BaseEngine`, which standardizes the init/update/render/cleanup lifecycle. Recent optimizations include **Zero-Allocation rendering** (caching strings/styles) to ensure 60fps stability during intense cognitive loads.
+*   **Neural Storm Orchestrator:** A specialized state machine in `src/ui/pages/session.ts` that manages rapid context-switching. It dynamically swaps engines every 30 seconds, monitoring cross-pillar fatigue and switch-costs in real-time.
 *   **Routing:** A custom, minimal hash-based Single Page Application (SPA) router manages view transitions without triggering full page reloads.
 
 ### 2. Core Logic Layer (Mathematical Engines)

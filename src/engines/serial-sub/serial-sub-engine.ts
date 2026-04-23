@@ -70,7 +70,12 @@ export class SerialSubtractionEngine extends BaseEngine {
   private _userInput: string = '';
   private _inputBridge: InputBridge | null = null;
   private _trialStartTime: number = 0;
+  private _firstDigitTime: number = 0; // Cognitive RT: time to first keypress
   private _lastInputMode: 'keyboard' | 'touch' = 'keyboard';
+
+  // Cached render strings (Zero-Allocation)
+  private _cachedOpString: string = '';
+  private _cachedNumberString: string = '';
 
   // Animation
   private _scribbleLines: { x1: number; y1: number; x2: number; y2: number }[] = [];
@@ -136,7 +141,7 @@ export class SerialSubtractionEngine extends BaseEngine {
         break;
 
       case 'scribble':
-        if (elapsed >= 1000) {
+        if (elapsed >= 800) {
           this._advance_to_next();
         }
         break;
@@ -176,7 +181,8 @@ export class SerialSubtractionEngine extends BaseEngine {
         break;
 
       case 'active':
-        this._render_chalkboard(ctx);
+        // Active phase: draw chalkboard, then draw scribble lines over it to force memorization
+        this._render_chalkboard_with_scribble(ctx);
         this._render_numpad(ctx);
         this._render_input_display(ctx);
         break;
@@ -188,7 +194,8 @@ export class SerialSubtractionEngine extends BaseEngine {
         break;
 
       case 'scribble':
-        this._render_chalkboard_with_scribble(ctx);
+        // Transition phase: alpha fade out
+        this._render_chalkboard(ctx);
         this._render_numpad(ctx);
         break;
 
@@ -259,8 +266,14 @@ export class SerialSubtractionEngine extends BaseEngine {
     this._phase = 'active';
     this._phaseStart = precise_now();
     this._trialStartTime = precise_now();
+    this._firstDigitTime = 0;
     this._userInput = '';
     this._compute_expected();
+    this._generate_scribble();
+    // Cache render strings (Zero-Allocation)
+    const opSymbol = this._isAdding ? '+' : '−';
+    this._cachedOpString = `${opSymbol}${this._subtrahend}`;
+    this._cachedNumberString = String(this._currentNumber);
   }
 
   private _advance_to_next(): void {
@@ -330,6 +343,10 @@ export class SerialSubtractionEngine extends BaseEngine {
       default:
         // Digit — max 4 characters
         if (event.value >= '0' && event.value <= '9' && this._userInput.length < 4) {
+          if (this._userInput.length === 0) {
+            // First digit: cognitive RT (brain finished calculating)
+            this._firstDigitTime = precise_now() - this._trialStartTime;
+          }
           this._userInput += event.value;
         }
         break;
@@ -358,13 +375,15 @@ export class SerialSubtractionEngine extends BaseEngine {
       timestamp: Date.now(),
       difficulty: this.config.difficulty,
       isCorrect,
-      reactionTimeMs: reactionMs,
+      reactionTimeMs: this._firstDigitTime > 0 ? this._firstDigitTime : reactionMs, // Cognitive RT
       metadata: {
         trial: this.currentTrial + 1,
         startingNumber: this._currentNumber,
         subtrahend: this._subtrahend,
         expectedAnswer: this._expectedAnswer,
         userAnswer,
+        motorTimeMs: reactionMs, // Full motor time for reference
+        cognitiveTimeMs: this._firstDigitTime, // Pure cognitive time
         inputMode: this._lastInputMode,
         subtrahendChanged: false,
         chainLength: this._chainLength,
@@ -447,24 +466,25 @@ export class SerialSubtractionEngine extends BaseEngine {
     const centerX = chalkX + chalkW / 2;
     const elapsed = precise_now() - this._phaseStart;
 
-    // Fade out logic ONLY during scribble/erasure per user request
+    // Fade out logic during SCRIBBLE transition phase
     let alpha = 1.0;
     if (this._phase === 'scribble') {
-      alpha = Math.max(0, 1 - (elapsed / 600));
+      alpha = Math.max(0, 1 - (elapsed / 800)); 
     }
 
-    // Current number (large)
+    // Current number (large) — uses globalAlpha for Zero-Allocation
     ctx.font = 'bold 64px Inter, sans-serif';
-    ctx.fillStyle = `hsla(220, 20%, 90%, ${alpha})`;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = 'hsl(220, 20%, 90%)';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(String(this._currentNumber), centerX, chalkY + chalkH * 0.35);
+    ctx.fillText(this._cachedNumberString, centerX, chalkY + chalkH * 0.35);
 
     // Operation indicator
-    const opSymbol = this._isAdding ? '+' : '−';
     ctx.font = 'bold 32px Inter, sans-serif';
-    ctx.fillStyle = `hsla(175, 70%, 55%, ${alpha})`;
-    ctx.fillText(`${opSymbol}${this._subtrahend}`, centerX, chalkY + chalkH * 0.55);
+    ctx.fillStyle = 'hsl(175, 70%, 55%)';
+    ctx.fillText(this._cachedOpString, centerX, chalkY + chalkH * 0.55);
+    ctx.globalAlpha = 1.0;
 
     // Direction label for level 8+
     if (this.config.difficulty >= 8) {
@@ -478,11 +498,12 @@ export class SerialSubtractionEngine extends BaseEngine {
   }
 
   private _render_chalkboard_with_scribble(ctx: CanvasRenderingContext2D): void {
-    // Render the base number which is now fading via alpha in _render_chalkboard
     this._render_chalkboard(ctx);
 
     const elapsed = precise_now() - this._phaseStart;
-    const progress = Math.min(1, elapsed / 1000);
+    // Eraser speed scales with difficulty: 2500ms at lv1, ~800ms at lv10
+    const eraserDurationMs = Math.max(800, 2500 - this.config.difficulty * 180);
+    const progress = Math.min(1, elapsed / eraserDurationMs);
 
     ctx.strokeStyle = 'hsl(225, 45%, 6%)'; // Exact background color
     ctx.lineWidth = 14; 

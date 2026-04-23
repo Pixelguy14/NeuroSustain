@@ -1,0 +1,182 @@
+[
+  {
+    "argument": "If it rains, the street gets wet. The street is wet, therefore it rained.",
+    "isValid": false,
+    "fallacyType": "Affirming the Consequent",
+    "difficulty": 2
+  },
+  {
+    "argument": "All cats are animals. Whiskers is a cat. Therefore, Whiskers is an animal.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 1
+  },
+  {
+    "argument": "You can't trust Dr. Lee's research on nutrition — she's overweight herself.",
+    "isValid": false,
+    "fallacyType": "Ad Hominem",
+    "difficulty": 1
+  },
+  {
+    "argument": "If the alarm sounds, there is a fire. There is no fire. Therefore, the alarm did not sound.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 3
+  },
+  {
+    "argument": "We should ban all cars because car accidents kill people.",
+    "isValid": false,
+    "fallacyType": "False Dilemma",
+    "difficulty": 1
+  },
+  {
+    "argument": "Every time I wash my car, it rains. Washing my car causes rain.",
+    "isValid": false,
+    "fallacyType": "Post Hoc",
+    "difficulty": 1
+  },
+  {
+    "argument": "All squares are rectangles. All rectangles have four sides. Therefore, all squares have four sides.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 2
+  },
+  {
+    "argument": "Millions of people believe in astrology, so there must be something to it.",
+    "isValid": false,
+    "fallacyType": "Ad Populum",
+    "difficulty": 2
+  },
+  {
+    "argument": "If we allow students to redo one test, soon they'll want to redo every test, then every assignment, then we'll just hand out degrees.",
+    "isValid": false,
+    "fallacyType": "Slippery Slope",
+    "difficulty": 2
+  },
+  {
+    "argument": "No reptiles have fur. All snakes are reptiles. Therefore, no snakes have fur.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 2
+  },
+  {
+    "argument": "This new diet pill works — a famous actor endorses it.",
+    "isValid": false,
+    "fallacyType": "Appeal to Authority",
+    "difficulty": 1
+  },
+  {
+    "argument": "Either you support the new policy completely, or you're against progress.",
+    "isValid": false,
+    "fallacyType": "False Dilemma",
+    "difficulty": 2
+  },
+  {
+    "argument": "All mammals are warm-blooded. Whales are mammals. Therefore, whales are warm-blooded.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 1
+  },
+  {
+    "argument": "The senator argues for tax reform, but he himself doesn't pay his taxes on time. His argument is invalid.",
+    "isValid": false,
+    "fallacyType": "Tu Quoque",
+    "difficulty": 3
+  },
+  {
+    "argument": "If P implies Q, and Q implies R, then P implies R.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 3
+  },
+  {
+    "argument": "We've never found evidence of life on Mars. Therefore, there is no life on Mars.",
+    "isValid": false,
+    "fallacyType": "Appeal to Ignorance",
+    "difficulty": 3
+  },
+  {
+    "argument": "Some students are athletes. Some athletes are scholars. Therefore, some students are scholars.",
+    "isValid": false,
+    "fallacyType": "Undistributed Middle",
+    "difficulty": 4
+  },
+  {
+    "argument": "No fish can fly. A salmon is a fish. Therefore, a salmon cannot fly.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 3
+  },
+  {
+    "argument": "My opponent wants to reduce military spending. Clearly, they don't care about national security at all.",
+    "isValid": false,
+    "fallacyType": "Straw Man",
+    "difficulty": 2
+  },
+  {
+    "argument": "If something is illegal, then it is immoral. Jaywalking is illegal. Therefore, jaywalking is immoral.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 4
+  },
+  {
+    "argument": "Studies show correlation between ice cream sales and drowning rates. Therefore, ice cream causes drowning.",
+    "isValid": false,
+    "fallacyType": "Cum Hoc",
+    "difficulty": 3
+  },
+  {
+    "argument": "The theory of evolution must be wrong because some scientists disagree about the specific mechanisms.",
+    "isValid": false,
+    "fallacyType": "Hasty Generalization",
+    "difficulty": 4
+  },
+  {
+    "argument": "All integers are rational numbers. All rational numbers are real numbers. Therefore, all integers are real numbers.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 4
+  },
+  {
+    "argument": "If the economy improves, unemployment drops. Unemployment dropped. Therefore, the economy improved.",
+    "isValid": false,
+    "fallacyType": "Affirming the Consequent",
+    "difficulty": 4
+  },
+  {
+    "argument": "This encryption algorithm is secure because no one has broken it yet.",
+    "isValid": false,
+    "fallacyType": "Appeal to Ignorance",
+    "difficulty": 4
+  },
+  {
+    "argument": "If A then B. If B then C. A is true. Therefore C is true.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 5
+  },
+  {
+    "argument": "People who read more live longer. Therefore, reading extends your lifespan.",
+    "isValid": false,
+    "fallacyType": "Cum Hoc",
+    "difficulty": 5
+  },
+  {
+    "argument": "If not-P then not-Q. Q is true. Therefore P is true.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 5
+  },
+  {
+    "argument": "Natural remedies are always safer than synthetic medication because they come from nature.",
+    "isValid": false,
+    "fallacyType": "Appeal to Nature",
+    "difficulty": 3
+  },
+  {
+    "argument": "If all dogs are loyal, and Rex is a dog, then Rex is loyal. Rex is not loyal. Therefore, not all dogs are loyal.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 5
+  }
+]

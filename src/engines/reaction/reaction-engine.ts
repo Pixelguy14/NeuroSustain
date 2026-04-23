@@ -32,6 +32,13 @@ export class ReactionTimeEngine extends BaseEngine {
   private _countdownValue: number = 3;
   private _isFakeout: boolean = false;
   private _isFakeoutError: boolean = false;
+  private _targetColor: string = 'hsl(145, 70%, 58%)';
+  private _targetDarkColor: string = 'hsl(145, 65%, 40%)';
+  private _targetKey: string = 'Space';
+  private _targetLabel: string = 'SPACE';
+
+  // Session-specific active targets (max 3 valid colors)
+  private _activeTargets: { color: string; dark: string; key: string; label: string; name: string }[] = [];
 
   // Visual animation state
   private _circleRadius: number = 0;
@@ -54,6 +61,26 @@ export class ReactionTimeEngine extends BaseEngine {
     this._phase = 'countdown';
     this._countdownValue = 3;
     this._phaseStartTime = precise_now();
+
+    // Select max 3 colors per session to avoid overwhelming the user
+    // Green (Space) is always included as the baseline
+    const allTargets = [
+      { color: 'hsl(210, 80%, 55%)', dark: 'hsl(210, 70%, 40%)', key: 'KeyW', label: 'PRESS W', name: 'BLUE' },
+      { color: 'hsl(45, 95%, 55%)', dark: 'hsl(45, 80%, 40%)', key: 'KeyS', label: 'PRESS S', name: 'YELLOW' },
+      { color: 'hsl(280, 70%, 60%)', dark: 'hsl(280, 60%, 45%)', key: 'KeyD', label: 'PRESS D', name: 'PURPLE' }
+    ];
+    
+    // Shuffle and pick 2 distractors
+    for (let i = allTargets.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allTargets[i], allTargets[j]] = [allTargets[j]!, allTargets[i]!];
+    }
+    
+    this._activeTargets = [
+      { color: 'hsl(145, 70%, 58%)', dark: 'hsl(145, 65%, 40%)', key: 'Space', label: 'SPACE', name: 'GREEN' },
+      allTargets[0]!,
+      allTargets[1]!
+    ];
   }
 
   protected on_update(dt: number): void {
@@ -113,7 +140,8 @@ export class ReactionTimeEngine extends BaseEngine {
 
         // Fakeout auto-clears after 1.5s — user should NOT have pressed
         if (elapsed >= 1500) {
-          // Survived the fakeout — not counted as a trial (it's a test of restraint)
+          // Inhibition success — record as True Negative trial
+          this.record_trial(this._make_trial(true, 1500, true));
           this._start_waiting();
         }
 
@@ -124,8 +152,8 @@ export class ReactionTimeEngine extends BaseEngine {
         break;
 
       case 'too_early':
-        this._feedbackOpacity = Math.max(0, 1 - elapsed / 1200);
-        if (elapsed >= 1200) {
+        this._feedbackOpacity = Math.max(0, 1 - elapsed / 3000);
+        if (elapsed >= 3000) {
           this._start_waiting();
         }
         break;
@@ -169,7 +197,7 @@ export class ReactionTimeEngine extends BaseEngine {
         this._render_waiting(ctx, this._stimulusX, this._stimulusY);
         break;
       case 'ready':
-        this._render_stimulus(ctx, this._stimulusX, this._stimulusY, 'hsl(145, 70%, 58%)', 'hsl(145, 65%, 40%)');
+        this._render_stimulus(ctx, this._stimulusX, this._stimulusY, this._targetColor, this._targetDarkColor);
         break;
       case 'fakeout':
         this._render_stimulus(ctx, this._stimulusX, this._stimulusY, 'hsl(0, 75%, 55%)', 'hsl(0, 60%, 40%)');
@@ -184,40 +212,52 @@ export class ReactionTimeEngine extends BaseEngine {
     }
 
     // Instruction text at bottom
-    ctx.font = '400 13px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 45%, 0.6)';
+    ctx.font = '500 14px Inter, sans-serif';
+    ctx.fillStyle = 'hsla(175, 70%, 50%, 0.8)';
     ctx.textAlign = 'center';
-    ctx.fillText(t('exercise.reaction.instruction'), cx, h - 40);
+    
+    let instruction = t('exercise.reaction.instruction');
+    if (this.config.difficulty >= 4) {
+      const keys = this._activeTargets.map(t => `${t.name === 'GREEN' ? 'SPACE' : t.key.replace('Key', '')} for ${t.name}`).join(', ');
+      instruction = `Press ${keys}. IGNORE RED.`;
+    }
+    ctx.fillText(instruction, cx, h - 40);
   }
 
   protected on_key_down(code: string, timestamp: number): void {
-    if (code !== 'Space') return;
+    if (this._phase === 'waiting') {
+      // False Alarm — record as failed trial + 3s cooldown penalty
+      this.record_trial(this._make_trial(false, 0, false));
+      this._phase = 'too_early';
+      this._phaseStartTime = precise_now();
+      this._feedbackOpacity = 1;
+      return;
+    }
 
-    switch (this._phase) {
-      case 'waiting':
+    if (this._phase === 'fakeout') {
+      // User pressed during a fakeout — WRONG
+      this._isFakeoutError = true;
+      this.record_trial(this._make_trial(false, timestamp - this._stimulusTime, true));
+      this._show_feedback(-1, false);
+      return;
+    }
+
+    if (this._phase === 'ready') {
+      const reactionMs = timestamp - this._stimulusTime;
+      const correctKey = code === this._targetKey;
+
+      if (reactionMs < TIMING.MIN_REACTION_MS) {
         this._phase = 'too_early';
         this._phaseStartTime = precise_now();
         this._feedbackOpacity = 1;
-        break;
-
-      case 'fakeout':
-        // User pressed during a fakeout — WRONG
-        this._isFakeoutError = true;
-        this.record_trial(this._make_trial(false, timestamp - this._stimulusTime, true));
+      } else if (!correctKey) {
+        // Wrong key pressed
+        this._isFakeoutError = true; // Use this to show a "Wrong Key" message
+        this.record_trial(this._make_trial(false, reactionMs, false));
         this._show_feedback(-1, false);
-        break;
-
-      case 'ready': {
-        const reactionMs = timestamp - this._stimulusTime;
-        if (reactionMs < TIMING.MIN_REACTION_MS) {
-          this._phase = 'too_early';
-          this._phaseStartTime = precise_now();
-          this._feedbackOpacity = 1;
-        } else {
-          this.record_trial(this._make_trial(true, reactionMs, false));
-          this._show_feedback(reactionMs, true);
-        }
-        break;
+      } else {
+        this.record_trial(this._make_trial(true, reactionMs, false));
+        this._show_feedback(reactionMs, true);
       }
     }
   }
@@ -277,6 +317,20 @@ export class ReactionTimeEngine extends BaseEngine {
     if (this._isFakeout) {
       this._phase = 'fakeout';
     } else {
+      // Pick target key and color based on difficulty
+      if (diff >= 4) {
+        const choice = Math.floor(Math.random() * this._activeTargets.length);
+        const t = this._activeTargets[choice]!;
+        this._targetColor = t.color;
+        this._targetDarkColor = t.dark;
+        this._targetKey = t.key;
+        this._targetLabel = t.label;
+      } else {
+        this._targetColor = 'hsl(145, 70%, 58%)';
+        this._targetDarkColor = 'hsl(145, 65%, 40%)';
+        this._targetKey = 'Space';
+        this._targetLabel = t('exercise.reaction.go');
+      }
       this._phase = 'ready';
     }
   }
@@ -304,6 +358,8 @@ export class ReactionTimeEngine extends BaseEngine {
         fakeout: wasFakeout,
         positionX: Math.round(this._stimulusX),
         positionY: Math.round(this._stimulusY),
+        isChoiceRT: this.config.difficulty >= 4,
+        numChoices: this.config.difficulty >= 4 ? this._activeTargets.length : 1,
       },
     };
   }
@@ -367,13 +423,13 @@ export class ReactionTimeEngine extends BaseEngine {
     ctx.fillStyle = 'hsla(0, 0%, 100%, 0.2)';
     ctx.fill();
 
-    // "NOW!" text (only for real stimulus)
+    // Action label
     if (this._phase === 'ready') {
       ctx.font = 'bold 24px Inter, sans-serif';
       ctx.fillStyle = colorBright;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(t('exercise.reaction.go'), sx, sy + drawR + 40);
+      ctx.fillText(this._targetLabel, sx, sy + drawR + 40);
     }
   }
 
@@ -409,9 +465,13 @@ export class ReactionTimeEngine extends BaseEngine {
     ctx.globalAlpha = this._feedbackOpacity;
 
     if (this._lastReactionMs < 0) {
+      ctx.font = '500 18px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
       if (this._isFakeoutError) {
         ctx.fillStyle = 'hsl(0, 75%, 65%)';
-        ctx.fillText('Hit only when GREEN!', cx, cy);
+        ctx.fillText('Wrong Input / Ignored Rule!', cx, cy);
       } else {
         ctx.fillStyle = 'hsl(38, 90%, 55%)';
         ctx.fillText(t('exercise.reaction.missed'), cx, cy);

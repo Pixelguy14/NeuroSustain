@@ -204,10 +204,33 @@ export class HighNumberEngine extends BaseEngine {
     const values = shuffle(this._generate_values(numOptions, diff));
     this._correctValue = Math.max(...values);
 
+    // --- Numerical Stroop (Anti-Hack) ---
+    // Congruent: biggest number = biggest size (trap for size-learners)
+    // Neutral: all sizes random (baseline)
+    // Incongruent: biggest number = smallest size (the real Stroop test)
+    let stroopMode: 'congruent' | 'neutral' | 'incongruent' = 'neutral';
+    if (diff >= 4) {
+      const rand = Math.random();
+      if (rand < 0.6) stroopMode = 'incongruent';
+      else if (rand < 0.8) stroopMode = 'congruent';
+      // else: neutral (20%)
+    }
+
     for (const value of values) {
-      // Font size logic: decoupled from value to prevent cheating
-      // Even at high levels, sizes are randomized and will "breathe" in on_update
-      const fontSizeBase = 40 + Math.random() * 60;
+      let fontSizeBase: number;
+
+      if (stroopMode === 'incongruent' && value === this._correctValue) {
+        fontSizeBase = 40 + Math.random() * 10; // Correct = small (40-50)
+      } else if (stroopMode === 'incongruent' && value !== this._correctValue) {
+        fontSizeBase = 70 + Math.random() * 30; // Distractors = large (70-100)
+      } else if (stroopMode === 'congruent' && value === this._correctValue) {
+        fontSizeBase = 80 + Math.random() * 20; // Correct = large (trap)
+      } else if (stroopMode === 'congruent' && value !== this._correctValue) {
+        fontSizeBase = 40 + Math.random() * 20; // Distractors = small
+      } else {
+        fontSizeBase = 40 + Math.random() * 60; // Neutral: fully random
+      }
+
       const rotation = (Math.random() - 0.5) * 0.3;
 
       const opt = this._pool.acquire();

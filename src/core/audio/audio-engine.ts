@@ -135,6 +135,63 @@ class AudioEngine {
     this._play_tone(1200, 'triangle', 0.02, 0.1);
   }
 
+  /**
+   * Play a rich, additive synthesis tone mimicking a jazz piano/electric piano.
+   * Uses multiple oscillators for harmonics and a per-note envelope.
+   */
+  play_musical_tone(frequency: number, durationMs: number): void {
+    if (!this._enabled) return;
+    const ctx = this._ensure_context();
+    if (!ctx) return;
+
+    const duration = durationMs / 1000;
+    const now = ctx.currentTime;
+
+    // Create a series of harmonics for "warmth"
+    // Fundamental + 2nd, 3rd, 4th harmonics
+    const harmonics = [
+      { f: 1, g: 0.5, type: 'sine' as OscillatorType },
+      { f: 2, g: 0.2, type: 'sine' as OscillatorType },
+      { f: 3, g: 0.1, type: 'triangle' as OscillatorType },
+      { f: 4, g: 0.05, type: 'sine' as OscillatorType }
+    ];
+
+    const masterGain = ctx.createGain();
+    masterGain.connect(ctx.destination);
+
+    // Piano Envelope: Fast attack, exponential decay
+    masterGain.gain.setValueAtTime(0, now);
+    masterGain.gain.linearRampToValueAtTime(0.4, now + 0.005);
+    masterGain.gain.exponentialRampToValueAtTime(0.15, now + 0.15);
+    masterGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+    harmonics.forEach(h => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      
+      osc.type = h.type;
+      osc.frequency.setValueAtTime(frequency * h.f, now);
+      
+      g.gain.setValueAtTime(h.g, now);
+      
+      osc.connect(g);
+      g.connect(masterGain);
+      
+      osc.start(now);
+      osc.stop(now + duration + 0.1);
+
+      osc.onended = () => {
+        osc.disconnect();
+        g.disconnect();
+      };
+    });
+
+    // Cleanup master gain
+    setTimeout(() => {
+      masterGain.disconnect();
+    }, durationMs + 200);
+  }
+
   // ── Focus Ambience ───────────────────────────────────────
 
   /**

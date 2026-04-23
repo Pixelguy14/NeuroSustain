@@ -7,6 +7,10 @@ import type { TrialResults, Trial, Session, FatigueEvent } from '@shared/types.t
 import { ReactionTimeEngine } from '@engines/reaction/reaction-engine.ts';
 import { HighNumberEngine } from '@engines/high-number/high-number-engine.ts';
 import { SerialSubtractionEngine } from '@engines/serial-sub/serial-sub-engine.ts';
+import { PianoPlayerEngine } from '@engines/piano-player/piano-player-engine.ts';
+import { FallacyDetectorEngine } from '@engines/fallacy-detector/fallacy-detector-engine.ts';
+import { HanoiEngine } from '@engines/hanoi/hanoi-engine.ts';
+import { SetSwitchingEngine } from '@engines/set-switching/set-switching-engine.ts';
 import { FreeDrawEngine } from '@engines/free-draw/free-draw-engine.ts';
 import { generate_uuid, format_ms } from '@shared/utils.ts';
 import { save_session } from '@shared/db.ts';
@@ -95,6 +99,18 @@ function _launch_engine(exerciseType: string, isNeuralStorm: boolean = false, ov
     case 'SerialSubtraction':
       _activeEngine = new SerialSubtractionEngine(canvas, callbacks);
       break;
+    case 'PianoPlayer':
+      _activeEngine = new PianoPlayerEngine(canvas, callbacks);
+      break;
+    case 'FallacyDetector':
+      _activeEngine = new FallacyDetectorEngine(canvas, callbacks);
+      break;
+    case 'TowerOfHanoi':
+      _activeEngine = new HanoiEngine(canvas, callbacks);
+      break;
+    case 'SetSwitching':
+      _activeEngine = new SetSwitchingEngine(canvas, callbacks);
+      break;
     case 'FreeDraw':
       _activeEngine = new FreeDrawEngine(canvas, callbacks);
       break;
@@ -115,7 +131,7 @@ function _launch_neural_storm(): void {
   const STORM_DURATION_MS = 180_000; // 3 minutes
   const SWITCH_INTERVAL_MS = 30_000; // 30 seconds
   const GRACE_PERIOD_MS = 2000; // 2 seconds of transition
-  const pool = ['ReactionTime', 'HighNumber', 'SerialSubtraction'];
+  const pool = ['ReactionTime', 'HighNumber', 'SerialSubtraction', 'PianoPlayer', 'FallacyDetector', 'TowerOfHanoi', 'SetSwitching'];
   
   let elapsed = 0;
   let lastType = '';

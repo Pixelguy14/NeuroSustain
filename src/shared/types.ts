@@ -20,6 +20,8 @@ export type ExerciseType =
   | 'HighNumber'
   | 'SerialSubtraction'
   | 'PianoPlayer'
+  | 'FallacyDetector'
+  | 'TowerOfHanoi'
   | 'WordScramble'
   | 'CPT'
   | 'BlockCount3D'

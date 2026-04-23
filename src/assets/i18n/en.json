@@ -93,6 +93,10 @@
   "insight.neuroplasticity": "Your brain forms approximately 700 new neurons daily in the hippocampus. Cognitive training helps integrate these neurons into functional circuits.",
   "insight.aiDependency": "Relying on AI for semantic synthesis reduces activation in Broca's area. Exercises like Semantic Linker force your prefrontal cortex to rebuild those pathways.",
   "insight.contextSwitch": "The average person's context-switching cost is 400ms of cognitive \"dead time.\" Training reduces this refractory period, building resilience to digital fragmentation.",
+  "insight.prefrontal": "The prefrontal cortex — your brain's CEO — thins measurably after months of high-scroll behavior. These exercises force the Dorsolateral PFC to rebuild executive control pathways.",
+  "insight.inhibition": "Scrolling is a \"Go-Go-Go\" behavior — always swiping, always clicking. Exercises with No-Go signals (red circles, fakeout tones) strengthen the neural brakes needed to stop scrolling and put the phone down.",
+  "insight.deepWork": "Short-form video trains your brain to switch contexts every 15 seconds. Exercises like Serial Subtraction stretch that window back to 2-3 minutes of sustained single-context focus.",
+  "insight.brainDrain": "The mere presence of your smartphone reduces available cognitive capacity (Ward et al., 2017). Consider placing your phone in another room during training.",
   
   "calibration.intro.badge": "ONE-TIME CALIBRATION",
   "calibration.intro.title": "Hardware Calibration",
@@ -132,6 +136,15 @@
   "exercise.serialSub.subMode": "SUBTRACTION MODE",
 
   "exercise.fakeout.wait": "✕ WAIT",
+  "exercise.pianoPlayer.name": "Piano Player",
+  "exercise.pianoPlayer.description": "Listen to the sequence of tones and repeat it. Trains auditory and sequential working memory.",
+  "exercise.pianoPlayer.instruction": "Listen to the sequence",
+
+  "exercise.fallacy.name": "Fallacy Detector",
+  "exercise.fallacy.description": "Classify logical arguments as Valid or Fallacy. Trains critical thinking and inhibition of emotional reasoning.",
+
+  "exercise.hanoi.name": "Tower of Hanoi",
+  "exercise.hanoi.description": "Move all discs from peg 1 to peg 3 without placing a larger disc on a smaller one. Trains forward-thinking and sustained planning.",
 
   "session.abort": "Esc  Abort",
   "session.difficulty": "LV {level}"

@@ -1,0 +1,182 @@
+[
+  {
+    "argument": "Si llueve, la calle se moja. La calle está mojada, por lo tanto llovió.",
+    "isValid": false,
+    "fallacyType": "Afirmación del Consecuente",
+    "difficulty": 2
+  },
+  {
+    "argument": "Todos los gatos son animales. Bigotes es un gato. Por lo tanto, Bigotes es un animal.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 1
+  },
+  {
+    "argument": "No puedes confiar en la investigación del Dr. Lee sobre nutrición — ella misma tiene sobrepeso.",
+    "isValid": false,
+    "fallacyType": "Ad Hominem",
+    "difficulty": 1
+  },
+  {
+    "argument": "Si la alarma suena, hay un incendio. No hay incendio. Por lo tanto, la alarma no sonó.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 3
+  },
+  {
+    "argument": "Deberíamos prohibir todos los coches porque los accidentes automovilísticos matan personas.",
+    "isValid": false,
+    "fallacyType": "Falso Dilema",
+    "difficulty": 1
+  },
+  {
+    "argument": "Cada vez que lavo mi coche, llueve. Lavar mi coche causa la lluvia.",
+    "isValid": false,
+    "fallacyType": "Post Hoc",
+    "difficulty": 1
+  },
+  {
+    "argument": "Todos los cuadrados son rectángulos. Todos los rectángulos tienen cuatro lados. Por lo tanto, todos los cuadrados tienen cuatro lados.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 2
+  },
+  {
+    "argument": "Millones de personas creen en la astrología, así que debe tener algo de cierto.",
+    "isValid": false,
+    "fallacyType": "Ad Populum",
+    "difficulty": 2
+  },
+  {
+    "argument": "Si permitimos a los estudiantes rehacer un examen, pronto querrán rehacer cada examen, luego cada tarea, y luego simplemente daremos títulos.",
+    "isValid": false,
+    "fallacyType": "Pendiente Resbaladiza",
+    "difficulty": 2
+  },
+  {
+    "argument": "Ningún reptil tiene pelaje. Todas las serpientes son reptiles. Por lo tanto, ninguna serpiente tiene pelaje.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 2
+  },
+  {
+    "argument": "Esta nueva pastilla para adelgazar funciona — un actor famoso la recomienda.",
+    "isValid": false,
+    "fallacyType": "Apelación a la Autoridad",
+    "difficulty": 1
+  },
+  {
+    "argument": "O apoyas la nueva política completamente, o estás en contra del progreso.",
+    "isValid": false,
+    "fallacyType": "Falso Dilema",
+    "difficulty": 2
+  },
+  {
+    "argument": "Todos los mamíferos son de sangre caliente. Las ballenas son mamíferos. Por lo tanto, las ballenas son de sangre caliente.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 1
+  },
+  {
+    "argument": "El senador argumenta por la reforma fiscal, pero él mismo no paga sus impuestos a tiempo. Su argumento es inválido.",
+    "isValid": false,
+    "fallacyType": "Tu Quoque",
+    "difficulty": 3
+  },
+  {
+    "argument": "Si P implica Q, y Q implica R, entonces P implica R.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 3
+  },
+  {
+    "argument": "Nunca hemos encontrado evidencia de vida en Marte. Por lo tanto, no hay vida en Marte.",
+    "isValid": false,
+    "fallacyType": "Apelación a la Ignorancia",
+    "difficulty": 3
+  },
+  {
+    "argument": "Algunos estudiantes son atletas. Algunos atletas son académicos. Por lo tanto, algunos estudiantes son académicos.",
+    "isValid": false,
+    "fallacyType": "Término Medio No Distribuido",
+    "difficulty": 4
+  },
+  {
+    "argument": "Ningún pez puede volar. El salmón es un pez. Por lo tanto, el salmón no puede volar.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 3
+  },
+  {
+    "argument": "Mi oponente quiere reducir el gasto militar. Claramente, no le importa la seguridad nacional en absoluto.",
+    "isValid": false,
+    "fallacyType": "Hombre de Paja",
+    "difficulty": 2
+  },
+  {
+    "argument": "Si algo es ilegal, entonces es inmoral. Cruzar la calle fuera del paso es ilegal. Por lo tanto, es inmoral.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 4
+  },
+  {
+    "argument": "Los estudios muestran correlación entre las ventas de helado y las tasas de ahogamiento. Por lo tanto, el helado causa ahogamientos.",
+    "isValid": false,
+    "fallacyType": "Cum Hoc",
+    "difficulty": 3
+  },
+  {
+    "argument": "La teoría de la evolución debe estar equivocada porque algunos científicos discrepan sobre los mecanismos específicos.",
+    "isValid": false,
+    "fallacyType": "Generalización Apresurada",
+    "difficulty": 4
+  },
+  {
+    "argument": "Todos los enteros son números racionales. Todos los racionales son números reales. Por lo tanto, todos los enteros son números reales.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 4
+  },
+  {
+    "argument": "Si la economía mejora, el desempleo baja. El desempleo bajó. Por lo tanto, la economía mejoró.",
+    "isValid": false,
+    "fallacyType": "Afirmación del Consecuente",
+    "difficulty": 4
+  },
+  {
+    "argument": "Este algoritmo de cifrado es seguro porque nadie lo ha roto todavía.",
+    "isValid": false,
+    "fallacyType": "Apelación a la Ignorancia",
+    "difficulty": 4
+  },
+  {
+    "argument": "Si A entonces B. Si B entonces C. A es verdadero. Por lo tanto, C es verdadero.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 5
+  },
+  {
+    "argument": "Las personas que leen más viven más tiempo. Por lo tanto, leer extiende tu esperanza de vida.",
+    "isValid": false,
+    "fallacyType": "Cum Hoc",
+    "difficulty": 5
+  },
+  {
+    "argument": "Si no-P entonces no-Q. Q es verdadero. Por lo tanto, P es verdadero.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 5
+  },
+  {
+    "argument": "Los remedios naturales siempre son más seguros que la medicación sintética porque provienen de la naturaleza.",
+    "isValid": false,
+    "fallacyType": "Apelación a la Naturaleza",
+    "difficulty": 3
+  },
+  {
+    "argument": "Si todos los perros son leales, y Rex es un perro, entonces Rex es leal. Rex no es leal. Por lo tanto, no todos los perros son leales.",
+    "isValid": true,
+    "fallacyType": null,
+    "difficulty": 5
+  }
+]

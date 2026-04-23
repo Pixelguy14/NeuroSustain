@@ -93,6 +93,10 @@
   "insight.neuroplasticity": "Tu cerebro genera aproximadamente 700 nuevas neuronas diarias en el hipocampo. El entrenamiento cognitivo ayuda a integrar estas neuronas en circuitos funcionales.",
   "insight.aiDependency": "Depender de la IA para síntesis semántica reduce la activación del área de Broca. Ejercicios como el Semantic Linker fuerzan a tu corteza prefrontal a reconstruir esas vías.",
   "insight.contextSwitch": "El costo promedio del cambio de contexto de una persona es de 400ms de \"tiempo muerto\" cognitivo. Entrenar reduce este período refractario, construyendo resiliencia ante la fragmentación digital.",
+  "insight.prefrontal": "La corteza prefrontal — el CEO de tu cerebro — se adelgaza de forma medible tras meses de comportamiento de scroll intensivo. Estos ejercicios fuerzan al PFC Dorsolateral a reconstruir las vías de control ejecutivo.",
+  "insight.inhibition": "El scrolling es un comportamiento de \"Sigue-Sigue-Sigue\" — siempre deslizando, siempre haciendo clic. Los ejercicios con señales de No-Go (círculos rojos, tonos de engaño) fortalecen los frenos neuronales necesarios para dejar el teléfono.",
+  "insight.deepWork": "El video de formato corto entrena a tu cerebro para cambiar de contexto cada 15 segundos. Ejercicios como la Resta Serial estiran esa ventana de vuelta a 2-3 minutos de enfoque sostenido en un solo contexto.",
+  "insight.brainDrain": "La mera presencia de tu smartphone reduce la capacidad cognitiva disponible (Ward et al., 2017). Considera colocar tu teléfono en otra habitación durante el entrenamiento.",
   
   "calibration.intro.badge": "CALIBRACIÓN ÚNICA",
   "calibration.intro.title": "Calibración de Hardware",
@@ -132,6 +136,15 @@
   "exercise.serialSub.subMode": "MODO RESTA",
 
   "exercise.fakeout.wait": "✕ ESPERA",
+  "exercise.pianoPlayer.name": "Pianista",
+  "exercise.pianoPlayer.description": "Escucha la secuencia de tonos y repítela. Entrena la memoria de trabajo auditiva y secuencial.",
+  "exercise.pianoPlayer.instruction": "Escucha la secuencia",
+
+  "exercise.fallacy.name": "Detector de Falacias",
+  "exercise.fallacy.description": "Clasifica argumentos lógicos como Válido o Falacia. Entrena el pensamiento crítico y la inhibición del razonamiento emocional.",
+
+  "exercise.hanoi.name": "Torre de Hanói",
+  "exercise.hanoi.description": "Mueve todos los discos de la clavija 1 a la 3 sin colocar un disco grande sobre uno pequeño. Entrena la planificación a futuro y la atención sostenida.",
 
   "session.abort": "Esc  Abortar",
   "session.difficulty": "NV {level}"

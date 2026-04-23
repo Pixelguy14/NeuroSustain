@@ -15,11 +15,11 @@ NeuroSustain is a local-first, privacy-sovereign Progressive Web App (PWA) desig
 
 NeuroSustain categorizes exercises into five distinct neurological domains:
 
-1.  **Working Memory:** The ability to hold and manipulate information. (e.g., *N-Back Dual*)
-2.  **Cognitive Flexibility:** The ability to rapidly adapt to changing rules. (e.g., *Set Switching*)
-3.  **Inhibitory Control:** The ability to suppress impulsive responses. (e.g., *Stroop Task*)
-4.  **Sustained Attention:** The ability to maintain focus over time without distraction. (e.g., *Continuous Performance Task*)
-5.  **Processing Speed:** The raw baseline speed of neural transmission. (e.g., *Simple Reaction Time*)
+1.  **Working Memory:** Hold and manipulate information. (*N-Back Dual*, *Serial Subtraction*, *Piano Player*)
+2.  **Cognitive Flexibility:** Rapidly adapt to changing rules. (*Set Switching*, *Neural Storm*)
+3.  **Inhibitory Control:** Suppress impulsive responses. (*Stroop Task*, *High Number*, *Fallacy Detector*)
+4.  **Sustained Attention:** Maintain focus without distraction. (*Tower of Hanoi*, *Continuous Performance Task*)
+5.  **Processing Speed:** Raw baseline neural transmission speed. (*Reaction Time*)
 
 ## Technical Architecture
 

@@ -327,8 +327,12 @@ button {
   flex-direction: column;
   padding: var(--space-lg);
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   grid-column: span 2;
+}
+
+.pillar-card:has(.exercise-item:hover) {
+  z-index: 10;
 }
 
 .pillar-card--fatigued {
@@ -400,12 +404,44 @@ button {
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--transition-fast);
+  position: relative;
 }
 
 .exercise-item:hover {
   background: hsla(225, 30%, 18%, 0.6);
   border-color: hsla(220, 20%, 40%, 0.4);
   transform: translateX(4px);
+}
+
+.exercise-item__tooltip {
+  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 6px);
+  background: hsla(225, 35%, 12%, 0.97);
+  border: 1px solid hsla(175, 70%, 50%, 0.2);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-xs);
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  backdrop-filter: blur(12px);
+  z-index: 50;
+  max-width: 320px;
+  box-shadow: 0 -4px 16px hsla(225, 50%, 5%, 0.5);
+  animation: tooltipFadeIn 0.15s ease-out;
+  pointer-events: none;
+}
+
+.exercise-item:hover .exercise-item__tooltip {
+  display: block;
+}
+
+@keyframes tooltipFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .exercise-item--locked {

@@ -53,6 +53,8 @@ export class InputBridge {
     'Numpad0', 'Numpad1', 'Numpad2', 'Numpad3', 'Numpad4',
     'Numpad5', 'Numpad6', 'Numpad7', 'Numpad8', 'Numpad9',
     'Enter', 'NumpadEnter', 'Backspace', 'Space',
+    // Piano Player pad keys
+    'KeyQ', 'KeyW', 'KeyE', 'KeyA', 'KeyS', 'KeyD', 'KeyZ', 'KeyX', 'KeyC',
   ]);
 
   constructor(canvas: HTMLCanvasElement, hitTest: HitTestFn) {
