@@ -15,8 +15,11 @@ import { FreeDrawEngine } from '@engines/free-draw/free-draw-engine.ts';
 import { NBackEngine } from '@engines/nback/nback-engine.ts';
 import { ChangeMakerEngine } from '@engines/change-maker/change-maker-engine.ts';
 import { WordScrambleEngine } from '@engines/word-scramble/word-scramble-engine.ts';
+import { StroopEngine } from '@engines/stroop/stroop-engine.ts';
+import { SymbolSearchEngine } from '@engines/symbol-search/symbol-search-engine.ts';
+import { InspectionTimeEngine } from '@engines/inspection-time/inspection-time-engine.ts';
 import { generate_uuid, format_ms } from '@shared/utils.ts';
-import { save_session } from '@shared/db.ts';
+import { save_session, update_pillar_skill } from '@shared/db.ts';
 import { t } from '@shared/i18n.ts';
 import { router } from '../router.ts';
 import { TIMING } from '@shared/constants.ts';
@@ -92,6 +95,12 @@ async function _launch_engine(exerciseType: string, isNeuralStorm: boolean = fal
 
   audioEngine.unlock();
 
+  // Stop and cleanup existing engine if one is active
+  if (_activeEngine) {
+    _activeEngine.stop();
+    _activeEngine = null;
+  }
+
   switch (exerciseType) {
     case 'ReactionTime':
       _activeEngine = new ReactionTimeEngine(canvas, callbacks);
@@ -137,12 +146,30 @@ async function _launch_engine(exerciseType: string, isNeuralStorm: boolean = fal
       _activeEngine = new BoxCountEngine(canvas, callbacks);
       break;
     }
+    case 'StroopTask':
+      _activeEngine = new StroopEngine(canvas, callbacks);
+      break;
+    case 'SymbolSearch':
+      _activeEngine = new SymbolSearchEngine(canvas, callbacks);
+      break;
+    case 'InspectionTime':
+      _activeEngine = new InspectionTimeEngine(canvas, callbacks);
+      break;
+    case 'PatternBreaker': {
+      const { PatternBreakerEngine } = await import('@engines/pattern-breaker/pattern-breaker-engine.ts');
+      if (!document.getElementById('session-container') || document.getElementById('session-container') !== container) {
+        return;
+      }
+      _activeEngine = new PatternBreakerEngine(canvas, callbacks);
+      break;
+    }
     default:
       console.warn(`Exercise type "${exerciseType}" not implemented`);
       container.remove();
       return;
   }
 
+  if (!_activeEngine) return;
   _activeEngine.start({ 
     difficulty: overrideDifficulty, 
     inputMode: 'auto',
@@ -154,7 +181,7 @@ function _launch_neural_storm(): void {
   const STORM_DURATION_MS = 180_000; // 3 minutes
   const SWITCH_INTERVAL_MS = 30_000; // 30 seconds
   const GRACE_PERIOD_MS = 2000; // 2 seconds of transition
-  const pool = ['ReactionTime', 'HighNumber', 'SerialSubtraction', 'PianoPlayer', 'FallacyDetector', 'TowerOfHanoi', 'SetSwitching', 'NBackDual', 'ChangeMaker', 'WordScramble', 'BlockCount3D'];
+  const pool = ['ReactionTime', 'HighNumber', 'SerialSubtraction', 'PianoPlayer', 'FallacyDetector', 'TowerOfHanoi', 'SetSwitching', 'NBackDual', 'ChangeMaker', 'WordScramble', 'BlockCount3D', 'StroopTask', 'SymbolSearch', 'InspectionTime'];
   
   let elapsed = 0;
   let lastType = '';
@@ -237,8 +264,9 @@ async function _save_and_show_results(sessionId: string, results: TrialResults):
     accuracy: results.accuracy,
     meanReactionTimeMs: results.meanReactionTimeMs,
     cvReactionTime: results.cvReactionTime,
-    difficultyStart: 1,
-    difficultyEnd: 1,
+    difficultyStart: results.trials[0]?.difficulty ?? results.meanDifficulty,
+    difficultyEnd: results.trials[results.trials.length - 1]?.difficulty ?? results.meanDifficulty,
+    meanDifficulty: results.meanDifficulty,
     focusScore: results.focusScore,
   };
 
@@ -256,12 +284,19 @@ async function _save_and_show_results(sessionId: string, results: TrialResults):
     // Run DB save and FSRS recalibration in parallel — both are non-blocking
     const results_ = await Promise.allSettled([
       save_session(session, trials),
+      update_pillar_skill(
+        results.pillar,
+        results.meanDifficulty,
+        results.accuracy,
+        results.focusScore
+      ),
       fsrsBridge.recalibrate_after_session(
         results.exerciseType,
         results.pillar,
         results.accuracy,
         results.focusScore,
         results.cvReactionTime,
+        results.meanDifficulty,
         trials
       ),
     ]);

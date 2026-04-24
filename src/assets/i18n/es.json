@@ -153,7 +153,13 @@
   "exercise.nback.description": "Rastrea estímulos auditivos y visuales de N pasos atrás. El estándar de oro para la memoria de trabajo.",
 
   "exercise.patternBreaker.name": "Rompe Patrones",
-  "exercise.patternBreaker.description": "Encuentra la anomalía sutil en un patrón repetitivo. Entrena la atención sostenida.",
+  "exercise.patternBreaker.description": "Encuentra la anomalía sutil en un patrón denso y repetitivo. Entrena la atención visual sostenida y la resistencia a la fatiga visual.",
+
+  "exercise.symbolSearch.name": "Búsqueda de Símbolos",
+  "exercise.symbolSearch.description": "Encuentra todos los símbolos iguales en la cuadrícula lo más rápido posible. Mide la velocidad de escaneo perceptual.",
+
+  "exercise.inspectionTime.name": "El Flash",
+  "exercise.inspectionTime.description": "Tres figuras aparecen brevemente — una cambia. Identifica cuál. Mide la velocidad de captación visual pura.",
 
   "session.abort": "Esc  Abortar",
   "session.difficulty": "NV {level}"

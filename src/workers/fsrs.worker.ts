@@ -23,7 +23,7 @@ import type { FsrsWorkerRequest, FsrsWorkerResponse } from '../core/fsrs/fsrs-wo
 
 self.addEventListener('message', (event: MessageEvent<FsrsWorkerRequest>) => {
   const startTime = performance.now();
-  const { type, requestId, exerciseType, pillar, accuracy, focusScore, cvReactionTime, currentCard, trials } = event.data;
+  const { type, requestId, exerciseType, pillar, accuracy, focusScore, cvReactionTime, meanDifficulty, currentCard, trials } = event.data;
 
   if (type !== 'recalibrate') {
     const errorResponse: FsrsWorkerResponse = {
@@ -36,8 +36,14 @@ self.addEventListener('message', (event: MessageEvent<FsrsWorkerRequest>) => {
   }
 
   try {
-    // Step 1: Derive FSRS rating from session metrics
-    const rating = derive_rating(accuracy, focusScore, cvReactionTime);
+    // Step 1: Derive FSRS rating from session metrics (incorporating adaptive staircase performance)
+    const rating = derive_rating(
+      accuracy, 
+      focusScore, 
+      cvReactionTime, 
+      meanDifficulty, 
+      currentCard?.difficulty ?? 5.0
+    );
 
     // Step 2: Get or create the card state
     const card: FsrsCard = currentCard ?? {

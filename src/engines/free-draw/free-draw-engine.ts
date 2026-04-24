@@ -4,6 +4,12 @@
 //
 // Triggered when cognitive fatigue is detected. 60 seconds of
 // unguided creative flow with procedural color cycling.
+//
+// Polish (Sprint 7):
+//   - Smooth quadratic Bezier curve interpolation
+//   - Pressure-sensitive line width (stylus/tablet)
+//   - Proper pointer event cleanup (no memory leaks)
+//   - Visual "C — Clear" pill in HUD
 // ============================================================
 
 import { BaseEngine } from '../base-engine.ts';
@@ -19,9 +25,16 @@ export class FreeDrawEngine extends BaseEngine {
   private _isDrawing: boolean = false;
   private _lastX: number = 0;
   private _lastY: number = 0;
+  private _prevX: number = 0;
+  private _prevY: number = 0;
   private _hue: number = 0;
   private _timer: number = 60;
   private _startTime: number = 0;
+
+  // Stored handler references for proper cleanup
+  private _onPointerDown: ((e: PointerEvent) => void) | null = null;
+  private _onPointerMove: ((e: PointerEvent) => void) | null = null;
+  private _onPointerUp: (() => void) | null = null;
 
   constructor(canvas: HTMLCanvasElement, callbacks: EngineCallbacks) {
     super(canvas, callbacks);
@@ -38,10 +51,14 @@ export class FreeDrawEngine extends BaseEngine {
     this.ctx.fillStyle = 'hsl(225, 45%, 6%)';
     this.ctx.fillRect(0, 0, this.width, this.height);
 
-    // Pointer events for drawing
-    this.canvas.addEventListener('pointerdown', (e) => this._start_drawing(e));
-    this.canvas.addEventListener('pointermove', (e) => this._draw(e));
-    window.addEventListener('pointerup', () => this._stop_drawing());
+    // Pointer events for drawing — store references for cleanup
+    this._onPointerDown = (e: PointerEvent) => this._start_drawing(e);
+    this._onPointerMove = (e: PointerEvent) => this._draw(e);
+    this._onPointerUp = () => this._stop_drawing();
+
+    this.canvas.addEventListener('pointerdown', this._onPointerDown);
+    this.canvas.addEventListener('pointermove', this._onPointerMove);
+    window.addEventListener('pointerup', this._onPointerUp);
 
     audioEngine.start_ambience();
   }
@@ -62,24 +79,46 @@ export class FreeDrawEngine extends BaseEngine {
     // We DON'T clear the background here so the drawing persists.
     // Instead, we draw UI overlays on top.
 
-    // Timer bar at bottom
+    // Timer bar at bottom (Clear area first to prevent smearing)
     const barH = 4;
     const progress = this._timer / 60;
+    ctx.clearRect(0, this.height - barH, this.width, barH);
     ctx.fillStyle = 'hsla(220, 20%, 20%, 0.5)';
     ctx.fillRect(0, this.height - barH, this.width, barH);
     ctx.fillStyle = `hsl(${this._hue}, 70%, 50%)`;
     ctx.fillRect(0, this.height - barH, this.width * progress, barH);
 
-    // Fade top HUD
+    // Fade top HUD (Clear area first to prevent smearing)
     ctx.save();
     const hudY = 60;
-    ctx.fillStyle = 'hsla(225, 45%, 6%, 0.8)';
+    ctx.clearRect(0, 0, this.width, hudY);
+    ctx.fillStyle = 'hsla(225, 45%, 6%, 0.85)';
     ctx.fillRect(0, 0, this.width, hudY);
     
     ctx.font = '500 14px Inter, sans-serif';
     ctx.fillStyle = 'hsla(220, 15%, 70%, 0.8)';
     ctx.textAlign = 'center';
-    ctx.fillText('REFRACTORY SESSION — FREE FLOW', this.width / 2, 35);
+    ctx.fillText('REFRACTORY SESSION — FREE FLOW', this.width / 2, 25);
+
+    // "C — Clear" pill
+    const pillW = 90;
+    const pillH = 24;
+    const pillX = this.width / 2 - pillW / 2;
+    const pillY = 38;
+    ctx.beginPath();
+    ctx.roundRect(pillX, pillY, pillW, pillH, pillH / 2);
+    ctx.fillStyle = 'hsla(225, 30%, 15%, 0.6)';
+    ctx.fill();
+    ctx.strokeStyle = 'hsla(220, 20%, 40%, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.font = '500 11px Inter, sans-serif';
+    ctx.fillStyle = 'hsla(220, 15%, 60%, 0.8)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('C  Clear', this.width / 2, pillY + pillH / 2);
+
     ctx.restore();
   }
 
@@ -94,30 +133,61 @@ export class FreeDrawEngine extends BaseEngine {
 
   protected on_cleanup(): void {
     audioEngine.stop_ambience();
-    // Event listeners are cleared by GC or should be explicitly removed if persistent
-    // Note: BaseEngine cleans up resize/key/click, but we added pointermove/up here.
+
+    // Proper pointer event cleanup — no memory leaks
+    if (this._onPointerDown) {
+      this.canvas.removeEventListener('pointerdown', this._onPointerDown);
+    }
+    if (this._onPointerMove) {
+      this.canvas.removeEventListener('pointermove', this._onPointerMove);
+    }
+    if (this._onPointerUp) {
+      window.removeEventListener('pointerup', this._onPointerUp);
+    }
+    this._onPointerDown = null;
+    this._onPointerMove = null;
+    this._onPointerUp = null;
   }
 
   private _start_drawing(e: PointerEvent): void {
     this._isDrawing = true;
     const rect = this.canvas.getBoundingClientRect();
-    this._lastX = (e.clientX - rect.left);
-    this._lastY = (e.clientY - rect.top);
+    const scaleX = this.canvas.width / (rect.width * this.dpr);
+    const scaleY = this.canvas.height / (rect.height * this.dpr);
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+    
+    this._lastX = x;
+    this._lastY = y;
+    this._prevX = x;
+    this._prevY = y;
   }
 
   private _draw(e: PointerEvent): void {
     if (!this._isDrawing) return;
 
     const rect = this.canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left);
-    const y = (e.clientY - rect.top);
+    const scaleX = this.canvas.width / (rect.width * this.dpr);
+    const scaleY = this.canvas.height / (rect.height * this.dpr);
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+
+    // Pressure-sensitive line width
+    const pressure = e.pressure > 0 ? e.pressure : 0.5;
+    this.ctx.lineWidth = 1 + pressure * 7;
+
+    // Smooth quadratic Bezier using midpoint-to-midpoint interpolation
+    const midX = (this._lastX + x) / 2;
+    const midY = (this._lastY + y) / 2;
 
     this.ctx.beginPath();
-    this.ctx.moveTo(this._lastX, this._lastY);
-    this.ctx.lineTo(x, y);
+    this.ctx.moveTo(this._prevX, this._prevY);
+    this.ctx.quadraticCurveTo(this._lastX, this._lastY, midX, midY);
     this.ctx.strokeStyle = `hsl(${this._hue}, 70%, 50%)`;
     this.ctx.stroke();
 
+    this._prevX = midX;
+    this._prevY = midY;
     this._lastX = x;
     this._lastY = y;
   }

@@ -16,6 +16,7 @@ export interface FsrsWorkerRequest {
   accuracy: number;
   focusScore: number;
   cvReactionTime: number;
+  meanDifficulty: number;
   currentCard: FsrsCard | null;
   trials: Trial[];
 }

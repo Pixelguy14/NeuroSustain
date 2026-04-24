@@ -112,11 +112,11 @@ export class HanoiEngine extends BaseEngine {
     ctx.textAlign = 'left';
     ctx.fillText(`Moves: ${this._moveCount} / ${this._moveLimit}`, 32, 40);
 
-    if (this.config.difficulty > 1) {
+    if (this._currentDifficulty > 1) {
       ctx.font = '500 11px Inter, sans-serif';
       ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
       ctx.textAlign = 'right';
-      ctx.fillText(`LV ${this.config.difficulty}`, w - 32, 58);
+      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
     }
 
     switch (this._phase) {
@@ -283,7 +283,7 @@ export class HanoiEngine extends BaseEngine {
   }
 
   private _init_puzzle(): void {
-    const diff = this.config.difficulty;
+    const diff = this._currentDifficulty;
 
     // Vary disc count within the difficulty band
     if (diff <= 3) {
@@ -359,7 +359,7 @@ export class HanoiEngine extends BaseEngine {
       exerciseType: this.exerciseType,
       pillar: this.primaryPillar,
       timestamp: Date.now(),
-      difficulty: this.config.difficulty,
+      difficulty: this._currentDifficulty,
       isCorrect: withinLimit,
       reactionTimeMs: totalTimeMs / 1000, // Normalize to seconds for display
       metadata: {

@@ -25,6 +25,7 @@ class AudioEngine {
   private _ambienceSource: AudioBufferSourceNode | null = null;
   private _ambienceActive: boolean = false;
   private _nbackBuffers: AudioBuffer[] = [];
+  private _activeNodes: Set<AudioBufferSourceNode | OscillatorNode> = new Set();
 
   // ── Lazy Initialization ──────────────────────────────────
 
@@ -94,6 +95,7 @@ class AudioEngine {
     oscillator.connect(gainNode);
     gainNode.connect(ctx.destination);
 
+    this._activeNodes.add(oscillator);
     oscillator.start(ctx.currentTime);
     oscillator.stop(ctx.currentTime + duration + 0.01);
 
@@ -101,6 +103,7 @@ class AudioEngine {
     oscillator.onended = () => {
       oscillator.disconnect();
       gainNode.disconnect();
+      this._activeNodes.delete(oscillator);
     };
   }
 
@@ -189,12 +192,14 @@ class AudioEngine {
       osc.connect(g);
       g.connect(masterGain);
       
+      this._activeNodes.add(osc);
       osc.start(now);
       osc.stop(now + duration + 0.1);
 
       osc.onended = () => {
         osc.disconnect();
         g.disconnect();
+        this._activeNodes.delete(osc);
       };
     });
 
@@ -249,7 +254,14 @@ class AudioEngine {
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.connect(ctx.destination);
+    
+    this._activeNodes.add(source);
     source.start(ctx.currentTime);
+    
+    source.onended = () => {
+      source.disconnect();
+      this._activeNodes.delete(source);
+    };
   }
 
   // ── Focus Ambience ───────────────────────────────────────
@@ -362,6 +374,19 @@ class AudioEngine {
   unlock(): void {
     this._ensure_context();
     this._init_nback_audio(); // Pre-decode N-Back buffers on first gesture
+  }
+
+  /** Force stop all active oscillators and buffer sources */
+  stop_all_session_audio(): void {
+    this._activeNodes.forEach(node => {
+      try {
+        node.stop();
+        node.disconnect();
+      } catch (e) {
+        // Already stopped or disconnected
+      }
+    });
+    this._activeNodes.clear();
   }
 }
 

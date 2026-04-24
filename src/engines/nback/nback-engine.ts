@@ -161,11 +161,11 @@ export class NBackEngine extends BaseEngine {
     ctx.fillStyle = 'hsla(175, 70%, 50%, 0.7)';
     ctx.fillText(`${this._n}-Back${this._isDual ? ' Dual' : ''}`, 32, 40);
 
-    if (this.config.difficulty > 1) {
+    if (this._currentDifficulty > 1) {
       ctx.font = '500 11px Inter, sans-serif';
       ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
       ctx.textAlign = 'right';
-      ctx.fillText(`LV ${this.config.difficulty}`, w - 32, 58);
+      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
     }
 
     switch (this._phase) {
@@ -241,7 +241,6 @@ export class NBackEngine extends BaseEngine {
   private _render_grid(ctx: CanvasRenderingContext2D, showHighlight: boolean): void {
     // Permanent HUD instruction
     const cx = this.width / 2;
-    const cy = this.height / 2;
     ctx.textAlign = 'center';
     ctx.fillStyle = 'hsla(220, 15%, 55%, 0.8)';
     ctx.font = '400 13px Inter, sans-serif';
@@ -353,7 +352,7 @@ export class NBackEngine extends BaseEngine {
   // ── Logic ───────────────────────────────────────────────
 
   private _configure_difficulty(): void {
-    const diff = this.config.difficulty;
+    const diff = this._currentDifficulty;
 
     if (diff <= 3) {
       this._n = 1;
@@ -413,6 +412,7 @@ export class NBackEngine extends BaseEngine {
   }
 
   private _present_stimulus(): void {
+    this._configure_difficulty();
     this._trialNumber++;
 
     // Generate stimulus (ensure some matches occur ~30% of the time)
@@ -514,7 +514,7 @@ export class NBackEngine extends BaseEngine {
       exerciseType: this.exerciseType,
       pillar: this.primaryPillar,
       timestamp: Date.now(),
-      difficulty: this.config.difficulty,
+      difficulty: this._currentDifficulty,
       isCorrect,
       reactionTimeMs: finalRT,
       metadata: {

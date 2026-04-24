@@ -110,10 +110,10 @@ export class ChangeMakerEngine extends BaseEngine {
     ctx.textAlign = 'right';
     ctx.fillText(`${this.currentTrial} / ${this.totalTrials}`, w - 32, 40);
 
-    if (this.config.difficulty > 1) {
+    if (this._currentDifficulty > 1) {
       ctx.font = '500 11px Inter, sans-serif';
       ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.fillText(`LV ${this.config.difficulty}`, w - 32, 58);
+      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
     }
 
     switch (this._phase) {
@@ -335,7 +335,7 @@ export class ChangeMakerEngine extends BaseEngine {
   // ── Logic ───────────────────────────────────────────────
 
   private _get_active_denoms(): Denomination[] {
-    const diff = this.config.difficulty;
+    const diff = this._currentDifficulty;
     if (this._locale === 'es') {
       // MXN: low levels = bills only, high = coins + bills
       if (diff <= 3) return this._denoms.filter(d => d.value >= 2000);
@@ -350,7 +350,7 @@ export class ChangeMakerEngine extends BaseEngine {
   }
 
   private _next_trial(): void {
-    const diff = this.config.difficulty;
+    const diff = this._currentDifficulty;
 
     // Generate change goal first (in valid denomination units)
     const activeDenoms = this._get_active_denoms();
@@ -498,7 +498,7 @@ export class ChangeMakerEngine extends BaseEngine {
       exerciseType: this.exerciseType,
       pillar: this.primaryPillar,
       timestamp: Date.now(),
-      difficulty: this.config.difficulty,
+      difficulty: this._currentDifficulty,
       isCorrect: correct,
       reactionTimeMs: finalRT,
       metadata: {

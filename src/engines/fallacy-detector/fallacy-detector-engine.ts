@@ -125,10 +125,10 @@ export class FallacyDetectorEngine extends BaseEngine {
     ctx.textAlign = 'right';
     ctx.fillText(`${this.currentTrial} / ${this.totalTrials}`, w - 32, 40);
 
-    if (this.config.difficulty > 1) {
+    if (this._currentDifficulty > 1) {
       ctx.font = '500 11px Inter, sans-serif';
       ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.fillText(`LV ${this.config.difficulty}`, w - 32, 58);
+      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
     }
 
     switch (this._phase) {
@@ -263,7 +263,7 @@ export class FallacyDetectorEngine extends BaseEngine {
   // ── Logic ───────────────────────────────────────────────
 
   private _next_trial(): void {
-    const diff = this.config.difficulty;
+    const diff = this._currentDifficulty;
 
     // Filter items by difficulty threshold (wider ranges for fairness)
     const maxDiff = diff <= 3 ? 3 : 5; // Low levels see easy+medium; high levels see all
@@ -340,7 +340,7 @@ export class FallacyDetectorEngine extends BaseEngine {
       exerciseType: this.exerciseType,
       pillar: this.primaryPillar,
       timestamp: Date.now(),
-      difficulty: this.config.difficulty,
+      difficulty: this._currentDifficulty,
       isCorrect: this._isCorrect,
       reactionTimeMs: reactionMs,
       metadata: {

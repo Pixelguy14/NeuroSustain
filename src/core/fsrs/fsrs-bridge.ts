@@ -103,7 +103,13 @@ class FsrsBridge {
   private _sync_fallback(request: FsrsWorkerRequest): FsrsWorkerResponse {
     const startTime = performance.now();
     try {
-      const rating = derive_rating(request.accuracy, request.focusScore, request.cvReactionTime);
+      const rating = derive_rating(
+        request.accuracy, 
+        request.focusScore, 
+        request.cvReactionTime, 
+        request.meanDifficulty,
+        request.currentCard?.difficulty ?? 5.0
+      );
       const card: FsrsCard = request.currentCard ?? {
         ...create_fsrs_card(request.exerciseType, request.pillar),
         id: undefined,
@@ -141,6 +147,7 @@ class FsrsBridge {
     accuracy: number,
     focusScore: number,
     cvReactionTime: number,
+    meanDifficulty: number,
     trials: Trial[]
   ): Promise<{ scheduledDays: number; derivedRating: number; retrievability: number }> {
     const currentCard = await db.fsrsCards
@@ -158,6 +165,7 @@ class FsrsBridge {
       accuracy,
       focusScore,
       cvReactionTime,
+      meanDifficulty,
       status: 'pending',
       createdAt: Date.now(),
     });
@@ -170,6 +178,7 @@ class FsrsBridge {
       accuracy,
       focusScore,
       cvReactionTime,
+      meanDifficulty,
       currentCard,
       trials,
     };

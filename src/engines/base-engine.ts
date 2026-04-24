@@ -45,6 +45,10 @@ export abstract class BaseEngine {
   private _ema_correct_count: number = 0;
   private _fatigue_fired: boolean = false;
 
+  // ── System D: Adaptive Staircase (Intra-Session Difficulty) ──
+  protected _currentDifficulty: number = 1;
+  private _consecutiveCorrect: number = 0;
+
   private _animFrameId: number = 0;
   private _lastTimestamp: number = 0;
   private _keyHandler: ((e: KeyboardEvent) => void) | null = null;
@@ -82,6 +86,10 @@ export abstract class BaseEngine {
     this._ema_correct_count = 0;
     this._fatigue_fired = false;
 
+    // ── Warm-up Offset: Start session 3 levels below baseline (Min 1) ──
+    this._currentDifficulty = config?.sessionDifficulty ?? Math.max(1, this.config.difficulty - 3);
+    this._consecutiveCorrect = 0;
+
     this._resize_canvas();
 
     // Unlock audio on first user interaction
@@ -108,7 +116,8 @@ export abstract class BaseEngine {
     if (this._keyHandler) window.removeEventListener('keydown', this._keyHandler);
     if (this._resizeHandler) window.removeEventListener('resize', this._resizeHandler);
     if (this._clickHandler) this.canvas.removeEventListener('pointerdown', this._clickHandler);
-
+    
+    audioEngine.stop_all_session_audio();
     this.on_cleanup();
   }
 
@@ -136,40 +145,54 @@ export abstract class BaseEngine {
       if (!this.config.neuralStorm && trial.isCorrect && trial.reactionTimeMs >= TIMING.MIN_REACTION_MS && trial.reactionTimeMs <= this.validReactionTimeMax) {
         this._ema_correct_count++;
 
-      if (this._ema_correct_count === 1) {
-        this._ema = init_ema(trial.reactionTimeMs);
-      } else {
-        this._ema = compute_ema_step(this._ema, trial.reactionTimeMs);
+        if (this._ema_correct_count === 1) {
+          this._ema = init_ema(trial.reactionTimeMs);
+        } else {
+          this._ema = compute_ema_step(this._ema, trial.reactionTimeMs);
+        }
+
+        // Lock in baseline after warm-up window
+        if (this._ema_correct_count === EMA_BASELINE_TRIALS) {
+          this._ema_baseline = this._ema;
+        }
+
+        // Check for fatigue after baseline is established
+        if (
+          this._ema_baseline > 0 &&
+          !this._fatigue_fired &&
+          detect_ema_fatigue(this._ema_baseline, this._ema)
+        ) {
+          this._fatigue_fired = true;
+          const risePercent = ((this._ema - this._ema_baseline) / this._ema_baseline) * 100;
+          const event: FatigueEvent = {
+            trialNumber:    this.currentTrial,
+            baselineEmaMs:  Math.round(this._ema_baseline),
+            currentEmaMs:   Math.round(this._ema),
+            risePercent:    Math.round(risePercent),
+          };
+          this.callbacks.onFatigueDetected?.(event);
+        }
       }
 
-      // Lock in baseline after warm-up window
-      if (this._ema_correct_count === EMA_BASELINE_TRIALS) {
-        this._ema_baseline = this._ema;
+      // ── Adaptive Staircase: 3-Up, 1-Down ──
+      if (!this.config.neuralStorm) {
+        if (trial.isCorrect) {
+          this._consecutiveCorrect++;
+          if (this._consecutiveCorrect >= 3) {
+            this._currentDifficulty = Math.min(10, this._currentDifficulty + 1);
+            this._consecutiveCorrect = 0;
+          }
+        } else {
+          this._consecutiveCorrect = 0;
+          this._currentDifficulty = Math.max(1, this._currentDifficulty - 1);
+        }
       }
 
-      // Check for fatigue after baseline is established
-      if (
-        this._ema_baseline > 0 &&
-        !this._fatigue_fired &&
-        detect_ema_fatigue(this._ema_baseline, this._ema)
-      ) {
-        this._fatigue_fired = true;
-        const risePercent = ((this._ema - this._ema_baseline) / this._ema_baseline) * 100;
-        const event: FatigueEvent = {
-          trialNumber:    this.currentTrial,
-          baselineEmaMs:  Math.round(this._ema_baseline),
-          currentEmaMs:   Math.round(this._ema),
-          risePercent:    Math.round(risePercent),
-        };
-        this.callbacks.onFatigueDetected?.(event);
+      if (this.currentTrial >= this.totalTrials) {
+        this._complete_session();
       }
-    }
-
-    if (this.currentTrial >= this.totalTrials) {
-      this._complete_session();
-    }
-  })();
-}
+    })();
+  }
 
   /** Aggregate results and notify completion */
   private _complete_session(): void {
@@ -187,6 +210,9 @@ export abstract class BaseEngine {
     const cv = compute_cv(validRTs);
     const focusScore = compute_focus_score(accuracy, cv);
 
+    const difficultyHistory = this.trials.map(t => t.difficulty);
+    const meanDifficulty = compute_mean(difficultyHistory);
+
     const results: TrialResults = {
       trials: this.trials,
       accuracy,
@@ -194,6 +220,7 @@ export abstract class BaseEngine {
       sdReactionTimeMs: sdRT,
       cvReactionTime: cv,
       focusScore,
+      meanDifficulty,
       exerciseType: this.exerciseType,
       pillar: this.primaryPillar,
     };

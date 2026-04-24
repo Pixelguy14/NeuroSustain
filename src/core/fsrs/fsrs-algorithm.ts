@@ -238,22 +238,31 @@ export function process_review(
  * @param accuracy   - Session accuracy (0.0 - 1.0)
  * @param focusScore - Normalized focus score (0 - 10)
  * @param cvReactionTime - Coefficient of variation (0.0+)
+ * @param meanDifficulty - Average difficulty navigated during staircase (1-10)
+ * @param baselineDifficulty - User's Glicko-2 difficulty level (1-10)
  */
 export function derive_rating(
   accuracy: number,
   focusScore: number,
-  cvReactionTime: number
+  cvReactionTime: number,
+  meanDifficulty: number,
+  baselineDifficulty: number
 ): FsrsRating {
   // Weight: accuracy is the primary signal, focus score and CV refine it
   const accuracyScore = accuracy;             // 0.0 - 1.0
   const focusNorm     = focusScore / 10;      // 0.0 - 1.0
   const cvPenalty     = Math.min(1, cvReactionTime / 0.5); // 0.0 - 1.0 (higher CV = worse)
 
-  const composite = (accuracyScore * 0.55) + (focusNorm * 0.30) - (cvPenalty * 0.15);
+  // Difficulty adjustment: Reward for pushing boundaries, penalize for retreating
+  // A delta of +2 (expert) adds 0.1 to composite; -2 (struggling) subtracts 0.1.
+  const diffDelta = meanDifficulty - baselineDifficulty;
+  const diffBonus = (diffDelta / 10) * 0.5; // Scale: -0.5 to +0.5 max impact
 
-  if      (composite >= 0.80) return RATING.EASY;   // Effortless performance
-  else if (composite >= 0.60) return RATING.GOOD;   // Solid with effort
-  else if (composite >= 0.40) return RATING.HARD;   // Struggled
+  const composite = (accuracyScore * 0.50) + (focusNorm * 0.25) - (cvPenalty * 0.15) + (diffBonus * 0.10);
+
+  if      (composite >= 0.85) return RATING.EASY;   // Mastering high difficulty
+  else if (composite >= 0.65) return RATING.GOOD;   // Solid performance
+  else if (composite >= 0.45) return RATING.HARD;   // Struggled or needed down-scaling
   else                         return RATING.AGAIN;  // Failed / severe fatigue
 }
 

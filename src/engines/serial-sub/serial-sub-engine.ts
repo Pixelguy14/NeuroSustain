@@ -62,7 +62,7 @@ export class SerialSubtractionEngine extends BaseEngine {
   private _subtrahend: number = 7;
   private _expectedAnswer: number = 0;
   private _isAdding: boolean = false; // Level 8+: direction flip
-  private _consecutiveCorrect: number = 0;
+  private _ruleCorrectCount: number = 0;
   private _chainLength: number = 0;
   private _ruleChangeEvery: number = DIFFICULTY.SERIAL_SUB_RULE_CHANGE_EVERY;
 
@@ -99,10 +99,10 @@ export class SerialSubtractionEngine extends BaseEngine {
     this._countdownValue = 3;
     this._phaseStart = precise_now();
     this._userInput = '';
-    this._consecutiveCorrect = 0;
+    this._ruleCorrectCount = 0;
     this._chainLength = 0;
     this._isAdding = false;
-    this._timeLimitMs = this.config.difficulty <= 3 ? 15000 : this.config.difficulty <= 7 ? 10000 : 6000;
+    this._timeLimitMs = this._currentDifficulty <= 3 ? 15000 : this._currentDifficulty <= 7 ? 10000 : 6000;
 
     // Initialize arithmetic based on difficulty
     this._init_arithmetic();
@@ -145,7 +145,7 @@ export class SerialSubtractionEngine extends BaseEngine {
         break;
 
       case 'scribble': {
-        const eraserMs = this.config.difficulty <= 3 ? 1500 : this.config.difficulty <= 7 ? 800 : 200;
+        const eraserMs = this._currentDifficulty <= 3 ? 1500 : this._currentDifficulty <= 7 ? 800 : 200;
         if (elapsed >= eraserMs) {
           this._advance_to_next();
         }
@@ -171,10 +171,10 @@ export class SerialSubtractionEngine extends BaseEngine {
     ctx.textAlign = 'right';
     ctx.fillText(`${this.currentTrial} / ${this.totalTrials}`, w - 32, 40);
 
-    if (this.config.difficulty > 1) {
+    if (this._currentDifficulty > 1) {
       ctx.font = '500 11px Inter, sans-serif';
       ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.fillText(`LV ${this.config.difficulty}`, w - 32, 58);
+      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
     }
 
     switch (this._phase) {
@@ -221,7 +221,7 @@ export class SerialSubtractionEngine extends BaseEngine {
   // ── Arithmetic Logic ─────────────────────────────────────
 
   private _init_arithmetic(): void {
-    const diff = this.config.difficulty;
+    const diff = this._currentDifficulty;
 
     if (diff <= 3) {
       this._currentNumber = 50 + Math.floor(Math.random() * 51); // 50-100
@@ -249,7 +249,7 @@ export class SerialSubtractionEngine extends BaseEngine {
 
   /** Check boundary and potentially flip direction (level 8+) */
   private _check_boundary(): boolean {
-    if (this.config.difficulty < 8) {
+    if (this._currentDifficulty < 8) {
       // Below level 8: stop if next subtraction would go negative
       return (this._currentNumber - this._subtrahend) >= 0;
     }
@@ -285,12 +285,12 @@ export class SerialSubtractionEngine extends BaseEngine {
   private _advance_to_next(): void {
     // Update current number to the answer
     this._currentNumber = this._expectedAnswer;
-    this._consecutiveCorrect++;
+    this._ruleCorrectCount++;
     this._chainLength++;
 
     // Check if subtrahend should change
-    if (this._consecutiveCorrect >= this._ruleChangeEvery && this._ruleChangeEvery !== Infinity) {
-      this._consecutiveCorrect = 0;
+    if (this._ruleCorrectCount >= this._ruleChangeEvery && this._ruleChangeEvery !== Infinity) {
+      this._ruleCorrectCount = 0;
       this._change_subtrahend();
       return;
     }
@@ -304,7 +304,7 @@ export class SerialSubtractionEngine extends BaseEngine {
   }
 
   private _change_subtrahend(): void {
-    const diff = this.config.difficulty;
+    const diff = this._currentDifficulty;
     const pools = diff <= 4
       ? [3, 4, 5, 6, 7]
       : diff <= 7
@@ -318,7 +318,7 @@ export class SerialSubtractionEngine extends BaseEngine {
     } while (newSub === this._subtrahend && pools.length > 1);
 
     // Force exact 0 if it would go negative (and we aren't in addition mode)
-    if (this.config.difficulty < 8 && this._currentNumber - newSub < 0) {
+    if (this._currentDifficulty < 8 && this._currentNumber - newSub < 0) {
       newSub = this._currentNumber;
       if (newSub === 0) {
         // If already 0, we can't continue subtracting, so reinit
@@ -368,7 +368,7 @@ export class SerialSubtractionEngine extends BaseEngine {
 
     if (!isCorrect) {
       this._feedbackText = `${this._expectedAnswer}`;
-      this._consecutiveCorrect = 0;
+      this._ruleCorrectCount = 0;
     } else {
       this._feedbackText = '✓';
     }
@@ -377,7 +377,7 @@ export class SerialSubtractionEngine extends BaseEngine {
       exerciseType: this.exerciseType,
       pillar: this.primaryPillar,
       timestamp: Date.now(),
-      difficulty: this.config.difficulty,
+      difficulty: this._currentDifficulty,
       isCorrect,
       reactionTimeMs: this._firstDigitTime > 0 ? this._firstDigitTime : reactionMs, // Cognitive RT
       metadata: {
@@ -491,7 +491,7 @@ export class SerialSubtractionEngine extends BaseEngine {
     ctx.globalAlpha = 1.0;
 
     // Direction label for level 8+
-    if (this.config.difficulty >= 8) {
+    if (this._currentDifficulty >= 8) {
       ctx.font = '400 12px Inter, sans-serif';
       ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
       ctx.fillText(
@@ -506,7 +506,7 @@ export class SerialSubtractionEngine extends BaseEngine {
 
     const elapsed = precise_now() - this._phaseStart;
     // Eraser speed scales with difficulty: 2500ms at lv1, ~800ms at lv10
-    const eraserDurationMs = Math.max(800, 2500 - this.config.difficulty * 180);
+    const eraserDurationMs = Math.max(800, 2500 - this._currentDifficulty * 180);
     const progress = Math.min(1, elapsed / eraserDurationMs);
 
     ctx.strokeStyle = 'hsl(225, 45%, 6%)'; // Exact background color

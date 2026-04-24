@@ -113,6 +113,30 @@ export async function save_session(session: Session, trials: Trial[]): Promise<v
   });
 }
 
+/** Update a pillar's Glicko-2 rating after a session */
+export async function update_pillar_skill(
+  pillar: CognitivePillar,
+  meanDifficulty: number,
+  accuracy: number,
+  focusScore: number
+): Promise<PillarRating> {
+  const { update_pillar_rating, difficulty_to_rating } = await import('../core/analytics/glicko2.ts');
+  
+  return db.transaction('rw', db.ratings, async () => {
+    const current = await db.ratings.get(pillar);
+    if (!current) throw new Error(`Rating for pillar ${pillar} not found`);
+
+    const opponentRating = difficulty_to_rating(meanDifficulty);
+    
+    // Composite score (0-1): Accuracy is primary, Focus refines it.
+    const score = (accuracy * 0.7) + ((focusScore / 10) * 0.3);
+
+    const updated = update_pillar_rating(current, opponentRating, score);
+    await db.ratings.put(updated);
+    return updated;
+  });
+}
+
 /** Get the user profile */
 export async function get_profile(): Promise<UserProfile | undefined> {
   return db.profile.toCollection().first();
@@ -178,6 +202,7 @@ export async function recover_orphaned_journals(): Promise<number> {
         entry.accuracy,
         entry.focusScore,
         entry.cvReactionTime,
+        entry.meanDifficulty,
         [] // No raw trials available post-crash — FSRS only needs the aggregates
       );
 

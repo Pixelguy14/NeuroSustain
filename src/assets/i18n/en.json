@@ -153,7 +153,13 @@
   "exercise.nback.description": "Track audio and visual stimuli from N steps ago. The gold standard for working memory.",
 
   "exercise.patternBreaker.name": "Pattern Breaker",
-  "exercise.patternBreaker.description": "Find the subtle anomaly in a repeating pattern. Trains sustained attention.",
+  "exercise.patternBreaker.description": "Find the subtle anomaly in a dense repeating pattern. Trains sustained visual attention and resistance to visual fatigue.",
+
+  "exercise.symbolSearch.name": "Symbol Search",
+  "exercise.symbolSearch.description": "Find all matching symbols in the grid as fast as possible. Measures raw perceptual scanning speed.",
+
+  "exercise.inspectionTime.name": "The Flash",
+  "exercise.inspectionTime.description": "Three shapes flash briefly — one changes. Identify which one. Measures raw visual intake speed.",
 
   "session.abort": "Esc  Abort",
   "session.difficulty": "LV {level}"

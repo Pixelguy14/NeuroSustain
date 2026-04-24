@@ -1,0 +1,8 @@
+[
+  { "type": "rotation", "label": "Rotated Shape", "minDeg": 2, "maxDeg": 30 },
+  { "type": "colorShift", "label": "Color Shift", "minDelta": 3, "maxDelta": 25 },
+  { "type": "scale", "label": "Size Change", "minScale": 1.05, "maxScale": 1.35 },
+  { "type": "flip", "label": "Mirror Flip" },
+  { "type": "missingElement", "label": "Missing Part" },
+  { "type": "count", "label": "Different Count", "minDiff": 1, "maxDiff": 2 }
+]

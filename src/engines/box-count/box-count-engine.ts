@@ -305,10 +305,10 @@ export class BoxCountEngine extends BaseEngine {
     ctx.textAlign = 'right';
     ctx.fillText(`${this.currentTrial} / ${this.totalTrials}`, w - 32, 40);
 
-    if (this.config.difficulty > 1) {
+    if (this._currentDifficulty > 1) {
       ctx.font = '500 11px Inter, sans-serif';
       ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.fillText(`LV ${this.config.difficulty}`, w - 32, 58);
+      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
     }
 
     // Bring 2D canvas drawing to the front conceptually (by z-index config in constructor)
@@ -507,7 +507,7 @@ export class BoxCountEngine extends BaseEngine {
   // ── Logic ───────────────────────────────────────────────
 
   private _next_trial(): void {
-    const diff = this.config.difficulty;
+    const diff = this._currentDifficulty;
 
     // Grid bounds
     let gridX = 3, gridY = 3, gridZ = 2; // Y is up
@@ -634,7 +634,7 @@ export class BoxCountEngine extends BaseEngine {
       exerciseType: this.exerciseType,
       pillar: this.primaryPillar,
       timestamp: Date.now(),
-      difficulty: this.config.difficulty,
+      difficulty: this._currentDifficulty,
       isCorrect: correct,
       reactionTimeMs: finalRT,
       metadata: {

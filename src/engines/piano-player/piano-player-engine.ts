@@ -15,7 +15,7 @@
 
 import { BaseEngine } from '../base-engine.ts';
 import type { ExerciseType, CognitivePillar, EngineCallbacks } from '@shared/types.ts';
-import { precise_now, shuffle } from '@shared/utils.ts';
+import { precise_now } from '@shared/utils.ts';
 import { InputBridge, type InputEvent } from '@core/input/input-bridge.ts';
 import { audioEngine } from '@core/audio/audio-engine.ts';
 
@@ -199,10 +199,10 @@ export class PianoPlayerEngine extends BaseEngine {
     ctx.textAlign = 'right';
     ctx.fillText(`${this.currentTrial} / ${this.totalTrials}`, w - 32, 40);
 
-    if (this.config.difficulty > 1) {
+    if (this._currentDifficulty > 1) {
       ctx.font = '500 11px Inter, sans-serif';
       ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.fillText(`LV ${this.config.difficulty}`, w - 32, 58);
+      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
     }
 
     switch (this._phase) {
@@ -362,7 +362,7 @@ export class PianoPlayerEngine extends BaseEngine {
   // ── Logic ───────────────────────────────────────────────
 
   private _init_grid(): void {
-    const diff = this.config.difficulty;
+    const diff = this._currentDifficulty;
     let cols: number;
     let rows: number;
 
@@ -423,7 +423,7 @@ export class PianoPlayerEngine extends BaseEngine {
 
 
   private _start_trial(): void {
-    const diff = this.config.difficulty;
+    const diff = this._currentDifficulty;
     
     // Reset grid FIRST to ensure this._pads is correctly sized for current difficulty
     this._init_grid();
@@ -516,14 +516,14 @@ export class PianoPlayerEngine extends BaseEngine {
       exerciseType: this.exerciseType,
       pillar: this.primaryPillar,
       timestamp: Date.now(),
-      difficulty: this.config.difficulty,
+      difficulty: this._currentDifficulty,
       isCorrect,
       reactionTimeMs: this._firstTapTime > 0 ? this._firstTapTime : totalRecallMs, // Cognitive RT
       metadata: {
         trial: this.currentTrial + 1,
         sequenceLength: this._sequence.length,
         isReverse: this._isReverse,
-        isSpatialShuffle: this.config.difficulty >= 8,
+        isSpatialShuffle: this._currentDifficulty >= 8,
         cognitiveTimeMs: this._firstTapTime,
         motorTimeMs: totalRecallMs,
       }

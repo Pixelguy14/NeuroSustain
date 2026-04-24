@@ -23,18 +23,19 @@ export type ExerciseType =
   | 'FallacyDetector'
   | 'TowerOfHanoi'
   | 'WordScramble'
-  | 'CPT'
   | 'BlockCount3D'
-  | 'SemanticLinker'
-  | 'ContextSwitcher'
   | 'PatternBreaker'
   | 'ChangeMaker'
+  | 'SymbolSearch'
+  | 'InspectionTime'
   | 'FreeDraw';
 
 /** Session configuration passed to engine on start */
 export interface SessionConfig {
-  /** Difficulty level 1-10 controlling procedural generation */
+  /** Base difficulty level from Glicko-2 pillar rating */
   difficulty: number;
+  /** Active difficulty in the adaptive staircase (starts lower, moves during session) */
+  sessionDifficulty?: number;
   /** Input modality preference */
   inputMode: 'keyboard' | 'touch' | 'auto';
   /** If true, this is a Neural Storm session — FSRS won't record */
@@ -70,6 +71,7 @@ export interface Session {
   cvReactionTime: number;
   difficultyStart: number;
   difficultyEnd: number;
+  meanDifficulty: number;
   focusScore: number;
 }
 
@@ -162,6 +164,7 @@ export interface TrialResults {
   sdReactionTimeMs: number;
   cvReactionTime: number;
   focusScore: number;
+  meanDifficulty: number;
   exerciseType: ExerciseType;
   pillar: CognitivePillar;
 }
@@ -210,6 +213,7 @@ export interface FsrsJournalEntry {
   accuracy: number;
   focusScore: number;
   cvReactionTime: number;
+  meanDifficulty: number;
   status: 'pending' | 'completed' | 'failed';
   createdAt: number;
   completedAt?: number;

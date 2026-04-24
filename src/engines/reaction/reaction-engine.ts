@@ -183,10 +183,10 @@ export class ReactionTimeEngine extends BaseEngine {
     ctx.textAlign = 'right';
     ctx.fillText(`${this.currentTrial} / ${this.totalTrials}`, w - 32, 40);
 
-    if (this.config.difficulty > 1) {
+    if (this._currentDifficulty > 1) {
       ctx.font = '500 11px Inter, sans-serif';
       ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.fillText(`LV ${this.config.difficulty}`, w - 32, 58);
+      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
     }
 
     switch (this._phase) {
@@ -217,7 +217,7 @@ export class ReactionTimeEngine extends BaseEngine {
     ctx.textAlign = 'center';
     
     let instruction = t('exercise.reaction.instruction');
-    if (this.config.difficulty >= 4) {
+    if (this._currentDifficulty >= 4) {
       const keys = this._activeTargets.map(t => `${t.name === 'GREEN' ? 'SPACE' : t.key.replace('Key', '')} for ${t.name}`).join(', ');
       instruction = `Press ${keys}. IGNORE RED.`;
     }
@@ -280,7 +280,7 @@ export class ReactionTimeEngine extends BaseEngine {
     this._movementTime = 0;
 
     // Calculate position early so the waiting pulse spawns there
-    const diff = this.config.difficulty;
+    const diff = this._currentDifficulty;
     if (diff >= 2) {
       const margin = Math.min(this.width, this.height) * 0.2;
       this._stimulusX = margin + Math.random() * (this.width - margin * 2);
@@ -296,7 +296,7 @@ export class ReactionTimeEngine extends BaseEngine {
 
   /** Decide stimulus position and whether it's a fakeout, then enter the right phase */
   private _begin_stimulus(): void {
-    const diff = this.config.difficulty;
+    const diff = this._currentDifficulty;
 
     // Position is already decided in _start_waiting() so the pulse decays into the actual target.
 
@@ -350,7 +350,7 @@ export class ReactionTimeEngine extends BaseEngine {
       exerciseType: this.exerciseType,
       pillar: this.primaryPillar,
       timestamp: Date.now(),
-      difficulty: this.config.difficulty,
+      difficulty: this._currentDifficulty,
       isCorrect,
       reactionTimeMs,
       metadata: {
@@ -358,8 +358,8 @@ export class ReactionTimeEngine extends BaseEngine {
         fakeout: wasFakeout,
         positionX: Math.round(this._stimulusX),
         positionY: Math.round(this._stimulusY),
-        isChoiceRT: this.config.difficulty >= 4,
-        numChoices: this.config.difficulty >= 4 ? this._activeTargets.length : 1,
+        isChoiceRT: this._currentDifficulty >= 4,
+        numChoices: this._currentDifficulty >= 4 ? this._activeTargets.length : 1,
       },
     };
   }
