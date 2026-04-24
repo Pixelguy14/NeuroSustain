@@ -4,12 +4,14 @@
 // ============================================================
 
 import { t, on_locale_change } from '@shared/i18n.ts';
-import { get_profile, get_ratings, get_recent_sessions, get_sessions_history } from '@shared/db.ts';
+import { get_profile, get_ratings, get_recent_sessions, get_sessions_history, get_sessions_raw } from '@shared/db.ts';
 import { render_radar_chart } from '../components/radar-chart.ts';
 import { render_line_chart } from '../components/line-chart.ts';
 import { render_performance_heatmap } from '../components/heatmap.ts';
-import { GLICKO2_DEFAULTS } from '@shared/constants.ts';
+import { GLICKO2_DEFAULTS, EXERCISES } from '@shared/constants.ts';
 import { router } from '../router.ts';
+import { fsrsBridge } from '@core/fsrs/fsrs-bridge.ts';
+import { get_current_retrievability } from '@core/fsrs/fsrs-algorithm.ts';
 import type { CognitivePillar, PillarRating } from '@shared/types.ts';
 
 /** Normalize Glicko-2 rating to 0-1 for radar chart */
@@ -49,6 +51,14 @@ export function render_dashboard(): HTMLElement {
       <div class="glass-panel stat-card" id="stat-last">
         <div class="stat-card__label">${t('dashboard.lastSession')}</div>
         <div class="stat-card__value" id="stat-last-value">—</div>
+      </div>
+    </div>
+
+    <div id="dashboard-due-section" style="display: none; margin-bottom: var(--space-xl);">
+      <h2 class="radar-container__title" style="margin-bottom: var(--space-xs);">${t('dashboard.dueTitle')}</h2>
+      <p style="color: var(--color-text-dim); font-size: 12px; margin-bottom: var(--space-md);">${t('dashboard.dueDesc')}</p>
+      <div id="due-exercises-list" style="display: flex; gap: var(--space-md); overflow-x: auto; padding-bottom: 8px;">
+        <!-- Dynamic due cards go here -->
       </div>
     </div>
 
@@ -125,11 +135,13 @@ export function render_dashboard(): HTMLElement {
 }
 
 async function _populate_dashboard(page: HTMLElement): Promise<void> {
-  const [profile, ratings, recentSessions, history] = await Promise.all([
+  const [profile, ratings, recentSessions, history, historyRaw, dueCards] = await Promise.all([
     get_profile(),
     get_ratings(),
     get_recent_sessions(1),
     get_sessions_history(30),
+    get_sessions_raw(30),
+    fsrsBridge.get_due_exercises(),
   ]);
 
   // Subtitle
@@ -223,7 +235,49 @@ async function _populate_dashboard(page: HTMLElement): Promise<void> {
 
   // Render Heatmap
   const heatmapCanvas = page.querySelector('#chart-heatmap') as HTMLCanvasElement;
-  if (heatmapCanvas && history.length > 0) {
-    render_performance_heatmap(heatmapCanvas, history);
+  if (heatmapCanvas && historyRaw.length > 0) {
+    render_performance_heatmap(heatmapCanvas, historyRaw);
+  }
+
+  // Render Due Today
+  const dueSection = page.querySelector('#dashboard-due-section') as HTMLElement;
+  const dueList = page.querySelector('#due-exercises-list') as HTMLElement;
+  if (dueSection && dueList && dueCards.length > 0) {
+    dueSection.style.display = 'block';
+    dueList.innerHTML = '';
+    
+    for (const card of dueCards) {
+      const exercise = EXERCISES.find(e => e.type === card.exerciseType);
+      if (!exercise) continue;
+
+      const cardEl = document.createElement('div');
+      cardEl.className = 'glass-panel due-exercise-card';
+      cardEl.style.cssText = `
+        min-width: 140px;
+        padding: var(--space-md);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        transition: transform 0.2s ease;
+        border: 1px solid hsla(175, 70%, 50%, 0.15);
+      `;
+      const currentR = get_current_retrievability(card);
+      const rPercent = Math.round(currentR * 100);
+      const rColor = currentR > 0.8 ? 'var(--color-success)' : 'var(--color-warning)';
+
+      cardEl.innerHTML = `
+        <span style="font-size: 24px;">${exercise.iconGlyph}</span>
+        <span style="font-size: 12px; font-weight: 600; text-align: center;">${t(exercise.nameKey)}</span>
+        <div style="font-size: 10px; color: ${rColor}; font-weight: 700;">${rPercent}% ${t('dashboard.retrievability', { defaultValue: 'R' })}</div>
+      `;
+      
+      cardEl.addEventListener('click', () => {
+        router.navigate(`/train/${exercise.type}`);
+      });
+      
+      dueList.appendChild(cardEl);
+    }
   }
 }

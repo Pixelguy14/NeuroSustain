@@ -15,6 +15,7 @@ import { BaseEngine } from '../base-engine.ts';
 import type { ExerciseType, CognitivePillar, Trial, EngineCallbacks } from '@shared/types.ts';
 import { precise_now, shuffle } from '@shared/utils.ts';
 import { ObjectPool } from '@core/utils/object-pool.ts';
+import { t } from '@shared/i18n.ts';
 
 interface NumberOption {
   value: number;
@@ -38,7 +39,6 @@ export class HighNumberEngine extends BaseEngine {
 
   private _phase: HighNumberPhase = 'countdown';
   private _phaseStart: number = 0;
-  private _countdownValue: number = 3;
 
   private _options: NumberOption[] = [];
   private _correctValue: number = 0;
@@ -66,9 +66,8 @@ export class HighNumberEngine extends BaseEngine {
   }
 
   protected on_start(): void {
-    this._phase = 'countdown';
-    this._countdownValue = 3;
     this._phaseStart = precise_now();
+    this.start_countdown(() => this._generate_trial());
 
     // Pointer input for number selection
     this._canvasClickHandler = (e: PointerEvent) => this._on_canvas_click(e);
@@ -80,12 +79,7 @@ export class HighNumberEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown': {
-        const v = 3 - Math.floor(elapsed / 800);
-        if (v <= 0) {
-          this._generate_trial();
-        } else {
-          this._countdownValue = v;
-        }
+        // Handled by BaseEngine
         break;
       }
 
@@ -135,7 +129,6 @@ export class HighNumberEngine extends BaseEngine {
     const w = this.width;
     const h = this.height;
     const cx = w / 2;
-    const cy = h / 2;
 
     ctx.fillStyle = 'hsl(225, 45%, 6%)';
     ctx.fillRect(0, 0, w, h);
@@ -154,11 +147,6 @@ export class HighNumberEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown':
-        ctx.font = 'bold 72px Inter, sans-serif';
-        ctx.fillStyle = 'hsla(175, 70%, 50%, 0.8)';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(String(this._countdownValue), cx, cy);
         break;
 
       case 'presenting':
@@ -168,7 +156,7 @@ export class HighNumberEngine extends BaseEngine {
           ctx.font = '400 14px Inter, sans-serif';
           ctx.fillStyle = 'hsla(220, 15%, 50%, 0.6)';
           ctx.textAlign = 'center';
-          ctx.fillText('Select the highest number', cx, h - 40);
+          ctx.fillText(t('exercise.highNumber.instruction'), cx, h - 40);
         }
         break;
 

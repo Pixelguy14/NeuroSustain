@@ -15,7 +15,10 @@
     "vite": "^7.3.2"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.104.1",
     "dexie": "^4.4.2",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.7",
     "three": "^0.184.0",
     "vite-plugin-pwa": "^1.2.0"
   }

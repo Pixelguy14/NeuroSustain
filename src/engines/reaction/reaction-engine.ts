@@ -29,7 +29,6 @@ export class ReactionTimeEngine extends BaseEngine {
   private _stimulusTime: number = 0;
   private _delayMs: number = 0;
   private _lastReactionMs: number = 0;
-  private _countdownValue: number = 3;
   private _isFakeout: boolean = false;
   private _isFakeoutError: boolean = false;
   private _targetColor: string = 'hsl(145, 70%, 58%)';
@@ -52,14 +51,13 @@ export class ReactionTimeEngine extends BaseEngine {
   private _movementTime: number = 0;
   private _movementCenterX: number = 0;
   private _movementCenterY: number = 0;
+  private _padRects: { x: number; y: number; w: number; h: number; target: any }[] = [];
 
   constructor(canvas: HTMLCanvasElement, callbacks: EngineCallbacks) {
     super(canvas, callbacks);
   }
 
   protected on_start(): void {
-    this._phase = 'countdown';
-    this._countdownValue = 3;
     this._phaseStartTime = precise_now();
 
     // Select max 3 colors per session to avoid overwhelming the user
@@ -81,6 +79,8 @@ export class ReactionTimeEngine extends BaseEngine {
       allTargets[0]!,
       allTargets[1]!
     ];
+
+    this.start_countdown(() => this._start_waiting());
   }
 
   protected on_update(dt: number): void {
@@ -88,12 +88,7 @@ export class ReactionTimeEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown': {
-        const newValue = 3 - Math.floor(elapsed / 800);
-        if (newValue <= 0) {
-          this._start_waiting();
-        } else {
-          this._countdownValue = newValue;
-        }
+        // Handled by BaseEngine
         break;
       }
 
@@ -211,6 +206,9 @@ export class ReactionTimeEngine extends BaseEngine {
         break;
     }
 
+    // Render Touch Pads at bottom (if Difficulty >= 4 or strictly touch-enabled)
+    this._render_touch_pads(ctx);
+
     // Instruction text at bottom
     ctx.font = '500 14px Inter, sans-serif';
     ctx.fillStyle = 'hsla(175, 70%, 50%, 0.8)';
@@ -263,10 +261,43 @@ export class ReactionTimeEngine extends BaseEngine {
   }
 
   protected on_cleanup(): void {
-    // No external resources to clean up
+    this.canvas.onclick = null;
   }
 
   // ── Private helpers ──
+
+  private _render_touch_pads(ctx: CanvasRenderingContext2D): void {
+    const isChoice = this._currentDifficulty >= 4;
+    const padH = 80;
+    const padY = this.height - padH - 20;
+    const padW = Math.min(140, (this.width - 60) / this._activeTargets.length);
+    const gap = 12;
+    const totalW = this._activeTargets.length * padW + (this._activeTargets.length - 1) * gap;
+    const startX = (this.width - totalW) / 2;
+
+    this._padRects = [];
+
+    // Only render individual pads for Choice RT; for simple RT, any tap works
+    if (!isChoice) return;
+
+    this._activeTargets.forEach((target, i) => {
+      const px = startX + i * (padW + gap);
+      this._padRects.push({ x: px, y: padY, w: padW, h: padH, target });
+
+      ctx.beginPath();
+      ctx.roundRect(px, padY, padW, padH, 12);
+      ctx.fillStyle = target.dark.replace('hsl', 'hsla').replace(')', ', 0.3)');
+      ctx.fill();
+      ctx.strokeStyle = target.color.replace('hsl', 'hsla').replace(')', ', 0.4)');
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.font = 'bold 12px Inter, sans-serif';
+      ctx.fillStyle = target.color;
+      ctx.textAlign = 'center';
+      ctx.fillText(target.name, px + padW / 2, padY + padH / 2 + 5);
+    });
+  }
 
   private _start_waiting(): void {
     this._phase = 'waiting';
@@ -278,6 +309,35 @@ export class ReactionTimeEngine extends BaseEngine {
     this._isFakeout = false;
     this._isFakeoutError = false;
     this._movementTime = 0;
+
+    // Register click handler
+    this.canvas.onclick = (e: MouseEvent) => {
+      const rect = this.canvas.getBoundingClientRect();
+      const scaleX = this.width / rect.width;
+      const scaleY = this.height / rect.height;
+      const x = (e.clientX - rect.left) * scaleX;
+      const y = (e.clientY - rect.top) * scaleY;
+
+      // Simple RT: Any tap triggers "Space"
+      if (this._currentDifficulty < 4) {
+        this.on_key_event({ key: ' ', code: 'Space', timeStamp: precise_now() } as KeyboardEvent, precise_now());
+        return;
+      }
+
+      // Choice RT: Must hit a pad
+      for (const pad of this._padRects) {
+        if (x >= pad.x && x <= pad.x + pad.w && y >= pad.y && y <= pad.y + pad.h) {
+          this.on_key_event({ key: pad.target.label, code: pad.target.key, timeStamp: precise_now() } as KeyboardEvent, precise_now());
+          return;
+        }
+      }
+
+      // If they missed all pads in choice RT, it's an error or ignored? 
+      // Clinical rule: Tapping outside pads during choice RT = too early or error.
+      if (this._phase === 'ready') {
+        this.on_key_event({ key: 'Invalid', code: 'Invalid', timeStamp: precise_now() } as KeyboardEvent, precise_now());
+      }
+    };
 
     // Calculate position early so the waiting pulse spawns there
     const diff = this._currentDifficulty;
@@ -430,6 +490,8 @@ export class ReactionTimeEngine extends BaseEngine {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(this._targetLabel, sx, sy + drawR + 40);
+    } else if (this._phase === 'countdown') {
+        return;
     }
   }
 

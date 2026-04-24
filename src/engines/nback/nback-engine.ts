@@ -38,13 +38,12 @@ export class NBackEngine extends BaseEngine {
 
   private _phase: Phase = 'countdown';
   private _phaseStart: number = 0;
-  private _countdownValue: number = 3;
-
-  // N-Back parameters
-  private _n: number = 1;
   private _isDual: boolean = false;
   private _stimulusDurationMs: number = 2000;
   private _interStimulusMs: number = 500;
+
+  // N-Back parameters
+  private _n: number = 1;
 
   // Circular buffer (Zero-Allocation: overwrite by index)
   private _buffer: Stimulus[] = [];
@@ -76,7 +75,6 @@ export class NBackEngine extends BaseEngine {
     // Only show tutorial on trial 1 (first run of the session)
     this._phase = 'tutorial';
     this._phaseStart = precise_now();
-    this._countdownValue = 3;
     this._configure_difficulty();
     this._compute_grid_geometry();
 
@@ -91,20 +89,15 @@ export class NBackEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'tutorial': {
-        if (elapsed > 8000) {
+        if (elapsed > 4000) {
           this._phase = 'countdown';
-          this._phaseStart = precise_now();
+          this.start_countdown(() => this._present_stimulus());
         }
         break;
       }
 
       case 'countdown': {
-        const v = 3 - Math.floor(elapsed / 800);
-        if (v <= 0) {
-          this._present_stimulus();
-        } else {
-          this._countdownValue = v;
-        }
+        // Handled by BaseEngine
         break;
       }
 
@@ -199,11 +192,6 @@ export class NBackEngine extends BaseEngine {
       }
 
       case 'countdown':
-        ctx.font = 'bold 72px Inter, sans-serif';
-        ctx.fillStyle = 'hsla(175, 70%, 50%, 0.8)';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(String(this._countdownValue), cx, cy);
         break;
 
       case 'stimulus':

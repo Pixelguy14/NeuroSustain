@@ -5,7 +5,11 @@
 
 import { t, get_locale, set_locale } from '@shared/i18n.ts';
 import { get_profile, export_data_json, export_data_csv, import_data_json, clear_all_data, db } from '@shared/db.ts';
+import { calculate_percentile } from '@shared/utils.ts';
 import { audioEngine } from '@core/audio/audio-engine.ts';
+import { supabase } from '@core/sync/supabase-client.ts';
+import { syncManager } from '@core/sync/sync-manager.ts';
+import { export_clinical_report } from '@core/analytics/pdf-export.ts';
 import type { Locale } from '@shared/types.ts';
 
 export function render_profile(): HTMLElement {
@@ -59,11 +63,21 @@ export function render_profile(): HTMLElement {
       </div>
       <div class="profile-field" style="border-bottom: none; flex-direction: column; align-items: flex-start; gap: var(--space-sm);">
         <span class="profile-field__label">${t('profile.dataSovereignty')}</span>
-        <div style="display: flex; gap: var(--space-sm); margin-top: var(--space-xs);">
-          <button class="btn btn--ghost btn--small" id="btn-export-json">Export JSON</button>
-          <button class="btn btn--ghost btn--small" id="btn-export-csv">Export CSV</button>
-          <button class="btn btn--ghost btn--small" id="btn-import-json">Import JSON</button>
+        <div style="display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-top: var(--space-xs);">
+          <button class="btn btn--primary btn--small" id="btn-export-pdf" style="background: hsla(175, 70%, 50%, 0.15); border-color: hsla(175, 70%, 50%, 0.3); color: hsl(175, 70%, 70%);">
+            ${t('profile.downloadReport', { defaultValue: 'Download Clinical PDF' })}
+          </button>
+          <button class="btn btn--ghost btn--small" id="btn-export-json">JSON</button>
+          <button class="btn btn--ghost btn--small" id="btn-export-csv">CSV</button>
+          <button class="btn btn--ghost btn--small" id="btn-import-json">${t('profile.import')}</button>
           <input type="file" id="file-import-json" accept=".json" style="display: none;" />
+        </div>
+      </div>
+      <div class="profile-field" style="border-bottom: none; flex-direction: column; align-items: flex-start; gap: var(--space-sm); margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid hsla(0, 0%, 100%, 0.1);">
+        <span class="profile-field__label">${t('profile.syncTitle')}</span>
+        <p style="font-size: 12px; color: var(--color-text-dim); margin-bottom: var(--space-sm);">${t('profile.syncDesc')}</p>
+        <div id="sync-controls" style="display: flex; flex-direction: column; gap: var(--space-md); width: 100%;">
+          <!-- Auth/Sync controls go here -->
         </div>
       </div>
       <div class="profile-field" style="border-bottom: none; flex-direction: column; align-items: flex-start; gap: var(--space-sm); margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid hsla(0, 0%, 100%, 0.1);">
@@ -124,6 +138,21 @@ export function render_profile(): HTMLElement {
   }
 
   // Data Sovereignty Bindings
+  page.querySelector('#btn-export-pdf')?.addEventListener('click', async () => {
+    const btn = page.querySelector('#btn-export-pdf') as HTMLButtonElement;
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '...';
+    try {
+      await export_clinical_report();
+    } catch (err) {
+      console.error('PDF Export failed:', err);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  });
+
   page.querySelector('#btn-export-json')?.addEventListener('click', async () => {
     const json = await export_data_json();
     _download_file(json, 'neurosustain-backup.json', 'application/json');
@@ -236,15 +265,87 @@ async function _populate_profile(page: HTMLElement): Promise<void> {
       `;
       
       const difficulty = Math.max(1, Math.min(10, ((r.rating - 1300) / 100) + 1)).toFixed(1);
+      const percentile = calculate_percentile(r.rating);
       
       card.innerHTML = `
         <span style="font-size: 11px; color: var(--color-text-dim); text-transform: uppercase; letter-spacing: 0.05em;">${t(`pillar.${r.pillar}`)}</span>
-        <div style="display: flex; align-items: baseline; gap: var(--space-xs);">
-          <span style="font-size: 20px; font-weight: 700; color: hsl(175, 70%, 60%);">LV ${difficulty}</span>
-          <span style="font-size: 12px; color: hsla(175, 70%, 50%, 0.4);">/ 10</span>
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-xs);">
+          <div style="display: flex; align-items: baseline; gap: 4px;">
+            <span style="font-size: 20px; font-weight: 700; color: hsl(175, 70%, 60%);">LV ${difficulty}</span>
+            <span style="font-size: 12px; color: hsla(175, 70%, 50%, 0.4);">/ 10</span>
+          </div>
+          <span style="font-size: 11px; font-weight: 600; color: hsla(45, 90%, 60%, 0.8); background: hsla(45, 90%, 55%, 0.1); padding: 2px 6px; border-radius: 4px;">
+            ${percentile >= 50 ? `Top ${100 - percentile}%` : `${percentile}% ${t('profile.percentile', { defaultValue: 'Percentile' })}`}
+          </span>
         </div>
       `;
       ratingsContainer.appendChild(card);
     }
+  }
+
+  // Populate Sync Section
+  const syncControls = page.querySelector('#sync-controls');
+  const s = supabase;
+  if (syncControls && s) {
+    const { data: { session } } = await s.auth.getSession();
+    
+    if (session) {
+      syncControls.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: space-between; background: hsla(145, 65%, 48%, 0.05); padding: var(--space-sm); border-radius: 4px; border: 1px solid hsla(145, 65%, 48%, 0.2);">
+          <span style="font-size: 11px; color: var(--color-success); font-weight: 600;">${t('profile.syncStatus')}: ONLINE</span>
+          <span style="font-size: 11px; color: var(--color-text-dim);">${session.user.email}</span>
+        </div>
+        <div style="display: flex; gap: var(--space-sm);">
+          <button class="btn btn--primary btn--small" id="btn-sync-now" style="flex: 1;">${t('profile.syncNow')}</button>
+          <button class="btn btn--ghost btn--small" id="btn-logout">${t('profile.syncLogout')}</button>
+        </div>
+      `;
+
+      page.querySelector('#btn-sync-now')?.addEventListener('click', async () => {
+        const btn = page.querySelector('#btn-sync-now') as HTMLButtonElement;
+        btn.disabled = true;
+        btn.textContent = '...';
+        await syncManager.sync();
+        btn.disabled = false;
+        btn.textContent = t('profile.syncNow');
+      });
+
+      page.querySelector('#btn-logout')?.addEventListener('click', async () => {
+        await s.auth.signOut();
+        window.location.reload();
+      });
+    } else {
+      syncControls.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: var(--space-sm);">
+          <input type="email" id="sync-email" placeholder="email@example.com" style="background: var(--color-bg-tertiary); border: 1px solid var(--glass-border); border-radius: 4px; padding: 10px; color: white;" />
+          <button class="btn btn--primary btn--small" id="btn-login">${t('profile.syncLogin')}</button>
+        </div>
+      `;
+
+      page.querySelector('#btn-login')?.addEventListener('click', async () => {
+        const email = (page.querySelector('#sync-email') as HTMLInputElement).value;
+        if (!email) return;
+        
+        const btn = page.querySelector('#btn-login') as HTMLButtonElement;
+        btn.disabled = true;
+        btn.textContent = '...';
+        
+        const { error } = await s.auth.signInWithOtp({ email });
+        if (error) {
+          alert(error.message);
+          btn.disabled = false;
+          btn.textContent = t('profile.syncLogin');
+        } else {
+          alert('Magic link sent! Check your email.');
+          btn.textContent = 'Link Sent';
+        }
+      });
+    }
+  } else if (syncControls) {
+    syncControls.innerHTML = `
+      <p style="font-size: 11px; color: var(--color-warning); background: hsla(38, 90%, 55%, 0.1); padding: 8px; border-radius: 4px; border: 1px solid hsla(38, 90%, 55%, 0.2);">
+        Supabase keys missing. Check .env
+      </p>
+    `;
   }
 }

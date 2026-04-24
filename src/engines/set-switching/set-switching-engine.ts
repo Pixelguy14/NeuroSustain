@@ -16,6 +16,7 @@ import { BaseEngine } from '../base-engine.ts';
 import type { ExerciseType, CognitivePillar, EngineCallbacks } from '@shared/types.ts';
 import { precise_now } from '@shared/utils.ts';
 import { audioEngine } from '@core/audio/audio-engine.ts';
+import { t } from '@shared/i18n.ts';
 
 type Phase = 'countdown' | 'presenting' | 'feedback';
 type Rule = 'color' | 'shape' | 'count';
@@ -31,13 +32,19 @@ interface ShapeConfig {
 
 // Color palettes per level
 const COLORS = [
-  { name: 'RED', hsl: 'hsl(0, 70%, 55%)' },
-  { name: 'BLUE', hsl: 'hsl(210, 70%, 55%)' },
-  { name: 'GREEN', hsl: 'hsl(145, 65%, 50%)' },
-  { name: 'YELLOW', hsl: 'hsl(50, 85%, 55%)' },
+  { name: 'RED', labelKey: 'exercise.setSwitch.colorRed', hsl: 'hsl(0, 70%, 55%)' },
+  { name: 'BLUE', labelKey: 'exercise.setSwitch.colorBlue', hsl: 'hsl(210, 70%, 55%)' },
+  { name: 'GREEN', labelKey: 'exercise.setSwitch.colorGreen', hsl: 'hsl(145, 65%, 50%)' },
+  { name: 'YELLOW', labelKey: 'exercise.setSwitch.colorYellow', hsl: 'hsl(50, 85%, 55%)' },
 ];
 
 const SHAPES = ['circle', 'square', 'triangle', 'diamond'];
+const SHAPE_LABEL_KEYS: Record<string, string> = {
+  circle: 'exercise.setSwitch.shapeCircle',
+  square: 'exercise.setSwitch.shapeSquare',
+  triangle: 'exercise.setSwitch.shapeTriangle',
+  diamond: 'exercise.setSwitch.shapeDiamond',
+};
 
 // Button geometry
 const BTN_H = 48;
@@ -50,7 +57,6 @@ export class SetSwitchingEngine extends BaseEngine {
 
   private _phase: Phase = 'countdown';
   private _phaseStart: number = 0;
-  private _countdownValue: number = 3;
 
   // State
   private _currentRule: Rule = 'color';
@@ -75,10 +81,10 @@ export class SetSwitchingEngine extends BaseEngine {
 
   protected on_start(): void {
     this._phase = 'countdown';
-    this._countdownValue = 3;
     this._phaseStart = precise_now();
     this._configure_difficulty();
     this._pick_initial_rule();
+    this.start_countdown(() => this._next_trial());
   }
 
   protected on_update(_dt: number): void {
@@ -86,12 +92,7 @@ export class SetSwitchingEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown': {
-        const v = 3 - Math.floor(elapsed / 800);
-        if (v <= 0) {
-          this._next_trial();
-        } else {
-          this._countdownValue = v;
-        }
+        // Handled by BaseEngine
         break;
       }
 
@@ -133,11 +134,6 @@ export class SetSwitchingEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown':
-        ctx.font = 'bold 72px Inter, sans-serif';
-        ctx.fillStyle = 'hsla(175, 70%, 50%, 0.8)';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(String(this._countdownValue), cx, cy);
         break;
 
       case 'presenting':
@@ -158,9 +154,9 @@ export class SetSwitchingEngine extends BaseEngine {
     ctx.font = 'bold 14px Inter, sans-serif';
     ctx.textAlign = 'center';
 
-    const ruleLabel = this._currentRule === 'color' ? '🎨  Sort by COLOR'
-      : this._currentRule === 'shape' ? '🔷  Sort by SHAPE'
-      : '🔢  Sort by COUNT';
+    const ruleLabel = this._currentRule === 'color' ? t('exercise.setSwitch.ruleColor')
+      : this._currentRule === 'shape' ? t('exercise.setSwitch.ruleShape')
+      : t('exercise.setSwitch.ruleCount');
     
     const ruleColor = this._currentRule === 'color' ? 'hsl(210, 70%, 60%)'
       : this._currentRule === 'shape' ? 'hsl(280, 60%, 60%)'
@@ -397,11 +393,11 @@ export class SetSwitchingEngine extends BaseEngine {
 
     // Determine correct answer and options based on current rule
     if (this._currentRule === 'color') {
-      this._correctAnswer = color.name;
-      this._options = COLORS.slice(0, this._activeColors).map(c => c.name);
+      this._correctAnswer = t(color.labelKey);
+      this._options = COLORS.slice(0, this._activeColors).map(c => t(c.labelKey));
     } else if (this._currentRule === 'shape') {
-      this._correctAnswer = shape.toUpperCase();
-      this._options = SHAPES.slice(0, this._activeShapes).map(s => s.toUpperCase());
+      this._correctAnswer = t(SHAPE_LABEL_KEYS[shape]!).toUpperCase();
+      this._options = SHAPES.slice(0, this._activeShapes).map(s => t(SHAPE_LABEL_KEYS[s]!).toUpperCase());
     } else {
       this._correctAnswer = String(count);
       this._options = ['1', '2', '3'].slice(0, this._activeCounts);

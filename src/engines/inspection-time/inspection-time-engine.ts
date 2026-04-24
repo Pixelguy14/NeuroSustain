@@ -19,6 +19,7 @@ import { BaseEngine } from '../base-engine.ts';
 import type { ExerciseType, CognitivePillar, EngineCallbacks } from '@shared/types.ts';
 import { precise_now } from '@shared/utils.ts';
 import { audioEngine } from '@core/audio/audio-engine.ts';
+import { t } from '@shared/i18n.ts';
 
 type Phase = 'countdown' | 'fixation' | 'flash' | 'mask' | 'response' | 'feedback';
 
@@ -29,7 +30,6 @@ export class InspectionTimeEngine extends BaseEngine {
 
   private _phase: Phase = 'countdown';
   private _phaseStart: number = 0;
-  private _countdownValue: number = 3;
 
   // Trial state
   private _exposureMs: number = 500;
@@ -55,8 +55,8 @@ export class InspectionTimeEngine extends BaseEngine {
 
   protected on_start(): void {
     this._phase = 'countdown';
-    this._countdownValue = 3;
     this._phaseStart = precise_now();
+    this.start_countdown(() => this._next_trial());
 
     // Register click handler for response phase
     this.canvas.onclick = (e: MouseEvent) => {
@@ -82,12 +82,7 @@ export class InspectionTimeEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown': {
-        const v = 3 - Math.floor(elapsed / 800);
-        if (v <= 0) {
-          this._next_trial();
-        } else {
-          this._countdownValue = v;
-        }
+        // Handled by BaseEngine
         break;
       }
 
@@ -150,11 +145,6 @@ export class InspectionTimeEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown':
-        ctx.font = 'bold 72px Inter, sans-serif';
-        ctx.fillStyle = 'hsla(175, 70%, 50%, 0.8)';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(String(this._countdownValue), cx, cy);
         break;
 
       case 'fixation':
@@ -194,7 +184,7 @@ export class InspectionTimeEngine extends BaseEngine {
     ctx.font = '400 12px Inter, sans-serif';
     ctx.fillStyle = 'hsla(220, 15%, 55%, 0.5)';
     ctx.textAlign = 'center';
-    ctx.fillText('Focus here...', cx, cy + 50);
+    ctx.fillText(t('exercise.patternBreaker.focus'), cx, cy + 50);
   }
 
   private _render_shapes(ctx: CanvasRenderingContext2D, showAnomaly: boolean): void {
@@ -307,7 +297,7 @@ export class InspectionTimeEngine extends BaseEngine {
     ctx.fillStyle = 'hsla(220, 15%, 70%, 0.9)';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('Which shape changed?', cx, this.height / 2 - 80);
+    ctx.fillText(t('exercise.inspectionTime.whichChanged'), cx, this.height / 2 - 80);
 
     // Three response buttons
     for (let i = 0; i < 3; i++) {
@@ -331,7 +321,8 @@ export class InspectionTimeEngine extends BaseEngine {
       // Position label
       ctx.font = '400 11px Inter, sans-serif';
       ctx.fillStyle = 'hsla(220, 15%, 55%, 0.5)';
-      ctx.fillText(['Left', 'Center', 'Right'][i]!, r.x + r.w / 2, r.y + r.h - 10);
+      const posLabel = [t('exercise.inspectionTime.left'), t('exercise.inspectionTime.center'), t('exercise.inspectionTime.right')][i]!;
+      ctx.fillText(posLabel, r.x + r.w / 2, r.y + r.h - 10);
     }
 
     // Keyboard hints
@@ -353,8 +344,9 @@ export class InspectionTimeEngine extends BaseEngine {
       ctx.fillText('✗', cx, cy - 20);
       ctx.font = '500 16px Inter, sans-serif';
       ctx.fillStyle = 'hsla(220, 15%, 60%, 0.8)';
+      const pos = [t('exercise.inspectionTime.left'), t('exercise.inspectionTime.center'), t('exercise.inspectionTime.right')][this._targetPosition]!;
       ctx.fillText(
-        `It was the ${['left', 'center', 'right'][this._targetPosition]} shape`,
+        t('exercise.inspectionTime.result', { pos }),
         cx, cy + 24
       );
     }

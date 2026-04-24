@@ -55,7 +55,6 @@ export class SerialSubtractionEngine extends BaseEngine {
 
   private _phase: SerialPhase = 'countdown';
   private _phaseStart: number = 0;
-  private _countdownValue: number = 3;
 
   // Arithmetic state
   private _currentNumber: number = 0;
@@ -95,9 +94,8 @@ export class SerialSubtractionEngine extends BaseEngine {
   }
 
   protected on_start(): void {
-    this._phase = 'countdown';
-    this._countdownValue = 3;
     this._phaseStart = precise_now();
+    this.start_countdown(() => this._start_active());
     this._userInput = '';
     this._ruleCorrectCount = 0;
     this._chainLength = 0;
@@ -120,12 +118,7 @@ export class SerialSubtractionEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown': {
-        const v = 3 - Math.floor(elapsed / 800);
-        if (v <= 0) {
-          this._start_active();
-        } else {
-          this._countdownValue = v;
-        }
+        // Handled by BaseEngine
         break;
       }
 
@@ -159,8 +152,6 @@ export class SerialSubtractionEngine extends BaseEngine {
   protected on_render(ctx: CanvasRenderingContext2D): void {
     const w = this.width;
     const h = this.height;
-    const cx = w / 2;
-    const cy = h / 2;
 
     ctx.fillStyle = 'hsl(225, 45%, 6%)';
     ctx.fillRect(0, 0, w, h);
@@ -179,11 +170,6 @@ export class SerialSubtractionEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown':
-        ctx.font = 'bold 72px Inter, sans-serif';
-        ctx.fillStyle = 'hsla(175, 70%, 50%, 0.8)';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(String(this._countdownValue), cx, cy);
         break;
 
       case 'active':

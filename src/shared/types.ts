@@ -55,6 +55,8 @@ export interface Trial {
   difficultyWeightedRT?: number; // Cleaned RT scaled by Glicko-2 level
   isNeuralStorm?: boolean;       // If true, exclude from FSRS and EMA
   metadata: Record<string, unknown>;
+  /** 0 = not synced, 1 = synced to cloud */
+  isSynced?: 0 | 1;
 }
 
 /** Aggregated session summary */
@@ -73,6 +75,8 @@ export interface Session {
   difficultyEnd: number;
   meanDifficulty: number;
   focusScore: number;
+  /** 0 = not synced, 1 = synced to cloud */
+  isSynced?: 0 | 1;
 }
 
 /** Glicko-2 rating per cognitive pillar */

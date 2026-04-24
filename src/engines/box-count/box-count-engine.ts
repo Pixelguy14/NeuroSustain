@@ -44,7 +44,6 @@ export class BoxCountEngine extends BaseEngine {
 
   private _phase: Phase = 'countdown';
   private _phaseStart: number = 0;
-  private _countdownValue: number = 3;
 
   private _timeLimitMs: number = 20000;
   private _userInput: string = '';
@@ -101,9 +100,8 @@ export class BoxCountEngine extends BaseEngine {
   }
 
   protected on_start(): void {
-    this._phase = 'countdown';
-    this._countdownValue = 3;
     this._phaseStart = precise_now();
+    this.start_countdown(() => this._next_trial());
     this._init_three_async();
   }
 
@@ -248,15 +246,7 @@ export class BoxCountEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown': {
-        const v = 3 - Math.floor(elapsed / 800);
-        if (v <= 0) {
-          // Fallback: If 3D still hasn't loaded after 5 seconds, proceed anyway to prevent UI lock
-          if (this._isThreeLoaded || elapsed > 5000) {
-            this._next_trial();
-          }
-        } else {
-          this._countdownValue = v;
-        }
+        // Handled by BaseEngine
         break;
       }
 
@@ -324,11 +314,6 @@ export class BoxCountEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown':
-        ctx.font = 'bold 72px Inter, sans-serif';
-        ctx.fillStyle = 'hsla(175, 70%, 50%, 0.8)';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(String(this._countdownValue), cx, cy);
         if (!this._isThreeLoaded) {
           ctx.font = '400 14px Inter, sans-serif';
           ctx.fillStyle = 'hsla(220, 15%, 55%, 0.8)';

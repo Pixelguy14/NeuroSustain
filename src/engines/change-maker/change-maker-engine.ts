@@ -33,7 +33,6 @@ export class ChangeMakerEngine extends BaseEngine {
 
   private _phase: Phase = 'countdown';
   private _phaseStart: number = 0;
-  private _countdownValue: number = 3;
 
   // Currency
   private _denoms: Denomination[] = [];
@@ -61,9 +60,8 @@ export class ChangeMakerEngine extends BaseEngine {
   protected on_start(): void {
     this._locale = get_locale() === 'es' ? 'es' : 'en';
     this._denoms = this._locale === 'es' ? MXN_DENOMINATIONS : USD_DENOMINATIONS;
-    this._phase = 'countdown';
-    this._countdownValue = 3;
     this._phaseStart = precise_now();
+    this.start_countdown(() => this._next_trial());
   }
 
   protected on_update(_dt: number): void {
@@ -71,12 +69,7 @@ export class ChangeMakerEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown': {
-        const v = 3 - Math.floor(elapsed / 800);
-        if (v <= 0) {
-          this._next_trial();
-        } else {
-          this._countdownValue = v;
-        }
+        // Handled by BaseEngine
         break;
       }
 
@@ -118,11 +111,6 @@ export class ChangeMakerEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown':
-        ctx.font = 'bold 72px Inter, sans-serif';
-        ctx.fillStyle = 'hsla(175, 70%, 50%, 0.8)';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(String(this._countdownValue), cx, cy);
         break;
 
       case 'playing':

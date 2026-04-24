@@ -15,7 +15,7 @@
 import { BaseEngine } from '../base-engine.ts';
 import type { ExerciseType, CognitivePillar, EngineCallbacks } from '@shared/types.ts';
 import { precise_now } from '@shared/utils.ts';
-import { get_locale } from '@shared/i18n.ts';
+import { get_locale, t } from '@shared/i18n.ts';
 import { audioEngine } from '@core/audio/audio-engine.ts';
 
 type Phase = 'countdown' | 'playing' | 'feedback';
@@ -34,7 +34,6 @@ export class WordScrambleEngine extends BaseEngine {
 
   private _phase: Phase = 'countdown';
   private _phaseStart: number = 0;
-  private _countdownValue: number = 3;
 
   // State
   private _allWords: WordItem[] = [];
@@ -42,10 +41,14 @@ export class WordScrambleEngine extends BaseEngine {
   private _currentWord: string = '';
   private _scrambled: string = '';
   private _userInput: string = '';
+  private _tapHistory: number[] = []; // Tracks indices of tapped tiles for undo
   private _timeLimitMs: number = 15000;
   private _isCorrect: boolean = false;
   private _scrambledLetters: string[] = [];
   private _firstKeystrokeMs: number | null = null;
+  private _usedTileIndices: Set<number> = new Set();
+  private _tileRects: { x: number; y: number; w: number; h: number }[] = [];
+  private _inputAreaRect: { x: number; y: number; w: number; h: number } | null = null;
   private _currentDefinition?: string;
 
   constructor(canvas: HTMLCanvasElement, callbacks: EngineCallbacks) {
@@ -53,9 +56,8 @@ export class WordScrambleEngine extends BaseEngine {
   }
 
   protected on_start(): void {
-    this._phase = 'countdown';
-    this._countdownValue = 3;
     this._phaseStart = precise_now();
+    this.start_countdown(() => this._next_trial());
     this._load_data();
   }
 
@@ -76,12 +78,7 @@ export class WordScrambleEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown': {
-        const v = 3 - Math.floor(elapsed / 800);
-        if (v <= 0) {
-          this._next_trial();
-        } else {
-          this._countdownValue = v;
-        }
+        // Handled by BaseEngine
         break;
       }
 
@@ -123,11 +120,6 @@ export class WordScrambleEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown':
-        ctx.font = 'bold 72px Inter, sans-serif';
-        ctx.fillStyle = 'hsla(175, 70%, 50%, 0.8)';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(String(this._countdownValue), cx, cy);
         break;
 
       case 'playing':
@@ -160,78 +152,100 @@ export class WordScrambleEngine extends BaseEngine {
     const letters = this._scrambledLetters;
     const tileW = 38;
     const tileH = 48;
-    const tileGap = 6;
+    const tileGap = 8;
     const totalTileW = letters.length * tileW + (letters.length - 1) * tileGap;
     const tileStartX = cx - totalTileW / 2;
     const tileY = 120;
 
+    this._tileRects = [];
+
     for (let i = 0; i < letters.length; i++) {
       const tx = tileStartX + i * (tileW + tileGap);
+      const isUsed = this._usedTileIndices.has(i);
+      this._tileRects.push({ x: tx, y: tileY, w: tileW, h: tileH });
 
+      ctx.save();
+      ctx.globalAlpha = isUsed ? 0.2 : 1;
+      
       ctx.beginPath();
       ctx.roundRect(tx, tileY, tileW, tileH, 6);
       ctx.fillStyle = 'hsla(225, 30%, 15%, 0.6)';
       ctx.fill();
-      ctx.strokeStyle = 'hsla(175, 60%, 40%, 0.4)';
+      ctx.strokeStyle = isUsed ? 'hsla(220, 20%, 30%, 0.3)' : 'hsla(175, 60%, 40%, 0.4)';
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      ctx.font = 'bold 22px Inter, sans-serif';
-      ctx.fillStyle = 'hsl(175, 70%, 60%)';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(letters[i]!, tx + tileW / 2, tileY + tileH / 2);
+      if (!isUsed) {
+        ctx.font = 'bold 22px Inter, sans-serif';
+        ctx.fillStyle = 'hsl(175, 70%, 60%)';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(letters[i]!, tx + tileW / 2, tileY + tileH / 2);
+      }
+      ctx.restore();
     }
 
-    // User input display
-    const inputY = tileY + tileH + 50;
-    
+    // User input display (Target area)
+    const inputY = tileY + tileH + 60;
+    const inputW = Math.max(240, totalTileW + 40);
+    const inputH = 54;
+    this._inputAreaRect = { x: cx - inputW / 2, y: inputY, w: inputW, h: inputH };
+
     // HINTS
     ctx.font = '500 13px Inter, sans-serif';
     ctx.textAlign = 'center';
     
-    // Priority: Definition (50%) -> First+Last Letter (70%) -> First Letter (40%)
     if (elapsed > this._timeLimitMs * 0.5 && this._currentDefinition) {
       ctx.fillStyle = 'hsla(45, 80%, 65%, 0.9)';
-      ctx.fillText(`Hint: ${this._currentDefinition}`, cx, inputY - 32);
+      ctx.fillText(t('exercise.wordScramble.hintDef', { def: this._currentDefinition }), cx, inputY - 36);
     } else if (elapsed > this._timeLimitMs * 0.7) {
       ctx.fillStyle = 'hsla(45, 80%, 60%, 0.9)';
-      ctx.fillText(`Hint: Starts with "${this._currentWord.charAt(0)}" and ends with "${this._currentWord.charAt(this._currentWord.length - 1)}"`, cx, inputY - 32);
+      ctx.fillText(t('exercise.wordScramble.hintBoth', { start: this._currentWord.charAt(0), end: this._currentWord.charAt(this._currentWord.length - 1) }), cx, inputY - 36);
     } else if (elapsed > this._timeLimitMs * 0.4) {
       ctx.fillStyle = 'hsla(45, 80%, 60%, 0.8)';
-      ctx.fillText(`Hint: Starts with "${this._currentWord.charAt(0)}"`, cx, inputY - 32);
+      ctx.fillText(t('exercise.wordScramble.hintStart', { start: this._currentWord.charAt(0) }), cx, inputY - 36);
     }
 
     ctx.font = '400 12px Inter, sans-serif';
     ctx.fillStyle = 'hsla(220, 15%, 55%, 0.6)';
     ctx.textAlign = 'center';
-    ctx.fillText('Type the word:', cx, inputY - 14);
+    ctx.fillText(get_locale() === 'es' ? 'Toca las letras para armar:' : 'Tap letters to build:', cx, inputY - 16);
 
-    // Input field
-    const inputW = Math.max(200, totalTileW);
-    const inputH = 42;
+    // Input area background
     ctx.beginPath();
-    ctx.roundRect(cx - inputW / 2, inputY, inputW, inputH, 8);
-    ctx.fillStyle = 'hsla(225, 30%, 12%, 0.6)';
+    ctx.roundRect(cx - inputW / 2, inputY, inputW, inputH, 12);
+    ctx.fillStyle = 'hsla(225, 30%, 10%, 0.5)';
     ctx.fill();
-    ctx.strokeStyle = this._userInput.length > 0
-      ? 'hsla(175, 60%, 45%, 0.6)'
-      : 'hsla(220, 20%, 30%, 0.4)';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = this._userInput.length > 0 ? 'hsla(175, 60%, 50%, 0.4)' : 'hsla(220, 20%, 30%, 0.2)';
     ctx.stroke();
 
-    ctx.font = 'bold 20px Inter, sans-serif';
-    ctx.fillStyle = 'hsl(220, 20%, 85%)';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(this._userInput || '…', cx, inputY + inputH / 2);
+    // Render current word in input area as small tiles too (for "Reactive" feel)
+    const activeLetters = this._userInput.split('');
+    const sTileW = 32;
+    const sTileH = 40;
+    const sTileGap = 4;
+    const sTotalW = activeLetters.length * sTileW + (activeLetters.length - 1) * sTileGap;
+    const sStartX = cx - sTotalW / 2;
+    const sY = inputY + (inputH - sTileH) / 2;
 
-    // Cursor blink
-    if (this._userInput.length > 0) {
-      const cursorAlpha = Math.sin(elapsed / 300) > 0 ? 0.8 : 0;
-      ctx.fillStyle = `hsla(175, 70%, 55%, ${cursorAlpha})`;
-      const textWidth = ctx.measureText(this._userInput).width;
-      ctx.fillRect(cx + textWidth / 2 + 2, inputY + 8, 2, inputH - 16);
+    activeLetters.forEach((char, i) => {
+      const tx = sStartX + i * (sTileW + sTileGap);
+      ctx.beginPath();
+      ctx.roundRect(tx, sY, sTileW, sTileH, 4);
+      ctx.fillStyle = 'hsla(225, 30%, 20%, 0.8)';
+      ctx.fill();
+      ctx.strokeStyle = 'hsla(175, 60%, 50%, 0.5)';
+      ctx.stroke();
+
+      ctx.font = 'bold 18px Inter, sans-serif';
+      ctx.fillStyle = 'hsl(220, 20%, 90%)';
+      ctx.fillText(char, tx + sTileW / 2, sY + sTileH / 2);
+    });
+
+    if (this._userInput.length === 0) {
+      ctx.font = 'italic 16px Inter, sans-serif';
+      ctx.fillStyle = 'hsla(220, 15%, 40%, 0.5)';
+      ctx.fillText('…', cx, inputY + inputH / 2);
     }
   }
 
@@ -281,12 +295,14 @@ export class WordScrambleEngine extends BaseEngine {
   }
 
   protected on_cleanup(): void {
-    // No DOM to clean
+    this.canvas.onclick = null;
   }
 
   // ── Logic ───────────────────────────────────────────────
 
   private _next_trial(): void {
+    this._usedTileIndices.clear();
+    this._tapHistory = [];
     const diff = this._currentDifficulty;
 
     const maxDiff = diff <= 3 ? 2 : diff <= 7 ? 4 : 5;
@@ -315,10 +331,58 @@ export class WordScrambleEngine extends BaseEngine {
     else this._timeLimitMs = 8000;
 
     this._userInput = '';
+    this._tapHistory = [];
     this._firstKeystrokeMs = null;
 
     this._phase = 'playing';
     this._phaseStart = precise_now();
+
+    // Register click handler for touch interaction
+    this.canvas.onclick = (e: MouseEvent) => {
+      if (this._phase !== 'playing') return;
+      const rect = this.canvas.getBoundingClientRect();
+      const scaleX = this.width / rect.width;
+      const scaleY = this.height / rect.height;
+      const x = (e.clientX - rect.left) * scaleX;
+      const y = (e.clientY - rect.top) * scaleY;
+
+      // Check Rack tiles
+      for (let i = 0; i < this._tileRects.length; i++) {
+        const r = this._tileRects[i]!;
+        if (!this._usedTileIndices.has(i) && x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
+          this._handle_rack_tap(i);
+          return;
+        }
+      }
+
+      // Check Input area (Undo)
+      if (this._inputAreaRect && x >= this._inputAreaRect.x && x <= this._inputAreaRect.x + this._inputAreaRect.w && y >= this._inputAreaRect.y && y <= this._inputAreaRect.y + this._inputAreaRect.h) {
+        this._handle_undo();
+      }
+    };
+  }
+
+  private _handle_rack_tap(index: number): void {
+    const char = this._scrambledLetters[index]!;
+    this._userInput += char;
+    this._tapHistory.push(index);
+    this._usedTileIndices.add(index);
+    audioEngine.play_tick();
+
+    if (!this._firstKeystrokeMs) this._firstKeystrokeMs = precise_now() - this._phaseStart;
+
+    if (this._userInput.length === this._currentWord.length) {
+      this._submit(this._userInput.toUpperCase() === this._currentWord);
+    }
+  }
+
+  private _handle_undo(): void {
+    if (this._tapHistory.length === 0) return;
+    
+    const lastIndex = this._tapHistory.pop()!;
+    this._usedTileIndices.delete(lastIndex);
+    this._userInput = this._userInput.slice(0, -1);
+    audioEngine.play_tick();
   }
 
   private _shuffle_word(word: string): string {

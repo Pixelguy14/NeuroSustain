@@ -111,18 +111,19 @@ class AudioEngine {
 
   /**
    * Correct answer feedback.
-   * Clean 880Hz (A5) sine pulse with fast 0.1s decay.
+   * Perfect Fifth chord (C5 + G5) sine pulse with clean 0.5s decay.
    */
   play_correct(): void {
-    this._play_tone(880, 'sine', 0.1, 0.15);
+    this._play_tone(523.25, 'sine', 0.5, 0.1); // C5
+    this._play_tone(783.99, 'sine', 0.5, 0.08); // G5
   }
 
   /**
    * Error feedback.
-   * Dull 110Hz (A2) square wave at low gain — thud, not screech.
+   * Dull 150Hz sine thud with fast 0.1s decay — informative, not punishing.
    */
   play_error(): void {
-    this._play_tone(110, 'square', 0.15, 0.08);
+    this._play_tone(150, 'sine', 0.1, 0.15);
   }
 
   /**
@@ -134,11 +135,50 @@ class AudioEngine {
   }
 
   /**
-   * UI tick (countdown, timer).
-   * Sharp 1200Hz triangle, 20ms — minimal and precise.
+   * UI tick (countdown).
+   * Low-pass filtered "Sonar Ping" (440Hz sine with filter sweep).
    */
-  play_tick(): void {
-    this._play_tone(1200, 'triangle', 0.02, 0.1);
+  play_tick(isGo: boolean = false): void {
+    if (!this._enabled) return;
+    const ctx = this._ensure_context();
+    if (!ctx) return;
+
+    const frequency = isGo ? 880 : 440;
+    const osc = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(frequency, ctx.currentTime);
+
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(frequency * 2, ctx.currentTime);
+    filter.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.4);
+
+    gainNode.gain.setValueAtTime(isGo ? 0.25 : 0.15, ctx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+
+    osc.connect(filter);
+    filter.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    this._activeNodes.add(osc);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.5);
+    osc.onended = () => {
+      osc.disconnect();
+      filter.disconnect();
+      gainNode.disconnect();
+      this._activeNodes.delete(osc);
+    };
+  }
+
+  /**
+   * Tactile UI click for buttons and interactions.
+   * Micro-second high-frequency sine click.
+   */
+  play_ui_click(): void {
+    this._play_tone(2400, 'sine', 0.005, 0.05);
   }
 
   /**

@@ -4,7 +4,7 @@
 // ============================================================
 
 import Dexie from 'dexie';
-import type { Trial, Session, PillarRating, FsrsCard, UserProfile, CognitiveSnapshot, HardwareProfile, FsrsJournalEntry } from './types.ts';
+import type { Trial, Session, PillarRating, FsrsCard, UserProfile, CognitiveSnapshot, HardwareProfile, FsrsJournalEntry, CognitivePillar } from './types.ts';
 import { ALL_PILLARS, GLICKO2_DEFAULTS } from './constants.ts';
 
 class NeuroSustainDB extends Dexie {
@@ -51,6 +51,15 @@ class NeuroSustainDB extends Dexie {
         }
       });
     });
+
+    // v4: Cloud Sync status
+    this.version(4).stores({
+      trials: '++id, sessionId, exerciseType, pillar, timestamp, isSynced',
+      sessions: '++id, sessionId, startedAt, pillar, exerciseType, isSynced',
+    }).upgrade(tx => {
+      tx.table('trials').toCollection().modify(t => t.isSynced = 0);
+      tx.table('sessions').toCollection().modify(s => s.isSynced = 0);
+    });
   }
 }
 
@@ -87,8 +96,8 @@ export async function initialize_db(): Promise<void> {
 /** Save a completed session's trials and summary */
 export async function save_session(session: Session, trials: Trial[]): Promise<void> {
   await db.transaction('rw', [db.sessions, db.trials, db.profile], async () => {
-    await db.sessions.add(session);
-    await db.trials.bulkAdd(trials);
+    await db.sessions.add({ ...session, isSynced: 0 });
+    await db.trials.bulkAdd(trials.map(t => ({ ...t, isSynced: 0 })));
 
     const profile = await db.profile.toCollection().first();
     if (profile?.id != null) {
@@ -111,6 +120,14 @@ export async function save_session(session: Session, trials: Trial[]): Promise<v
       });
     }
   });
+
+  // Trigger cloud sync (background)
+  try {
+    const { syncManager } = await import('../core/sync/sync-manager.ts');
+    syncManager.sync();
+  } catch (e) {
+    console.warn('[DB] Sync failed:', e);
+  }
 }
 
 /** Update a pillar's Glicko-2 rating after a session */
@@ -226,10 +243,15 @@ export interface DailyAggregate {
   sessionCount: number;
 }
 
+/** Get raw sessions for the last N days */
+export async function get_sessions_raw(days: number): Promise<Session[]> {
+  const cutoff = Date.now() - (days * 86400000);
+  return db.sessions.where('startedAt').aboveOrEqual(cutoff).toArray();
+}
+
 /** Get sessions history grouped by day for the last N days */
 export async function get_sessions_history(days: number): Promise<DailyAggregate[]> {
-  const cutoff = Date.now() - (days * 86400000);
-  const sessions = await db.sessions.where('startedAt').aboveOrEqual(cutoff).toArray();
+  const sessions = await get_sessions_raw(days);
   
   const grouped = new Map<string, Session[]>();
   for (const s of sessions) {
@@ -239,7 +261,6 @@ export async function get_sessions_history(days: number): Promise<DailyAggregate
   }
 
   const result: DailyAggregate[] = [];
-  // Sort dates chronologically
   const sortedDates = Array.from(grouped.keys()).sort();
   
   for (const date of sortedDates) {
@@ -254,7 +275,6 @@ export async function get_sessions_history(days: number): Promise<DailyAggregate
     }
     
     const meanRT = sumRT / sessionCount;
-    // Compute SD of RT across sessions for this day
     let sumSq = 0;
     for (const s of daySessions) {
       sumSq += Math.pow(s.meanReactionTimeMs - meanRT, 2);

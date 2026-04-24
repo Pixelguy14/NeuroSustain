@@ -3,7 +3,6 @@
 // Performance visualization: Day of Week vs. Hour of Day
 // ============================================================
 
-import { t } from '@shared/i18n.ts';
 import type { Session } from '@shared/types.ts';
 
 export function render_performance_heatmap(
@@ -66,12 +65,14 @@ export function render_performance_heatmap(
         else if (metric === 'accuracy') intensity = avg;
         else intensity = Math.max(0, 1 - (avg - 250) / 1000);
 
-        ctx.fillStyle = `hsla(175, 70%, 50%, ${0.1 + intensity * 0.8})`;
+        // Use colorScale if provided, otherwise default to teal
+        const baseColor = colorScale[1] || 'hsla(175, 70%, 50%, 0.4)';
+        ctx.fillStyle = baseColor.replace('0.4', String(0.1 + intensity * 0.8));
         ctx.beginPath();
         ctx.roundRect(x + 1, y + 1, cellW - 2, cellH - 2, 2);
         ctx.fill();
       } else {
-        ctx.fillStyle = 'hsla(225, 30%, 15%, 0.2)';
+        ctx.fillStyle = colorScale[0] || 'hsla(225, 30%, 15%, 0.2)';
         ctx.beginPath();
         ctx.roundRect(x + 1, y + 1, cellW - 2, cellH - 2, 2);
         ctx.fill();

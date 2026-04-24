@@ -20,6 +20,7 @@ import { BaseEngine } from '../base-engine.ts';
 import type { ExerciseType, CognitivePillar, EngineCallbacks } from '@shared/types.ts';
 import { precise_now } from '@shared/utils.ts';
 import { audioEngine } from '@core/audio/audio-engine.ts';
+import { t } from '@shared/i18n.ts';
 
 type Phase = 'countdown' | 'scanning' | 'feedback';
 
@@ -99,7 +100,6 @@ export class PatternBreakerEngine extends BaseEngine {
 
   private _phase: Phase = 'countdown';
   private _phaseStart: number = 0;
-  private _countdownValue: number = 3;
 
   // Grid
   private _cols: number = 5;
@@ -133,9 +133,8 @@ export class PatternBreakerEngine extends BaseEngine {
   }
 
   protected on_start(): void {
-    this._phase = 'countdown';
-    this._countdownValue = 3;
     this._phaseStart = precise_now();
+    this.start_countdown(() => this._next_trial());
 
     this.canvas.onclick = (e: MouseEvent) => {
       if (this._phase !== 'scanning') return;
@@ -160,12 +159,7 @@ export class PatternBreakerEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown': {
-        const v = 3 - Math.floor(elapsed / 800);
-        if (v <= 0) {
-          this._next_trial();
-        } else {
-          this._countdownValue = v;
-        }
+        // Handled by BaseEngine
         break;
       }
 
@@ -207,11 +201,6 @@ export class PatternBreakerEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown':
-        ctx.font = 'bold 72px Inter, sans-serif';
-        ctx.fillStyle = 'hsla(175, 70%, 50%, 0.8)';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(String(this._countdownValue), cx, cy);
         break;
 
       case 'scanning':
@@ -247,7 +236,7 @@ export class PatternBreakerEngine extends BaseEngine {
     ctx.font = '400 12px Inter, sans-serif';
     ctx.fillStyle = 'hsla(220, 15%, 55%, 0.6)';
     ctx.textAlign = 'center';
-    ctx.fillText('Find the different one', w / 2, 90);
+    ctx.fillText(t('exercise.setSwitch.findAnomaly'), w / 2, 90);
 
     // Draw each cell
     const cs = this._cellSize;

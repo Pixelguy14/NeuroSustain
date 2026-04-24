@@ -15,7 +15,7 @@
 import { BaseEngine } from '../base-engine.ts';
 import type { ExerciseType, CognitivePillar, EngineCallbacks } from '@shared/types.ts';
 import { precise_now } from '@shared/utils.ts';
-import { get_locale } from '@shared/i18n.ts';
+import { get_locale, t } from '@shared/i18n.ts';
 import { audioEngine } from '@core/audio/audio-engine.ts';
 
 type Phase = 'countdown' | 'presenting' | 'feedback';
@@ -38,7 +38,6 @@ export class FallacyDetectorEngine extends BaseEngine {
 
   private _phase: Phase = 'countdown';
   private _phaseStart: number = 0;
-  private _countdownValue: number = 3;
 
   private _allItems: FallacyItem[] = [];
   private _currentItem: FallacyItem | null = null;
@@ -60,9 +59,8 @@ export class FallacyDetectorEngine extends BaseEngine {
   }
 
   protected on_start(): void {
-    this._phase = 'countdown';
-    this._countdownValue = 3;
     this._phaseStart = precise_now();
+    this.start_countdown(() => this._next_trial());
 
     // Load fallacy data based on locale
     this._load_data();
@@ -85,12 +83,7 @@ export class FallacyDetectorEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown': {
-        const v = 3 - Math.floor(elapsed / 800);
-        if (v <= 0) {
-          this._next_trial();
-        } else {
-          this._countdownValue = v;
-        }
+        // Handled by BaseEngine
         break;
       }
 
@@ -133,11 +126,6 @@ export class FallacyDetectorEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown':
-        ctx.font = 'bold 72px Inter, sans-serif';
-        ctx.fillStyle = 'hsla(175, 70%, 50%, 0.8)';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(String(this._countdownValue), cx, cy);
         break;
 
       case 'presenting':
@@ -198,7 +186,7 @@ export class FallacyDetectorEngine extends BaseEngine {
     ctx.fillStyle = 'hsl(145, 65%, 55%)';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('✓  VALID', this._btnValidX + this._btnW / 2, this._btnY + BTN_H / 2);
+    ctx.fillText(t('exercise.fallacy.valid'), this._btnValidX + this._btnW / 2, this._btnY + BTN_H / 2);
 
     // Keyboard hint
     ctx.font = '400 10px Inter, sans-serif';
@@ -218,7 +206,7 @@ export class FallacyDetectorEngine extends BaseEngine {
     ctx.fillStyle = 'hsl(0, 65%, 55%)';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('✗  FALLACY', this._btnFallacyX + this._btnW / 2, this._btnY + BTN_H / 2);
+    ctx.fillText(t('exercise.fallacy.fallacy'), this._btnFallacyX + this._btnW / 2, this._btnY + BTN_H / 2);
 
     ctx.font = '400 10px Inter, sans-serif';
     ctx.fillStyle = 'hsla(0, 50%, 50%, 0.5)';

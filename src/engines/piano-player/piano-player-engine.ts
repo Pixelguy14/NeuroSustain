@@ -18,6 +18,7 @@ import type { ExerciseType, CognitivePillar, EngineCallbacks } from '@shared/typ
 import { precise_now } from '@shared/utils.ts';
 import { InputBridge, type InputEvent } from '@core/input/input-bridge.ts';
 import { audioEngine } from '@core/audio/audio-engine.ts';
+import { t } from '@shared/i18n.ts';
 
 type Phase = 'countdown' | 'encoding' | 'retention' | 'recall' | 'feedback';
 
@@ -73,7 +74,6 @@ export class PianoPlayerEngine extends BaseEngine {
 
   private _phase: Phase = 'countdown';
   private _phaseStart: number = 0;
-  private _countdownValue: number = 3;
 
   private _pads: Pad[] = [];
   private _sequence: number[] = []; // Original sequence
@@ -104,9 +104,9 @@ export class PianoPlayerEngine extends BaseEngine {
 
   protected on_start(): void {
     this._phase = 'countdown';
-    this._countdownValue = 3;
     this._phaseStart = precise_now();
     this._init_grid();
+    this.start_countdown(() => this._start_trial());
 
     // Map canvas coordinates to pad IDs
     this._inputBridge = new InputBridge(this.canvas, (x, y) => {
@@ -127,12 +127,7 @@ export class PianoPlayerEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown': {
-        const v = 3 - Math.floor(elapsed / 800);
-        if (v <= 0) {
-          this._start_trial();
-        } else {
-          this._countdownValue = v;
-        }
+        // Handled by BaseEngine
         break;
       }
 
@@ -207,11 +202,6 @@ export class PianoPlayerEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown':
-        ctx.font = 'bold 72px Inter, sans-serif';
-        ctx.fillStyle = 'hsla(175, 70%, 50%, 0.8)';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(String(this._countdownValue), cx, cy);
         break;
 
       case 'encoding':
@@ -219,7 +209,7 @@ export class PianoPlayerEngine extends BaseEngine {
         ctx.font = '500 18px Inter, sans-serif';
         ctx.fillStyle = 'hsla(220, 15%, 55%, 0.8)';
         ctx.textAlign = 'center';
-        ctx.fillText('Listen...', cx, 60);
+        ctx.fillText(t('exercise.pianoPlayer.listen'), cx, 60);
         break;
 
       case 'retention':
@@ -432,8 +422,8 @@ export class PianoPlayerEngine extends BaseEngine {
 
     let seqLength: number;
     if (diff <= 3) seqLength = 3;
-    else if (diff <= 7) seqLength = 5 + Math.floor(Math.random() * 2); // 5-6
-    else seqLength = 7 + Math.floor(Math.random() * 2); // 7-8
+    else if (diff <= 7) seqLength = 4 + Math.floor(Math.random() * 2); // 4-5
+    else seqLength = 5 + Math.floor(Math.random() * 2); // 5-6 (Reduced as per clinical polish manifesto)
 
     this._sequence = [];
     for (let i = 0; i < seqLength; i++) {

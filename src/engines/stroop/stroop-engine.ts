@@ -41,7 +41,6 @@ export class StroopEngine extends BaseEngine {
 
   private _phase: Phase = 'countdown';
   private _phaseStart: number = 0;
-  private _countdownValue: number = 3;
 
   // Trial state
   private _wordText: string = '';        // The word displayed (e.g. "RED")
@@ -64,9 +63,8 @@ export class StroopEngine extends BaseEngine {
 
   protected on_start(): void {
     this._locale = get_locale();
-    this._phase = 'countdown';
-    this._countdownValue = 3;
     this._phaseStart = precise_now();
+    this.start_countdown(() => this._next_trial());
     this._setup_color_pool();
 
     // Register click handler ONCE (Zero-Allocation)
@@ -104,12 +102,7 @@ export class StroopEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown': {
-        const v = 3 - Math.floor(elapsed / 800);
-        if (v <= 0) {
-          this._next_trial();
-        } else {
-          this._countdownValue = v;
-        }
+        // Handled by BaseEngine
         break;
       }
 
@@ -151,11 +144,6 @@ export class StroopEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown':
-        ctx.font = 'bold 72px Inter, sans-serif';
-        ctx.fillStyle = 'hsla(175, 70%, 50%, 0.8)';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(String(this._countdownValue), cx, cy);
         break;
 
       case 'stimulus':

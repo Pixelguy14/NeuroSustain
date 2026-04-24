@@ -55,6 +55,14 @@ export abstract class BaseEngine {
   private _resizeHandler: (() => void) | null = null;
   private _clickHandler: ((e: PointerEvent) => void) | null = null;
 
+  // ── Cinematic Polish State ──────────────────────────────
+  protected _feedbackFlash: { color: string, opacity: number, size: number, maxRadius: number } | null = null;
+  protected _countdownValue: number | null = null;
+  protected _countdownTimer: number = 0;
+  protected _countdownScale: number = 1;
+  protected _countdownOpacity: number = 0;
+  private _countdownCallback: (() => void) | null = null;
+
   // ── Exit button geometry (computed on resize) ──
   private _exitBtnX: number = 0;
   private _exitBtnY: number = 8;
@@ -78,6 +86,7 @@ export abstract class BaseEngine {
   /** Start the exercise session with optional configuration */
   start(config?: Partial<SessionConfig>): void {
     this.config = { ...DEFAULT_CONFIG, ...config };
+    this._currentDifficulty = this.config.difficulty;
     this.state = 'running';
     this.trials = [];
     this.currentTrial = 0;
@@ -86,8 +95,13 @@ export abstract class BaseEngine {
     this._ema_correct_count = 0;
     this._fatigue_fired = false;
 
-    // ── Warm-up Offset: Start session 3 levels below baseline (Min 1) ──
-    this._currentDifficulty = config?.sessionDifficulty ?? Math.max(1, this.config.difficulty - 3);
+    // ── Refined Warm-up: Start sessions below baseline to allow calibration ──
+    const baseline = this.config.difficulty;
+    let offset = 1;
+    if (baseline >= 9) offset = 3;
+    else if (baseline >= 6) offset = 2;
+
+    this._currentDifficulty = config?.sessionDifficulty ?? Math.max(1, baseline - offset);
     this._consecutiveCorrect = 0;
 
     this._resize_canvas();
@@ -134,7 +148,8 @@ export abstract class BaseEngine {
       this.currentTrial++;
       this.callbacks.onTrialComplete(trial);
 
-      // ── Audio feedback ──
+      // ── Audio & Visual feedback ──
+      this.trigger_feedback_flash(trial.isCorrect);
       if (trial.isCorrect) {
         audioEngine.play_correct();
       } else {
@@ -174,11 +189,15 @@ export abstract class BaseEngine {
         }
       }
 
-      // ── Adaptive Staircase: 3-Up, 1-Down ──
+      // ── Adaptive Staircase: Inverse Laddering ──
       if (!this.config.neuralStorm) {
         if (trial.isCorrect) {
           this._consecutiveCorrect++;
-          if (this._consecutiveCorrect >= 3) {
+          
+          // Climb faster (2-Up) if still below baseline; standard (3-Up) otherwise
+          const threshold = this._currentDifficulty < this.config.difficulty ? 2 : 3;
+          
+          if (this._consecutiveCorrect >= threshold) {
             this._currentDifficulty = Math.min(10, this._currentDifficulty + 1);
             this._consecutiveCorrect = 0;
           }
@@ -260,6 +279,8 @@ export abstract class BaseEngine {
 
     this.on_update(dt);
     this.on_render(this.ctx);
+    this.render_cinematic_countdown(this.ctx, dt);
+    this.render_feedback_overlay(this.ctx, dt);
 
     // Draw exit button LAST (on top of everything)
     this._render_exit_button(this.ctx);
@@ -342,6 +363,111 @@ export abstract class BaseEngine {
     ctx.fillText('Esc  Abort', x + w / 2, y + h / 2);
 
     ctx.restore();
+  }
+
+  /**
+   * Pillar 2: Feedback Flash (Radial Gradient)
+   * Expanding and fading circle from center.
+   */
+  protected trigger_feedback_flash(isCorrect: boolean): void {
+    this._feedbackFlash = {
+      color: isCorrect ? 'hsla(145, 65%, 48%, 0.4)' : 'hsla(0, 75%, 55%, 0.4)',
+      opacity: 1,
+      size: 0,
+      maxRadius: Math.min(this.width, this.height) * 0.4
+    };
+    this.haptic_feedback(isCorrect);
+  }
+
+  /**
+   * Pillar 3: Haptic Feedback Wrapper
+   */
+  protected haptic_feedback(isSuccess: boolean): void {
+    if (!navigator.vibrate) return;
+    if (isSuccess) {
+      navigator.vibrate([20, 30, 20]); // Double tap
+    } else {
+      navigator.vibrate([50]); // Solid thud
+    }
+  }
+
+  /**
+   * Pillar 2: Heartbeat Countdown
+   * Animates scale and opacity for 3, 2, 1, GO!
+   */
+  protected render_cinematic_countdown(ctx: CanvasRenderingContext2D, dt: number): void {
+    if (this._countdownValue === null) return;
+
+    this._countdownTimer += dt;
+    
+    // Auto-advance logic (1 second per value)
+    if (this._countdownTimer >= 1000) {
+      this._countdownValue--;
+      this._countdownTimer = 0;
+      
+      if (this._countdownValue > 0) {
+        audioEngine.play_tick(false);
+      } else if (this._countdownValue === 0) {
+        audioEngine.play_tick(true);
+      } else {
+        // Countdown finished
+        const cb = this._countdownCallback;
+        this._countdownValue = null;
+        this._countdownCallback = null;
+        cb?.();
+        return;
+      }
+    }
+
+    // Heartbeat LERP (first 300ms of each second)
+    const animProgress = Math.min(1, this._countdownTimer / 300);
+    this._countdownScale = 1.5 - (0.5 * animProgress);
+    this._countdownOpacity = animProgress;
+
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `bold ${80 * this._countdownScale}px Inter, sans-serif`;
+    ctx.fillStyle = `rgba(255, 255, 255, ${this._countdownOpacity * 0.35})`;
+    
+    const text = this._countdownValue === 0 ? 'GO!' : this._countdownValue.toString();
+    ctx.fillText(text, this.width / 2, this.height / 2);
+    ctx.restore();
+  }
+
+  /** Render the expanding feedback ring */
+  protected render_feedback_overlay(ctx: CanvasRenderingContext2D, dt: number): void {
+    if (!this._feedbackFlash) return;
+
+    this._feedbackFlash.size += (this._feedbackFlash.maxRadius - this._feedbackFlash.size) * 0.1;
+    this._feedbackFlash.opacity -= dt / 400;
+
+    if (this._feedbackFlash.opacity <= 0) {
+      this._feedbackFlash = null;
+      return;
+    }
+
+    ctx.save();
+    const grad = ctx.createRadialGradient(
+      this.width / 2, this.height / 2, 0,
+      this.width / 2, this.height / 2, this._feedbackFlash.size
+    );
+    grad.addColorStop(0, this._feedbackFlash.color.replace('0.4', (this._feedbackFlash.opacity * 0.3).toString()));
+    grad.addColorStop(1, 'transparent');
+
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, this.width, this.height);
+    ctx.restore();
+  }
+
+  /**
+   * Start the standardized clinical countdown (3, 2, 1, GO)
+   */
+  protected start_countdown(onComplete: () => void): void {
+    this._countdownValue = 3;
+    this._countdownTimer = 0;
+    this._countdownCallback = onComplete;
+    audioEngine.play_tick(false);
   }
 
   // ── Abstract lifecycle methods ──

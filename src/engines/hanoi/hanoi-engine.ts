@@ -26,7 +26,6 @@ export class HanoiEngine extends BaseEngine {
 
   private _phase: Phase = 'countdown';
   private _phaseStart: number = 0;
-  private _countdownValue: number = 3;
 
   // State
   private _numDiscs: number = 3;
@@ -54,10 +53,9 @@ export class HanoiEngine extends BaseEngine {
   }
 
   protected on_start(): void {
-    this._phase = 'countdown';
-    this._countdownValue = 3;
     this._phaseStart = precise_now();
     this._compute_geometry();
+    this.start_countdown(() => this._init_puzzle());
   }
 
   protected on_update(_dt: number): void {
@@ -65,12 +63,7 @@ export class HanoiEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown': {
-        const v = 3 - Math.floor(elapsed / 800);
-        if (v <= 0) {
-          this._init_puzzle();
-        } else {
-          this._countdownValue = v;
-        }
+        // Handled by BaseEngine
         break;
       }
 
@@ -98,7 +91,6 @@ export class HanoiEngine extends BaseEngine {
     const w = this.width;
     const h = this.height;
     const cx = w / 2;
-    const cy = h / 2;
 
     ctx.fillStyle = 'hsl(225, 45%, 6%)';
     ctx.fillRect(0, 0, w, h);
@@ -121,11 +113,6 @@ export class HanoiEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown':
-        ctx.font = 'bold 72px Inter, sans-serif';
-        ctx.fillStyle = 'hsla(175, 70%, 50%, 0.8)';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(String(this._countdownValue), cx, cy);
         break;
 
       case 'playing':

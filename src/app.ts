@@ -79,4 +79,12 @@ async function boot(): Promise<void> {
   }
 }
 
+// Global Mouse Tracking for Reactive Glow (Pillar 3)
+window.addEventListener('mousemove', (e) => {
+  const x = (e.clientX / window.innerWidth) * 100;
+  const y = (e.clientY / window.innerHeight) * 100;
+  document.documentElement.style.setProperty('--mouse-x', `${x}%`);
+  document.documentElement.style.setProperty('--mouse-y', `${y}%`);
+});
+
 boot();

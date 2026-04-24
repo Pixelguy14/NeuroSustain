@@ -3,6 +3,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 import { resolve } from 'path';
 
 export default defineConfig({
+  base: '/NeuroSustain/', // Ensure this matches your GitHub Repository name
   resolve: {
     alias: {
       '@core': resolve(__dirname, 'src/core'),

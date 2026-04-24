@@ -15,6 +15,7 @@ import { BaseEngine } from '../base-engine.ts';
 import type { ExerciseType, CognitivePillar, EngineCallbacks } from '@shared/types.ts';
 import { precise_now } from '@shared/utils.ts';
 import { audioEngine } from '@core/audio/audio-engine.ts';
+import { t } from '@shared/i18n.ts';
 
 type Phase = 'countdown' | 'scanning' | 'feedback';
 
@@ -203,7 +204,6 @@ export class SymbolSearchEngine extends BaseEngine {
 
   private _phase: Phase = 'countdown';
   private _phaseStart: number = 0;
-  private _countdownValue: number = 3;
 
   // Trial state
   private _cols: number = 3;
@@ -232,9 +232,8 @@ export class SymbolSearchEngine extends BaseEngine {
   }
 
   protected on_start(): void {
-    this._phase = 'countdown';
-    this._countdownValue = 3;
     this._phaseStart = precise_now();
+    this.start_countdown(() => this._next_trial());
 
     // Register click handler
     this.canvas.onclick = (e: MouseEvent) => {
@@ -261,12 +260,7 @@ export class SymbolSearchEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown': {
-        const v = 3 - Math.floor(elapsed / 800);
-        if (v <= 0) {
-          this._next_trial();
-        } else {
-          this._countdownValue = v;
-        }
+        // Handled by BaseEngine
         break;
       }
 
@@ -311,11 +305,6 @@ export class SymbolSearchEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown':
-        ctx.font = 'bold 72px Inter, sans-serif';
-        ctx.fillStyle = 'hsla(175, 70%, 50%, 0.8)';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(String(this._countdownValue), cx, cy);
         break;
 
       case 'scanning':
@@ -358,7 +347,7 @@ export class SymbolSearchEngine extends BaseEngine {
     ctx.font = '400 12px Inter, sans-serif';
     ctx.fillStyle = 'hsla(220, 15%, 55%, 0.7)';
     ctx.textAlign = 'center';
-    ctx.fillText('Find all matching symbols ↑', w / 2, 140);
+    ctx.fillText(t('exercise.setSwitch.findAll'), w / 2, 140);
 
     // Grid
     const cs = this._cellSize;
@@ -426,7 +415,7 @@ export class SymbolSearchEngine extends BaseEngine {
       ctx.fillText('✗', cx, cy - 20);
       ctx.font = '500 16px Inter, sans-serif';
       ctx.fillStyle = 'hsla(220, 15%, 60%, 0.9)';
-      ctx.fillText(`${this._correctTaps}/${this._targetCells.size} found`, cx, cy + 24);
+      ctx.fillText(t('exercise.symbolSearch.found', { count: this._correctTaps, total: this._targetCells.size }), cx, cy + 24);
     }
   }
 

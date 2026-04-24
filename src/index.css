@@ -79,10 +79,10 @@
   --glass-border: hsla(220, 20%, 30%, 0.3);
   --glass-blur: 16px;
 
-  /* Transitions */
+  /* Transitions — Spring Physics (Pillar 3) */
   --transition-fast: 120ms ease-out;
-  --transition-normal: 250ms ease-out;
-  --transition-slow: 400ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-normal: 400ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --transition-slow: 600ms cubic-bezier(0.16, 1, 0.3, 1);
 
   /* Layout */
   --sidebar-width: 260px;
@@ -181,6 +181,15 @@ button {
 }
 .glass-panel:hover {
   border-color: hsla(220, 20%, 35%, 0.4);
+  transform: scale(1.01);
+  background: radial-gradient(
+    600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    rgba(255, 255, 255, 0.03),
+    transparent 40%
+  ), var(--glass-bg);
+}
+.glass-panel:active {
+  transform: scale(0.99);
 }
 
 .glass-panel--glow:hover {
@@ -900,4 +909,18 @@ button {
 .fatigue-warning__action:hover {
   background: hsla(38, 90%, 55%, 0.1) !important;
   border-color: var(--color-warning) !important;
+}
+
+/* ── Dashboard Due Cards ── */
+.due-exercise-card {
+  transition: all var(--transition-normal);
+}
+.due-exercise-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--color-accent-primary) !important;
+  background: hsla(175, 70%, 50%, 0.08) !important;
+  box-shadow: 0 8px 24px hsla(175, 70%, 20%, 0.2);
+}
+.due-exercise-card:active {
+  transform: translateY(-2px);
 }
