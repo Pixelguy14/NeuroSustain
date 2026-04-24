@@ -51,7 +51,7 @@ export class SidebarNav extends HTMLElement {
           `).join('')}
         </nav>
         <div class="sidebar__footer">
-          <span class="sidebar__version">v0.1.9 · Sprint 9</span>
+          <span class="sidebar__version">v0.2.0 · Launch Version</span>
         </div>
       </aside>
     `;

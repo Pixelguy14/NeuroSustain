@@ -330,7 +330,12 @@ async function _populate_profile(page: HTMLElement): Promise<void> {
         btn.disabled = true;
         btn.textContent = '...';
         
-        const { error } = await s.auth.signInWithOtp({ email });
+        const { error } = await s.auth.signInWithOtp({ 
+          email,
+          options: {
+            emailRedirectTo: window.location.origin + window.location.pathname
+          }
+        });
         if (error) {
           alert(error.message);
           btn.disabled = false;
