@@ -21,6 +21,8 @@ Managed via Dexie.js, this interface acts as the asynchronous boundary between t
     *   Fetches the `n` most recent session summaries for dashboard visualization.
 *   `update_pillar_skill(pillar, meanDifficulty, accuracy, focusScore): Promise<PillarRating>`
     *   Updates the user's permanent Glicko-2 skill level after a session, using the "Phantom Opponent" model.
+*   `export_clinical_report(): Promise<void>`
+    *   **External API:** Utilizes `jsPDF` to generate a professional multi-page cognitive performance report for medical review.
 
 ## 2. Analytics Engine API (`src/core/analytics/analytics.ts`)
 
@@ -40,6 +42,9 @@ A suite of pure, synchronous functions. These functions have no side effects and
 *   `detect_fatigue(cv: number): boolean`
     *   **Input:** The session's CV.
     *   **Output:** Boolean indicating if the CV exceeds the `FATIGUE_CV_THRESHOLD` (0.35).
+*   `calculate_percentile(rating: number): number`
+    *   **Input:** Glicko-2 Rating.
+    *   **Output:** Global percentile (1-99) derived from a Normal CDF (Mean=1500, SD=300).
 
 ## 3. Engine Callbacks API (`src/shared/types.ts`)
 

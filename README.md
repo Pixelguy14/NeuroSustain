@@ -2,7 +2,9 @@
 
 > Gamificar el ejercicio mental y evitar la degradación por scrolling y el uso excesivo de las IA.
 
-NeuroSustain is a local-first, privacy-sovereign Progressive Web App (PWA) designed to deliver evidence-based cognitive training. It serves as a modern alternative to traditional "brain training" applications, focusing on millisecond-precision measurement, radical transparency, and the mitigation of cognitive fatigue induced by digital fragmentation.
+**Live Application:** [https://pixelguy14.github.io/NeuroSustain/](https://pixelguy14.github.io/NeuroSustain/)
+
+NeuroSustain is a privacy-sovereign Progressive Web App (PWA) designed to deliver evidence-based cognitive training. It serves as a modern alternative to traditional "brain training" applications, focusing on millisecond-precision measurement, radical transparency, and the mitigation of cognitive fatigue induced by digital fragmentation.
 
 ## Core Philosophy
 

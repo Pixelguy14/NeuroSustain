@@ -1,5 +1,7 @@
 # NeuroSustain: System Architecture
 
+**Live Application:** [https://pixelguy14.github.io/NeuroSustain/](https://pixelguy14.github.io/NeuroSustain/)
+
 ## Overview
 
 NeuroSustain is a local-first Progressive Web App (PWA) designed to deliver evidence-based cognitive training with millisecond precision. The system architecture is built on a "Functional Modules" pattern, prioritizing strict decoupling between core logic (mathematical engines) and presentation layers (rendering/UI) to ensure high-performance, deterministic execution.
@@ -32,16 +34,21 @@ This layer is strictly isolated from the presentation layer. It handles all stat
 
 ### 3. Persistence Layer (Local-First Data)
 
-**Stack:** IndexedDB, Dexie.js wrapper.
+### 3. Analytics & Clinical Layer
 
-*   **Philosophy:** NeuroSustain operates entirely client-side. There are no centralized databases (e.g., PostgreSQL, MongoDB) and no backend API dependencies. This ensures absolute data sovereignty and privacy for the user.
+**Engine:** Glicko-2 (Longitudinal skill tracking) + FSRS v4 (Spaced Repetition Scheduler).
+
+*   **Clinical PDF Export:** Generates multi-page reports using `jsPDF` with longitudinal performance logs.
+*   **Benchmarking Utility:** Uses a Normal Cumulative Distribution Function (Mean=1500, SD=300) to calculate global percentiles.
+*   **Cloud Infrastructure:** Supabase (PostgreSQL) for cross-device session synchronization with Row Level Security (RLS).
+
+### 4. Persistence & Infrastructure
+
+**Stack:** IndexedDB, Dexie.js wrapper, Vite, Workbox.
+
+*   **Philosophy:** NeuroSustain operates primarily local-first. While Supabase provides cross-device sync, the application remains fully functional offline via IndexedDB.
 *   **Schema (`src/shared/db.ts`):** Managed via Dexie.js, storing atomic `Trial` data (with sub-millisecond timestamps), aggregated `Session` data, user profiles, and FSRS card states. 
 *   **Crash Recovery:** Includes a **FSRS Journal** table. Recalibration requests are journaled before worker dispatch. If the browser is closed or crashes during calculation, the system automatically recovers and completes the update upon next boot.
-
-### 4. Infrastructure & Build Layer
-
-**Stack:** Vite, Workbox (vite-plugin-pwa).
-
 *   **PWA Configuration:** Workbox handles the generation of the service worker, enabling offline functionality. Static assets (fonts, icons, HTML, JS) are cached using a Cache-First strategy.
 *   **Module Bundling:** Vite provides lightning-fast Hot Module Replacement (HMR) during development and optimized tree-shaking for production builds.
 
