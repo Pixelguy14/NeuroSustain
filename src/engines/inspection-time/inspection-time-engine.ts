@@ -142,10 +142,10 @@ export class InspectionTimeEngine extends BaseEngine {
     ctx.textAlign = 'right';
     ctx.fillText(`${this.currentTrial} / ${this.totalTrials}`, w - 32, 40);
 
-    if (this.config.difficulty > 1) {
+    if (this._currentDifficulty > 1) {
       ctx.font = '500 11px Inter, sans-serif';
       ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.fillText(`LV ${this.config.difficulty}`, w - 32, 58);
+      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
     }
 
     switch (this._phase) {
@@ -382,7 +382,7 @@ export class InspectionTimeEngine extends BaseEngine {
   // ── Logic ───────────────────────────────────────────────
 
   private _next_trial(): void {
-    const diff = this.config.difficulty;
+    const diff = this._currentDifficulty;
 
     // Exposure time — the critical variable
     if (diff <= 3) this._exposureMs = 500 - (diff - 1) * 50;       // 500, 450, 400
@@ -458,7 +458,7 @@ export class InspectionTimeEngine extends BaseEngine {
       exerciseType: this.exerciseType,
       pillar: this.primaryPillar,
       timestamp: Date.now(),
-      difficulty: this.config.difficulty,
+      difficulty: this._currentDifficulty,
       isCorrect: this._isCorrect,
       reactionTimeMs: reactionMs,
       metadata: {

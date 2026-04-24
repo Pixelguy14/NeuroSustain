@@ -9,6 +9,7 @@ import { t } from '@shared/i18n.ts';
 
 interface RadarData {
   values: Record<CognitivePillar, number>; // 0.0 - 1.0 normalized
+  uncertainties?: Record<CognitivePillar, number>; // 0.0 - 1.0 normalized RD (width of halo)
 }
 
 export function render_radar_chart(
@@ -65,6 +66,39 @@ export function render_radar_chart(
 
   // Draw data polygon (if data exists)
   if (data) {
+    const hasUncertainty = data.uncertainties != null;
+
+    // 1. Draw uncertainty "Halo" first (if available)
+    if (hasUncertainty) {
+      // Outer boundary (Rating + RD)
+      ctx.beginPath();
+      for (let i = 0; i < ALL_PILLARS.length; i++) {
+        const pillar = ALL_PILLARS[i]!;
+        const value = data.values[pillar] ?? 0;
+        const rd = data.uncertainties![pillar] ?? 0;
+        const angle = ((Math.PI * 2) / ALL_PILLARS.length) * i - Math.PI / 2;
+        const r = maxRadius * Math.min(1.0, value + rd * 0.15); // RD influence on radius
+        const x = cx + Math.cos(angle) * r;
+        const y = cy + Math.sin(angle) * r;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      
+      const haloGradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxRadius);
+      haloGradient.addColorStop(0, 'hsla(175, 70%, 50%, 0.1)');
+      haloGradient.addColorStop(1, 'hsla(210, 70%, 58%, 0.05)');
+      ctx.fillStyle = haloGradient;
+      ctx.fill();
+
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = 'hsla(175, 70%, 50%, 0.2)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // 2. Draw core rating polygon
     ctx.beginPath();
     for (let i = 0; i < ALL_PILLARS.length; i++) {
       const pillar = ALL_PILLARS[i]!;

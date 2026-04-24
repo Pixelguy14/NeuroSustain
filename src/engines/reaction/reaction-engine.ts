@@ -108,9 +108,9 @@ export class ReactionTimeEngine extends BaseEngine {
         this._pulsePhase += dt * 0.003;
 
         // Level 2+: animate position
-        if (this.config.difficulty >= 2) {
+        if (this._currentDifficulty >= 2) {
           this._movementTime += dt * 0.001;
-          const speed = 1.0 + (this.config.difficulty * 0.2);
+          const speed = 1.0 + (this._currentDifficulty * 0.2);
           this._stimulusX = this._movementCenterX + Math.sin(this._movementTime * speed) * (this.width * 0.15);
           this._stimulusY = this._movementCenterY + Math.cos(this._movementTime * speed * 0.7) * (this.height * 0.1);
         }
@@ -131,9 +131,9 @@ export class ReactionTimeEngine extends BaseEngine {
         this._pulsePhase += dt * 0.003;
 
         // Level 2+: animate fakeout position too
-        if (this.config.difficulty >= 2) {
+        if (this._currentDifficulty >= 2) {
           this._movementTime += dt * 0.001;
-          const speed = 1.0 + (this.config.difficulty * 0.2);
+          const speed = 1.0 + (this._currentDifficulty * 0.2);
           this._stimulusX = this._movementCenterX + Math.sin(this._movementTime * speed) * (this.width * 0.15);
           this._stimulusY = this._movementCenterY + Math.cos(this._movementTime * speed * 0.7) * (this.height * 0.1);
         }

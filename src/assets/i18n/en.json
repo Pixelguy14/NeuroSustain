@@ -26,6 +26,8 @@
   "dashboard.radarEmpty": "Complete exercises to see your cognitive profile",
   "dashboard.historyTitle": "Longitudinal History",
   "dashboard.historyEmpty": "Training history requires at least 3 active days to unlock neural trend analysis. Keep pushing!",
+  "dashboard.heatmapTitle": "Neural Rhythm (Chronotype)",
+  "dashboard.heatmapDesc": "Mean focus score by hour and day. Bright blocks indicate performance peaks.",
 
   "train.title": "Training Exercises",
   "train.selectExercise": "Select an exercise to begin",
@@ -68,7 +70,11 @@
   "profile.currentStreak": "Current Streak",
   "profile.longestStreak": "Longest Streak",
   "profile.audioFocus": "Focus Ambience Audio",
+  "profile.difficulties": "Skill Level (Pillar)",
   "profile.dataSovereignty": "Data Sovereignty",
+  "profile.deleteData": "Delete Everything",
+  "profile.deleteConfirm": "Are you sure? This action is irreversible and will delete all your training history, streak, and difficulty settings.",
+  "profile.deleteButton": "DELETE EVERYTHING",
   "glicko.tooltip": "Glicko-2 Skill Rating. RD indicates uncertainty (lower is more accurate).",
 
   "loading.syncing": "Syncing neural patterns...",

@@ -24,7 +24,9 @@ This layer is strictly isolated from the presentation layer. It handles all stat
 *   **Analytics Engine (`src/core/analytics`):** Computes mean reaction times, standard deviations, and dual fatigue metrics (CV for overall variability and EMA for real-time drift detection).
 *   **Input Bridge (`src/core/input`):** A normalization layer that treats physical keyboard events and touch/pointer events as identical sub-millisecond interrupts, essential for equitable reaction time tracking across devices.
 *   **Audio Engine (`src/core/audio`):** Generates procedural feedback cues and focus-enhancing white noise via the Web Audio API, eliminating asset fetching delays and ensuring zero-latency auditory stimuli.
-*   **Adaptive Engine (`src/core/glicko2`):** Implements the Glicko-2 rating system to adjust exercise difficulty dynamically based on the user's performance history and volatility.
+*   **Adaptive Difficulty:** A two-tier titration system:
+    *   **Adaptive Staircase Procedure (Intra-session):** Implements a "3-Up, 1-Down" protocol. Users must chain 3 correct trials to advance 1 level, while a single error triggers an immediate level reduction. This ensures the cognitive load remains perfectly calibrated to the user's current state of fatigue and focus.
+    *   **Glicko-2 "Phantom Opponent" (Intersession):** To adapt Glicko-2 for single-player use, the system treats the test difficulty as a "Phantom Opponent." Session performance updates the user's rating relative to the difficulty level reached, providing a mathematically robust baseline for future training.
 *   **Spaced Repetition (`src/core/fsrs`):** Implements the Free Spaced Repetition Scheduler (FSRS).
     *   **Concurrency Model:** The FSRS engine runs in a dedicated **Web Worker**. Recalibrating stability and difficulty parameters across thousands of historical trials is computationally intensive. By moving this to a background thread, we guarantee that the main thread's frame budget is preserved, preventing UI stuttering or latency artifacts during active training sessions.
 
@@ -33,7 +35,8 @@ This layer is strictly isolated from the presentation layer. It handles all stat
 **Stack:** IndexedDB, Dexie.js wrapper.
 
 *   **Philosophy:** NeuroSustain operates entirely client-side. There are no centralized databases (e.g., PostgreSQL, MongoDB) and no backend API dependencies. This ensures absolute data sovereignty and privacy for the user.
-*   **Schema (`src/shared/db.ts`):** Managed via Dexie.js, storing atomic `Trial` data (with sub-millisecond timestamps), aggregated `Session` data, user profiles, and FSRS card states.
+*   **Schema (`src/shared/db.ts`):** Managed via Dexie.js, storing atomic `Trial` data (with sub-millisecond timestamps), aggregated `Session` data, user profiles, and FSRS card states. 
+*   **Crash Recovery:** Includes a **FSRS Journal** table. Recalibration requests are journaled before worker dispatch. If the browser is closed or crashes during calculation, the system automatically recovers and completes the update upon next boot.
 
 ### 4. Infrastructure & Build Layer
 

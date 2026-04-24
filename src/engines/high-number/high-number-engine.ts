@@ -146,10 +146,10 @@ export class HighNumberEngine extends BaseEngine {
     ctx.textAlign = 'right';
     ctx.fillText(`${this.currentTrial} / ${this.totalTrials}`, w - 32, 40);
 
-    if (this.config.difficulty > 1) {
+    if (this._currentDifficulty > 1) {
       ctx.font = '500 11px Inter, sans-serif';
       ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.fillText(`LV ${this.config.difficulty}`, w - 32, 58);
+      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
     }
 
     switch (this._phase) {
@@ -197,7 +197,7 @@ export class HighNumberEngine extends BaseEngine {
     }
     this._options = [];
 
-    const diff = this.config.difficulty;
+    const diff = this._currentDifficulty;
     const numOptions = diff >= 7 ? 5 : diff >= 4 ? 4 : 3;
 
     // Generate distinct random numbers
@@ -394,7 +394,7 @@ export class HighNumberEngine extends BaseEngine {
       exerciseType: this.exerciseType,
       pillar: this.primaryPillar,
       timestamp: Date.now(),
-      difficulty: this.config.difficulty,
+      difficulty: this._currentDifficulty,
       isCorrect,
       reactionTimeMs,
       metadata: {
@@ -403,7 +403,7 @@ export class HighNumberEngine extends BaseEngine {
         selectedValue,
         fontSizeCorrect: correctOpt?.fontSize ?? 0,
         fontSizeDistractor: selectedOpt?.fontSize ?? 0,
-        incongruent: this.config.difficulty >= 4,
+        incongruent: this._currentDifficulty >= 4,
         numOptions: this._options.length,
       },
     };

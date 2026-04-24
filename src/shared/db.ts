@@ -324,3 +324,15 @@ export async function import_data_json(json: string): Promise<void> {
   });
 }
 
+/** Wipe everything — used for factory reset */
+export async function clear_all_data(): Promise<void> {
+  await db.transaction('rw', [db.profile, db.ratings, db.fsrsCards, db.sessions, db.trials, db.fsrsJournal], async () => {
+    await db.profile.clear();
+    await db.ratings.clear();
+    await db.fsrsCards.clear();
+    await db.sessions.clear();
+    await db.trials.clear();
+    await db.fsrsJournal.clear();
+  });
+}
+

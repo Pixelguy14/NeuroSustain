@@ -6,7 +6,7 @@ import type { CognitivePillar, ExerciseInfo } from './types.ts';
 
 /** Default Glicko-2 parameters */
 export const GLICKO2_DEFAULTS = {
-  INITIAL_RATING: 1500,
+  INITIAL_RATING: 1600,
   INITIAL_RD: 350,
   INITIAL_VOLATILITY: 0.06,
   TAU: 0.5,

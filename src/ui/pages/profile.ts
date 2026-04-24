@@ -4,7 +4,7 @@
 // ============================================================
 
 import { t, get_locale, set_locale } from '@shared/i18n.ts';
-import { get_profile, export_data_json, export_data_csv, import_data_json, db } from '@shared/db.ts';
+import { get_profile, export_data_json, export_data_csv, import_data_json, clear_all_data, db } from '@shared/db.ts';
 import { audioEngine } from '@core/audio/audio-engine.ts';
 import type { Locale } from '@shared/types.ts';
 
@@ -51,14 +51,27 @@ export function render_profile(): HTMLElement {
         <span class="profile-field__label" style="color: var(--color-warning);">[DEBUG] Override Difficulty (1-10)</span>
         <input type="number" id="debug-difficulty-input" min="1" max="10" placeholder="Auto" style="width: 80px; text-align: center; background: var(--bg-secondary); color: white; border: 1px solid var(--glass-border); border-radius: 4px; padding: 4px;" />
       </div>
+      <div class="profile-field" style="flex-direction: column; align-items: flex-start; gap: var(--space-sm);">
+        <span class="profile-field__label">${t('profile.difficulties')}</span>
+        <div id="profile-pillar-ratings" style="width: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--space-sm); margin-top: var(--space-xs);">
+          <!-- Dynamic pillar ratings go here -->
+        </div>
+      </div>
       <div class="profile-field" style="border-bottom: none; flex-direction: column; align-items: flex-start; gap: var(--space-sm);">
-        <span class="profile-field__label">${t('profile.dataSovereignty', { defaultValue: 'Data Sovereignty' })}</span>
+        <span class="profile-field__label">${t('profile.dataSovereignty')}</span>
         <div style="display: flex; gap: var(--space-sm); margin-top: var(--space-xs);">
           <button class="btn btn--ghost btn--small" id="btn-export-json">Export JSON</button>
           <button class="btn btn--ghost btn--small" id="btn-export-csv">Export CSV</button>
           <button class="btn btn--ghost btn--small" id="btn-import-json">Import JSON</button>
           <input type="file" id="file-import-json" accept=".json" style="display: none;" />
         </div>
+      </div>
+      <div class="profile-field" style="border-bottom: none; flex-direction: column; align-items: flex-start; gap: var(--space-sm); margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid hsla(0, 0%, 100%, 0.1);">
+        <span class="profile-field__label" style="color: var(--color-error);">${t('profile.deleteData')}</span>
+        <p style="font-size: 12px; color: var(--color-text-dim); margin-bottom: var(--space-sm);">${t('profile.deleteConfirm')}</p>
+        <button class="btn btn--danger btn--small" id="btn-delete-all" style="background: hsla(0, 80%, 50%, 0.2); border-color: hsla(0, 80%, 50%, 0.4); color: hsl(0, 90%, 70%);">
+          ${t('profile.deleteButton')}
+        </button>
       </div>
     </div>
   `;
@@ -145,6 +158,16 @@ export function render_profile(): HTMLElement {
     reader.readAsText(file);
   });
 
+  // Delete All Data
+  page.querySelector('#btn-delete-all')?.addEventListener('click', async () => {
+    if (confirm(t('profile.deleteConfirm'))) {
+      await clear_all_data();
+      localStorage.clear(); // Clear debug flags too
+      window.location.href = '/'; // Go home
+      window.location.reload();
+    }
+  });
+
   return page;
 }
 
@@ -185,5 +208,43 @@ async function _populate_profile(page: HTMLElement): Promise<void> {
   const audioToggle = page.querySelector('#toggle-audio-focus') as HTMLInputElement;
   if (audioToggle) {
     audioToggle.checked = profile.audioFocusAmbience ?? false;
+  }
+
+  // Populate Pillar Ratings
+  const ratings = await db.ratings.toArray();
+  const ratingsContainer = page.querySelector('#profile-pillar-ratings');
+  if (ratingsContainer) {
+    ratingsContainer.innerHTML = '';
+    
+    // Sort by rating desc
+    ratings.sort((a, b) => b.rating - a.rating);
+
+    if (ratings.length === 0) {
+      ratingsContainer.innerHTML = `<p style="color: var(--color-text-dim); font-size: 13px;">${t('dashboard.noSessions')}</p>`;
+    }
+
+    for (const r of ratings) {
+      const card = document.createElement('div');
+      card.style.cssText = `
+        background: hsla(225, 30%, 12%, 0.4);
+        border: 1px solid hsla(175, 70%, 50%, 0.15);
+        border-radius: 8px;
+        padding: var(--space-sm) var(--space-md);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      `;
+      
+      const difficulty = Math.max(1, Math.min(10, ((r.rating - 1300) / 100) + 1)).toFixed(1);
+      
+      card.innerHTML = `
+        <span style="font-size: 11px; color: var(--color-text-dim); text-transform: uppercase; letter-spacing: 0.05em;">${t(`pillar.${r.pillar}`)}</span>
+        <div style="display: flex; align-items: baseline; gap: var(--space-xs);">
+          <span style="font-size: 20px; font-weight: 700; color: hsl(175, 70%, 60%);">LV ${difficulty}</span>
+          <span style="font-size: 12px; color: hsla(175, 70%, 50%, 0.4);">/ 10</span>
+        </div>
+      `;
+      ratingsContainer.appendChild(card);
+    }
   }
 }

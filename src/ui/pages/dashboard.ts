@@ -7,6 +7,7 @@ import { t, on_locale_change } from '@shared/i18n.ts';
 import { get_profile, get_ratings, get_recent_sessions, get_sessions_history } from '@shared/db.ts';
 import { render_radar_chart } from '../components/radar-chart.ts';
 import { render_line_chart } from '../components/line-chart.ts';
+import { render_performance_heatmap } from '../components/heatmap.ts';
 import { GLICKO2_DEFAULTS } from '@shared/constants.ts';
 import { router } from '../router.ts';
 import type { CognitivePillar, PillarRating } from '@shared/types.ts';
@@ -17,6 +18,11 @@ function normalize_rating(rating: number): number {
   const min = 800;
   const max = 2200;
   return Math.max(0, Math.min(1, (rating - min) / (max - min)));
+}
+
+/** Normalize Glicko-2 RD (0-350) for radar uncertainty */
+function normalize_rd(rd: number): number {
+  return Math.max(0, Math.min(1, rd / 350));
 }
 
 export function render_dashboard(): HTMLElement {
@@ -63,6 +69,16 @@ export function render_dashboard(): HTMLElement {
       </div>
       <p id="history-empty" style="display:none; color: var(--color-text-tertiary); font-size: var(--font-size-sm); margin-top: var(--space-md);">
         ${t('dashboard.historyEmpty')}
+      </p>
+    </div>
+
+    <div class="glass-panel" style="margin-bottom: var(--space-xl); padding: var(--space-lg);">
+      <h2 class="radar-container__title" style="margin-bottom: var(--space-md);">${t('dashboard.heatmapTitle')}</h2>
+      <div style="height: 160px; width: 100%; position: relative;">
+        <canvas id="chart-heatmap" style="width: 100%; height: 100%;"></canvas>
+      </div>
+      <p style="color: var(--color-text-tertiary); font-size: 11px; margin-top: var(--space-md); text-align: center;">
+        ${t('dashboard.heatmapDesc')}
       </p>
     </div>
 
@@ -155,10 +171,12 @@ async function _populate_dashboard(page: HTMLElement): Promise<void> {
 
     if (hasData) {
       const values: Record<CognitivePillar, number> = {} as Record<CognitivePillar, number>;
+      const uncertainties: Record<CognitivePillar, number> = {} as Record<CognitivePillar, number>;
       for (const r of ratings) {
         values[r.pillar] = normalize_rating(r.rating);
+        uncertainties[r.pillar] = normalize_rd(r.rd);
       }
-      render_radar_chart(canvas, { values });
+      render_radar_chart(canvas, { values, uncertainties });
       if (emptyMsg) emptyMsg.style.display = 'none';
     } else {
       // Show empty radar with default values
@@ -201,5 +219,11 @@ async function _populate_dashboard(page: HTMLElement): Promise<void> {
   } else {
     if (historyEmpty) historyEmpty.style.display = 'block';
     if (historyCharts) historyCharts.style.display = 'none';
+  }
+
+  // Render Heatmap
+  const heatmapCanvas = page.querySelector('#chart-heatmap') as HTMLCanvasElement;
+  if (heatmapCanvas && history.length > 0) {
+    render_performance_heatmap(heatmapCanvas, history);
   }
 }

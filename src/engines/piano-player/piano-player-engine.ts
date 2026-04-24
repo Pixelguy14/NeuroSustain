@@ -236,9 +236,11 @@ export class PianoPlayerEngine extends BaseEngine {
         
         if (this._isReverse) {
           const pulse = Math.sin(precise_now() / 200) * 0.2 + 0.8;
-          ctx.fillStyle = `hsla(145, 70%, 58%, ${pulse})`;
-          ctx.fillText('Repeat in REVERSE', cx, 50);
+          ctx.font = 'bold 20px Inter, sans-serif';
+          ctx.fillStyle = `hsla(30, 90%, 60%, ${pulse})`;
+          ctx.fillText('INPUT IN REVERSE ORDER', cx, 50);
         } else {
+          ctx.font = '600 16px Inter, sans-serif';
           ctx.fillStyle = 'hsl(145, 70%, 58%)';
           ctx.fillText('Your Turn', cx, 50);
         }
@@ -431,7 +433,7 @@ export class PianoPlayerEngine extends BaseEngine {
     let seqLength: number;
     if (diff <= 3) seqLength = 3;
     else if (diff <= 7) seqLength = 5 + Math.floor(Math.random() * 2); // 5-6
-    else seqLength = 7 + Math.floor(Math.random() * 4); // 7-10
+    else seqLength = 7 + Math.floor(Math.random() * 2); // 7-8
 
     this._sequence = [];
     for (let i = 0; i < seqLength; i++) {

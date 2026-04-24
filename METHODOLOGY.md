@@ -39,16 +39,20 @@ After a 5-trial warm-up period, the system establishes an `EMA_baseline`. If the
 
 To maintain users in the "Zone of Proximal Development" (where tasks are neither too easy nor too frustrating), NeuroSustain uses the Glicko-2 rating system, originally developed for chess.
 
-### Why Glicko-2 over ELO?
+### Two-Tier Adaptation
 
-The standard ELO system assumes a player's rating is a fixed point. Glicko-2 introduces the concept of **Rating Deviation (RD)** — a measure of uncertainty.
+NeuroSustain implements a hybrid difficulty model to keep users in the "Zone of Proximal Development":
 
-*   **Rating (`r`):** The system's best estimate of the user's skill level in a specific cognitive pillar.
-*   **Rating Deviation (`RD`):** The confidence interval. If a user hasn't trained Working Memory in a month, their `RD` increases (uncertainty grows).
-*   **Volatility (`σ`):** Measures the degree of expected fluctuation. High volatility indicates the user is in a phase of rapid learning or rapid decline.
+1.  **Intra-session: Adaptive Staircase Procedure ("Cognitive Titration")**
+    To account for real-time fluctuations in focus or fatigue, the system uses a **3-Up, 1-Down** protocol:
+    *   **Subir (Escalada):** El usuario debe encadenar **3 aciertos consecutivos** para subir 1 nivel de dificultad. Esto garantiza que el ascenso se deba a competencia real y no a la suerte.
+    *   **Bajar (Adaptación):** Un solo fallo o timeout reduce **inmediatamente** la dificultad en 1 nivel. Esto rompe la espiral de frustración y adapta la carga cognitiva al estado de fatiga actual.
 
-**Business Logic:**
-In NeuroSustain, each exercise difficulty level is treated as an "opponent" with a fixed rating. When a user completes a session, their performance (Accuracy and Focus Score) determines the "match outcome." The Glicko-2 algorithm then recalibrates the user's rating, ensuring the next session's difficulty is mathematically tuned to their current capability.
+2.  **Intersession: The "Phantom Opponent" Glicko-2 Model**
+    In NeuroSustain, each exercise difficulty is treated as a "Phantom Opponent" with a Rating derived from the level:
+    `Rating_Opponent = 1300 + (meanDifficulty - 1) * 100`
+    
+    The user's performance is scored as a composite of Accuracy and Focus. The Glicko-2 algorithm then recalibrates the user's permanent **Pillar Rating**, ensuring that future sessions begin at a calibrated "Warm-Up" baseline (usually 3 levels below their current peak).
 
 ## 3. Spaced Repetition: FSRS
 
@@ -91,4 +95,9 @@ NeuroSustain's exercises are digital implementations of validated clinical neuro
 *   **Fallacy Detector (Inhibitory Control + Critical Thinking):** Combats the "Go-Go-Go" pattern of social media consumption. Users are presented with logical arguments and must classify them as VALID or FALLACY. It requires the user to inhibit emotional reactions to the argument's content (e.g., ad hominem attacks) to focus on logical structure.
 *   **Tower of Hanoi (Sustained Attention + Planning):** A classic planning task. Users must move a stack of discs from one peg to another with strict size constraints. It measures forward-thinking capacity and the ability to maintain a mental goal state across multiple sub-steps. High levels randomize start/end pegs to prevent rote memorization of the solution path.
 *   **Set Switching (Cognitive Flexibility):** Based on the Wisconsin Card Sort Test (WCST). Users classify shapes based on changing rules (Color or Shape). It measures "Switch Cost"—the cognitive overhead required to dump an old rule set and load a new one.
+*   **Word Scramble (Cognitive Flexibility):** Targets lexical retrieval and mental re-sequencing. High difficulty uses infrequent, longer words and introduces progressive "Hints" to prevent total cognitive block.
+*   **Change Maker (Cognitive Flexibility + Working Memory):** A real-world math task where users must provide the exact change for a transaction using a limited tray of denominations. High difficulty introduces currency shuffling (MXN, USD, EUR) and forced "Optimal vs. Heuristic" constraints.
+*   **Pattern Breaker (Sustained Attention):** A visual search task focused on detecting procedural anomalies within a symmetrical grid. It combats "Inattentional Blindness" by using relative scaling and subtle hue/rotation deltas that adapt via the staircase protocol.
+*   **Symbol Search (Processing Speed):** Based on the WAIS-IV subtest. Users must identify if target symbols are present in a search array. It measures rapid visual scanning and decision-making under time pressure.
+*   **3D Box Counting (Sustained Attention + Spatial):** Requires the user to count cubes in a 3D structure, including those obscured from view. Implemented via **Three.js** with InstancedMeshes to ensure zero-allocation performance on mobile hardware.
 *   **Neural Storm (Cognitive Flexibility):** A 3-minute, high-intensity mode that switches active exercises every 30 seconds. It forces the brain to rapidly switch context rules. Because of its chaotic nature, trials completed in Neural Storm bypass the FSRS engine to prevent polluting the user's specific pillar stability metrics.

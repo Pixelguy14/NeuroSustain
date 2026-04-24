@@ -25,6 +25,7 @@ import { router } from '../router.ts';
 import { TIMING } from '@shared/constants.ts';
 import { detect_fatigue } from '@core/analytics/analytics.ts';
 import { show_loading } from '../components/loading-screen.ts';
+import { render_sparkline } from '../components/sparkline.ts';
 import type { BaseEngine } from '@engines/base-engine.ts';
 import { fsrsBridge } from '@core/fsrs/fsrs-bridge.ts';
 import { audioEngine } from '@core/audio/audio-engine.ts';
@@ -302,7 +303,7 @@ async function _save_and_show_results(sessionId: string, results: TrialResults):
     ]);
 
     // Extract FSRS scheduling info if the worker succeeded
-    const fsrsResult = results_[1];
+    const fsrsResult = results_[2];
     fsrsData = fsrsResult?.status === 'fulfilled' ? fsrsResult.value : null;
   }
 
@@ -367,6 +368,14 @@ function _render_results_screen(results: TrialResults, fsrs: FsrsDisplayData | n
       </div>
     </div>
 
+    <!-- RT Trend Sparkline -->
+    <div class="glass-panel" style="padding: var(--space-md); margin-bottom: var(--space-lg);">
+      <div style="font-size: 10px; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; text-align: center;">
+        Intra-Session Fatigue Trend (RT)
+      </div>
+      <canvas id="rt-trend-sparkline" style="width: 100%; height: 60px;"></canvas>
+    </div>
+
     <p class="results-screen__insight" style="border-left-color: ${cvColor}">
       ${cvLabel}${isFatigued ? ' 💤' : ''}
     </p>
@@ -406,6 +415,17 @@ function _render_results_screen(results: TrialResults, fsrs: FsrsDisplayData | n
     screen.remove();
     start_exercise_session(results.exerciseType);
   });
+
+  // Render Sparkline
+  const sparklineCanvas = screen.querySelector('#rt-trend-sparkline') as HTMLCanvasElement;
+  if (sparklineCanvas) {
+    const rtData = results.trials.map(t => t.reactionTimeMs);
+    render_sparkline(sparklineCanvas, rtData, {
+      color: results.cvReactionTime > TIMING.FATIGUE_CV_THRESHOLD ? 'hsl(38, 90%, 55%)' : 'hsl(175, 70%, 50%)',
+      isInverse: true,
+      height: 60
+    });
+  }
 }
 
 /**

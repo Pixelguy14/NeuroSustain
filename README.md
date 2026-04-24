@@ -16,16 +16,16 @@ NeuroSustain is a local-first, privacy-sovereign Progressive Web App (PWA) desig
 NeuroSustain categorizes exercises into five distinct neurological domains:
 
 1.  **Working Memory:** Hold and manipulate information. (*N-Back Dual*, *Serial Subtraction*, *Piano Player*)
-2.  **Cognitive Flexibility:** Rapidly adapt to changing rules. (*Set Switching*, *Neural Storm*)
+2.  **Cognitive Flexibility:** Rapidly adapt to changing rules. (*Set Switching*, *Word Scramble*, *Change Maker*)
 3.  **Inhibitory Control:** Suppress impulsive responses. (*Stroop Task*, *High Number*, *Fallacy Detector*)
-4.  **Sustained Attention:** Maintain focus without distraction. (*Tower of Hanoi*, *Continuous Performance Task*)
-5.  **Processing Speed:** Raw baseline neural transmission speed. (*Reaction Time*)
+4.  **Sustained Attention:** Maintain focus without distraction. (*Tower of Hanoi*, *Pattern Breaker*, *3D Box Counting*)
+5.  **Processing Speed:** Raw baseline neural transmission speed. (*Reaction Time*, *Symbol Search*, *Inspection Time*)
 
 ## Technical Architecture
 
 *   **Frontend:** Vanilla TypeScript + Canvas 2D + Web Components. Designed for zero Virtual DOM reconciliation overhead to guarantee sub-millisecond measurement accuracy.
 *   **Storage:** Dexie.js (IndexedDB wrapper) for robust offline persistence.
-*   **Adaptive Difficulty:** Glicko-2 rating algorithm.
+*   **Adaptive Difficulty:** Adaptive Staircase Procedure (3-Up, 1-Down) for intra-session titration + Glicko-2 "Phantom Opponent" for baseline evolution.
 *   **Spaced Repetition:** Free Spaced Repetition Scheduler (FSRS) running in a dedicated Web Worker to prevent UI blocking.
 *   **Infrastructure:** Vite + Workbox (PWA capabilities).
 

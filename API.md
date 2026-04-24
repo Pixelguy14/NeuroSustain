@@ -19,6 +19,8 @@ Managed via Dexie.js, this interface acts as the asynchronous boundary between t
     *   Retrieves the user's current Glicko-2 ratings across all 5 cognitive pillars.
 *   `get_recent_sessions(count: number): Promise<Session[]>`
     *   Fetches the `n` most recent session summaries for dashboard visualization.
+*   `update_pillar_skill(pillar, meanDifficulty, accuracy, focusScore): Promise<PillarRating>`
+    *   Updates the user's permanent Glicko-2 skill level after a session, using the "Phantom Opponent" model.
 
 ## 2. Analytics Engine API (`src/core/analytics/analytics.ts`)
 
@@ -111,8 +113,11 @@ Communication with the FSRS engine occurs across the Web Worker boundary via asy
 ```typescript
 interface FsrsWorkerRequest {
   type: 'recalibrate';
-  trials: Trial[]; // Full history of trials for a specific exercise type
-  currentCards: FsrsCard[]; // Current stability/difficulty states
+  accuracy: number;
+  focusScore: number;
+  cvReactionTime: number;
+  meanDifficulty: number;
+  currentCard: FsrsCard | null;
 }
 ```
 

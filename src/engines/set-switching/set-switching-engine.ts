@@ -18,7 +18,7 @@ import { precise_now } from '@shared/utils.ts';
 import { audioEngine } from '@core/audio/audio-engine.ts';
 
 type Phase = 'countdown' | 'presenting' | 'feedback';
-type Rule = 'color' | 'shape';
+type Rule = 'color' | 'shape' | 'count';
 
 interface ShapeConfig {
   name: string;
@@ -26,6 +26,7 @@ interface ShapeConfig {
   colorName: string;
   shapeName: string;
   size: 'small' | 'large';
+  count: number;
 }
 
 // Color palettes per level
@@ -62,6 +63,7 @@ export class SetSwitchingEngine extends BaseEngine {
   private _isCorrect: boolean = false;
   private _activeColors: number = 2;
   private _activeShapes: number = 2;
+  private _activeCounts: number = 1;
   private _useSize: boolean = false;
 
   // Button geometry
@@ -123,10 +125,10 @@ export class SetSwitchingEngine extends BaseEngine {
     ctx.textAlign = 'right';
     ctx.fillText(`${this.currentTrial} / ${this.totalTrials}`, w - 32, 40);
 
-    if (this.config.difficulty > 1) {
+    if (this._currentDifficulty > 1) {
       ctx.font = '500 11px Inter, sans-serif';
       ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.fillText(`LV ${this.config.difficulty}`, w - 32, 58);
+      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
     }
 
     switch (this._phase) {
@@ -157,10 +159,12 @@ export class SetSwitchingEngine extends BaseEngine {
     ctx.textAlign = 'center';
 
     const ruleLabel = this._currentRule === 'color' ? '🎨  Sort by COLOR'
-      : '🔷  Sort by SHAPE';
-
+      : this._currentRule === 'shape' ? '🔷  Sort by SHAPE'
+      : '🔢  Sort by COUNT';
+    
     const ruleColor = this._currentRule === 'color' ? 'hsl(210, 70%, 60%)'
-      : 'hsl(280, 60%, 60%)';
+      : this._currentRule === 'shape' ? 'hsl(280, 60%, 60%)'
+      : 'hsl(145, 60%, 60%)';
 
     // Rule pill
     const pillW = 200;
@@ -198,7 +202,7 @@ export class SetSwitchingEngine extends BaseEngine {
     const stimSize = this._currentStimulus.size === 'large' ? 80 : (this._useSize ? 45 : 65);
     const stimColor = COLORS.find(c => c.name === this._currentStimulus!.colorName)?.hsl || 'hsl(0, 0%, 50%)';
 
-    this._draw_shape(ctx, this._currentStimulus.shapeName, cx, stimY, stimSize, stimColor);
+    this._draw_shapes(ctx, this._currentStimulus, cx, stimY, stimSize, stimColor);
 
     // Draw option buttons
     const numBtns = this._options.length;
@@ -236,10 +240,25 @@ export class SetSwitchingEngine extends BaseEngine {
     }
   }
 
-  private _draw_shape(ctx: CanvasRenderingContext2D, shape: string, x: number, y: number, size: number, color: string): void {
+  private _draw_shapes(ctx: CanvasRenderingContext2D, config: ShapeConfig, x: number, y: number, size: number, color: string): void {
+    const count = config.count;
+    const spacing = size * 0.8;
+    
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 16;
+    
+    for (let i = 0; i < count; i++) {
+      const offsetX = (i - (count - 1) / 2) * spacing;
+      this._draw_single_shape(ctx, config.shapeName, x + offsetX, y, size, color);
+    }
+    
+    ctx.shadowBlur = 0;
+  }
+
+  private _draw_single_shape(ctx: CanvasRenderingContext2D, shape: string, x: number, y: number, size: number, color: string): void {
     ctx.fillStyle = color;
     ctx.beginPath();
-
+    
     switch (shape) {
       case 'circle':
         ctx.arc(x, y, size / 2, 0, Math.PI * 2);
@@ -263,14 +282,7 @@ export class SetSwitchingEngine extends BaseEngine {
         ctx.closePath();
         break;
     }
-
     ctx.fill();
-
-    // Glow
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 16;
-    ctx.fill();
-    ctx.shadowBlur = 0;
   }
 
   private _render_feedback(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
@@ -311,30 +323,40 @@ export class SetSwitchingEngine extends BaseEngine {
   // ── Logic ───────────────────────────────────────────────
 
   private _configure_difficulty(): void {
-    const diff = this.config.difficulty;
+    const diff = this._currentDifficulty;
     if (diff <= 3) {
       this._activeColors = 2;
       this._activeShapes = 2;
+      this._activeCounts = 1;
       this._switchEvery = 5;
       this._timeLimitMs = 5000;
       this._useSize = false;
-    } else if (diff <= 7) {
+    } else if (diff <= 5) {
       this._activeColors = 3;
       this._activeShapes = 3;
+      this._activeCounts = 2;
       this._switchEvery = 3;
       this._timeLimitMs = 4000;
       this._useSize = false;
+    } else if (diff <= 8) {
+      this._activeColors = 3;
+      this._activeShapes = 3;
+      this._activeCounts = 3;
+      this._switchEvery = 2;
+      this._timeLimitMs = 3500;
+      this._useSize = true;
     } else {
       this._activeColors = 4;
       this._activeShapes = 4;
-      this._switchEvery = 1 + Math.floor(Math.random() * 3); // 1-3
+      this._activeCounts = 3;
+      this._switchEvery = 1 + Math.floor(Math.random() * 2); // 1-2
       this._timeLimitMs = 3000;
-      this._useSize = false;
+      this._useSize = true;
     }
   }
 
   private _pick_initial_rule(): void {
-    const rules: Rule[] = ['color', 'shape'];
+    const rules: Rule[] = this._currentDifficulty >= 4 ? ['color', 'shape', 'count'] : ['color', 'shape'];
     this._currentRule = rules[Math.floor(Math.random() * rules.length)]!;
     this._trialsSinceSwitch = 0;
   }
@@ -346,36 +368,43 @@ export class SetSwitchingEngine extends BaseEngine {
       this._switch_rule();
       this._trialsSinceSwitch = 1;
       // Re-randomize switch interval for high difficulty
-      if (this.config.difficulty >= 8) {
-        this._switchEvery = 1 + Math.floor(Math.random() * 3);
+      if (this._currentDifficulty >= 9) {
+        this._switchEvery = 1 + Math.floor(Math.random() * 2);
       }
     }
 
     // Generate stimulus
     const colorIdx = Math.floor(Math.random() * this._activeColors);
     const shapeIdx = Math.floor(Math.random() * this._activeShapes);
+    const countIdx = Math.floor(Math.random() * this._activeCounts);
+    
     const size: 'small' | 'large' = this._useSize
       ? (Math.random() < 0.5 ? 'small' : 'large')
       : 'large';
-
+ 
     const color = COLORS[colorIdx]!;
     const shape = SHAPES[shapeIdx]!;
-
+    const count = countIdx + 1;
+ 
     this._currentStimulus = {
-      name: `${color.name} ${shape}`,
+      name: `${count} ${color.name} ${shape}${count > 1 ? 's' : ''}`,
       color: color.hsl,
       colorName: color.name,
       shapeName: shape,
       size,
+      count,
     };
 
     // Determine correct answer and options based on current rule
     if (this._currentRule === 'color') {
       this._correctAnswer = color.name;
       this._options = COLORS.slice(0, this._activeColors).map(c => c.name);
-    } else {
+    } else if (this._currentRule === 'shape') {
       this._correctAnswer = shape.toUpperCase();
       this._options = SHAPES.slice(0, this._activeShapes).map(s => s.toUpperCase());
+    } else {
+      this._correctAnswer = String(count);
+      this._options = ['1', '2', '3'].slice(0, this._activeCounts);
     }
 
     // Register click handler
@@ -398,7 +427,7 @@ export class SetSwitchingEngine extends BaseEngine {
   }
 
   private _switch_rule(): void {
-    const rules: Rule[] = ['color', 'shape'];
+    const rules: Rule[] = this._currentDifficulty >= 4 ? ['color', 'shape', 'count'] : ['color', 'shape'];
     let newRule: Rule;
     do {
       newRule = rules[Math.floor(Math.random() * rules.length)]!;
@@ -428,7 +457,7 @@ export class SetSwitchingEngine extends BaseEngine {
       exerciseType: this.exerciseType,
       pillar: this.primaryPillar,
       timestamp: Date.now(),
-      difficulty: this.config.difficulty,
+      difficulty: this._currentDifficulty,
       isCorrect: this._isCorrect,
       reactionTimeMs: reactionMs,
       metadata: {
