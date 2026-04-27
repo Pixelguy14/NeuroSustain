@@ -330,7 +330,7 @@ export class SetSwitchingEngine extends BaseEngine {
     } else if (diff <= 5) {
       this._activeColors = 3;
       this._activeShapes = 3;
-      this._activeCounts = 2;
+      this._activeCounts = 3; // Allow 1, 2, 3 shapes
       this._switchEvery = 3;
       this._timeLimitMs = 4000;
       this._useSize = false;
@@ -344,7 +344,7 @@ export class SetSwitchingEngine extends BaseEngine {
     } else {
       this._activeColors = 4;
       this._activeShapes = 4;
-      this._activeCounts = 3;
+      this._activeCounts = 4; // Allow up to 4 shapes
       this._switchEvery = 1 + Math.floor(Math.random() * 2); // 1-2
       this._timeLimitMs = 3000;
       this._useSize = true;
@@ -400,7 +400,7 @@ export class SetSwitchingEngine extends BaseEngine {
       this._options = SHAPES.slice(0, this._activeShapes).map(s => t(SHAPE_LABEL_KEYS[s]!).toUpperCase());
     } else {
       this._correctAnswer = String(count);
-      this._options = ['1', '2', '3'].slice(0, this._activeCounts);
+      this._options = ['1', '2', '3', '4'].slice(0, this._activeCounts);
     }
 
     // Register click handler

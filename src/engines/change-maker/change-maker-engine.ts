@@ -43,7 +43,8 @@ export class ChangeMakerEngine extends BaseEngine {
   private _amountPaid: number = 0;  // cents
   private _changeGoal: number = 0;  // cents (amountPaid - billTotal)
   private _trayTotal: number = 0;   // cents accumulated by user
-  private _trayCounts: number[] = []; // count per denomination
+  private _trayCounts: number[] = []; // Available inventory per denomination
+  private _userCounts: number[] = []; // What user has actually added
   private _timeLimitMs: number = 20000;
   private _isCorrect: boolean = false;
 
@@ -212,13 +213,15 @@ export class ChangeMakerEngine extends BaseEngine {
       ctx.textBaseline = 'middle';
       ctx.fillText(denom.label, bx + btnW / 2, by + denomH / 2);
 
-      // Count badge (if user has added any)
-      const count = this._trayCounts[i] || 0;
-      if (count > 0) {
-        ctx.font = 'bold 10px Inter, sans-serif';
-        ctx.fillStyle = 'hsl(175, 70%, 55%)';
-        ctx.fillText(`×${count}`, bx + btnW - 10, by + 10);
-      }
+      // Inventory remaining badge
+      const total = this._trayCounts[i] || 0;
+      const added = this._userCounts[i] || 0;
+      const left = total - added;
+      
+      ctx.font = 'bold 10px Inter, sans-serif';
+      ctx.fillStyle = left > 0 ? 'hsla(220, 15%, 55%, 0.8)' : 'hsl(0, 65%, 55%)';
+      ctx.textAlign = 'right';
+      ctx.fillText(left > 0 ? `${left} left` : 'OUT', bx + btnW - 6, by + 12);
     }
 
     // Submit button
@@ -343,23 +346,32 @@ export class ChangeMakerEngine extends BaseEngine {
     // Generate change goal first (in valid denomination units)
     const activeDenoms = this._get_active_denoms();
     
-    // Instead of randomly picking a multiplier of the minimum unit,
-    // we construct a change goal by picking 2 to 5 random denominations
-    // to ensure a mix is required.
+    // Instead of infinite money, we give a LIMITED inventory
+    // 1. Generate a "perfect" change solution first
     let generatedChange = 0;
-    const numCoins = diff <= 3 ? 3 : diff <= 7 ? 4 : 5;
-    for (let i = 0; i < numCoins; i++) {
-      // Favor smaller denominations for the mix
-      const denomIndex = Math.floor(Math.pow(Math.random(), 2) * activeDenoms.length);
-      generatedChange += activeDenoms[denomIndex]!.value;
+    this._trayCounts = new Array(activeDenoms.length).fill(0); // This will hold the INVENTORY
+    
+    // Pick 3-6 random denominations to build the "goal"
+    const targetSteps = diff <= 3 ? 3 : diff <= 7 ? 4 : 6;
+    for (let i = 0; i < targetSteps; i++) {
+      const idx = Math.floor(Math.pow(Math.random(), 2) * activeDenoms.length);
+      const val = activeDenoms[idx]!.value;
+      generatedChange += val;
+      this._trayCounts[idx] = (this._trayCounts[idx] || 0) + 1;
     }
     
+    // 2. Add some "distractor" inventory (2-4 extra items)
+    const distractors = diff <= 3 ? 2 : 4;
+    for (let i = 0; i < distractors; i++) {
+      const idx = Math.floor(Math.random() * activeDenoms.length);
+      this._trayCounts[idx] = (this._trayCounts[idx] || 0) + 1;
+    }
+
     this._changeGoal = generatedChange;
 
     // Bill total and amount paid
-    // Ensure bill total is a reasonable number above the change goal
     const minUnit = activeDenoms[activeDenoms.length - 1]?.value || 1;
-    this._billTotal = (5 + Math.floor(Math.random() * 50)) * minUnit + Math.floor(Math.random() * this._changeGoal);
+    this._billTotal = (5 + Math.floor(Math.random() * 50)) * minUnit + Math.floor(Math.random() * 20) * minUnit;
     this._amountPaid = this._billTotal + this._changeGoal;
 
     // Time limit
@@ -367,13 +379,13 @@ export class ChangeMakerEngine extends BaseEngine {
     else if (diff <= 7) this._timeLimitMs = 18000;
     else this._timeLimitMs = 12000;
 
-    // Reset tray
+    // Reset user state
     this._trayTotal = 0;
-    this._trayCounts = new Array(activeDenoms.length).fill(0) as number[];
+    this._userCounts = new Array(activeDenoms.length).fill(0); // Tracks what user ADDED
     this._trayHistory = [];
     this._firstMoveMs = null;
 
-    // Precompute geometry to avoid allocations in on_render
+    // Precompute geometry
     const cx = this.width / 2;
     const cols = Math.min(5, activeDenoms.length);
     const btnW = Math.min(90, (this.width - DENOM_GAP * (cols + 1)) / cols);
@@ -399,7 +411,6 @@ export class ChangeMakerEngine extends BaseEngine {
       const x = (e.clientX - rect.left) * scaleX;
       const y = (e.clientY - rect.top) * scaleY;
 
-      // Check denomination buttons
       for (let i = 0; i < this._denomRects.length; i++) {
         const r = this._denomRects[i]!;
         if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
@@ -408,7 +419,6 @@ export class ChangeMakerEngine extends BaseEngine {
         }
       }
 
-      // Check buttons (approximate area)
       const cx = this.width / 2;
       const activeDenoms = this._get_active_denoms();
       const cols = Math.min(5, activeDenoms.length);
@@ -418,12 +428,9 @@ export class ChangeMakerEngine extends BaseEngine {
       if (y >= subY && y <= subY + 40) {
         const subW = 100;
         const clearW = 90;
-        
-        // Submit button
         if (x >= cx - subW / 2 + clearW / 2 + 5 && x <= cx + subW / 2 + clearW / 2 + 5) {
           this._submit(this._trayTotal === this._changeGoal);
         }
-        // Clear button
         else if (x >= cx - subW / 2 - clearW - 10 && x <= cx - subW / 2 - 10) {
           this._clear_tray();
         }
@@ -439,14 +446,15 @@ export class ChangeMakerEngine extends BaseEngine {
     const denom = denoms[index];
     if (!denom) return;
 
-    // Don't allow overshoot beyond 2× the goal (prevent spam)
-    if (this._trayTotal + denom.value > this._changeGoal * 2) {
+    // CHECK INVENTORY
+    const left = (this._trayCounts[index] || 0) - (this._userCounts[index] || 0);
+    if (left <= 0) {
       audioEngine.play_error();
       return;
     }
 
     this._trayTotal += denom.value;
-    this._trayCounts[index] = (this._trayCounts[index] || 0) + 1;
+    this._userCounts[index] = (this._userCounts[index] || 0) + 1;
     this._trayHistory.push(index);
     if (!this._firstMoveMs) this._firstMoveMs = precise_now() - this._phaseStart;
     
@@ -457,7 +465,7 @@ export class ChangeMakerEngine extends BaseEngine {
     const lastIndex = this._trayHistory.pop();
     if (lastIndex !== undefined) {
       const denoms = this._get_active_denoms();
-      this._trayCounts[lastIndex]!--;
+      this._userCounts[lastIndex]!--;
       this._trayTotal -= denoms[lastIndex]!.value;
       audioEngine.play_tick();
     }
@@ -466,7 +474,7 @@ export class ChangeMakerEngine extends BaseEngine {
   private _clear_tray(): void {
     if (this._trayTotal === 0) return;
     this._trayTotal = 0;
-    this._trayCounts = new Array(this._get_active_denoms().length).fill(0) as number[];
+    this._userCounts = new Array(this._get_active_denoms().length).fill(0) as number[];
     this._trayHistory = [];
     audioEngine.play_tick();
   }

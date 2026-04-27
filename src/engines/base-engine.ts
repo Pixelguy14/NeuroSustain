@@ -262,11 +262,18 @@ export abstract class BaseEngine {
 
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
 
-    // Recalculate exit button position
-    this._exitBtnW = 110;
-    this._exitBtnH = 32;
-    this._exitBtnX = this.width - this._exitBtnW - 12;
-    this._exitBtnY = 8;
+    // Recalculate exit button position (Responsive: Bottom-Right on mobile, Top-Right on Desktop)
+    const isMobile = this.width < 768;
+    this._exitBtnW = 100;
+    this._exitBtnH = 34;
+    
+    if (isMobile) {
+      this._exitBtnX = 12;
+      this._exitBtnY = 8;
+    } else {
+      this._exitBtnX = this.width - this._exitBtnW - 12;
+      this._exitBtnY = 8;
+    }
   }
 
   /** Main render loop */
@@ -344,23 +351,27 @@ export abstract class BaseEngine {
     const h = this._exitBtnH;
     const r = h / 2;
 
+    // Breathing effect (Organic Pillar)
+    const breathe = 0.7 + Math.sin(precise_now() * 0.002) * 0.3;
+
     ctx.save();
+    ctx.globalAlpha = breathe;
 
     // Background pill
     ctx.beginPath();
     ctx.roundRect(x, y, w, h, r);
-    ctx.fillStyle = 'hsla(225, 30%, 15%, 0.6)';
+    ctx.fillStyle = 'hsla(225, 30%, 15%, 0.8)';
     ctx.fill();
-    ctx.strokeStyle = 'hsla(220, 20%, 40%, 0.3)';
+    ctx.strokeStyle = 'hsla(175, 70%, 50%, 0.4)';
     ctx.lineWidth = 1;
     ctx.stroke();
 
     // Text
-    ctx.font = '500 12px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 60%, 0.8)';
+    ctx.font = '600 11px Inter, sans-serif';
+    ctx.fillStyle = 'hsla(220, 15%, 85%, 0.9)';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('Esc  Abort', x + w / 2, y + h / 2);
+    ctx.fillText('ESC  ABORT', x + w / 2, y + h / 2);
 
     ctx.restore();
   }

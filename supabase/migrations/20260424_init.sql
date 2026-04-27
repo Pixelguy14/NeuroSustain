@@ -9,7 +9,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Step 2: Profiles Table
 CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
     email TEXT UNIQUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     locale TEXT DEFAULT 'en',
@@ -69,8 +69,20 @@ ALTER TABLE public.sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ratings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.trials ENABLE ROW LEVEL SECURITY;
 
--- Step 7: Policies
+-- Step 7: Policies (Cleanup first to avoid duplication errors)
+DROP POLICY IF EXISTS "Users can view their own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can view their own sessions" ON public.sessions;
+DROP POLICY IF EXISTS "Users can insert their own sessions" ON public.sessions;
+DROP POLICY IF EXISTS "Users can view their own ratings" ON public.ratings;
+DROP POLICY IF EXISTS "Users can manage their own ratings" ON public.ratings;
+DROP POLICY IF EXISTS "Users can view their own trials" ON public.trials;
+DROP POLICY IF EXISTS "Users can insert their own trials" ON public.trials;
+
+-- Step 8: Recreate Policies
 CREATE POLICY "Users can view their own profile" ON public.profiles FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert their own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own profile" ON public.profiles FOR UPDATE USING (auth.uid() = user_id);
 
 CREATE POLICY "Users can view their own sessions" ON public.sessions FOR SELECT USING (

@@ -11,6 +11,7 @@ export function render_performance_heatmap(
   options: {
     metric?: 'focusScore' | 'accuracy' | 'meanReactionTimeMs';
     colorScale?: string[];
+    dayLabels?: string[];
   } = {}
 ): void {
   const {
@@ -86,7 +87,8 @@ export function render_performance_heatmap(
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
 
-  const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const defaultDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const dayLabels = options.dayLabels || defaultDays;
   for (let d = 0; d < 7; d++) {
     ctx.fillText(dayLabels[d]!, padding - 5, d * cellH + cellH / 2);
   }

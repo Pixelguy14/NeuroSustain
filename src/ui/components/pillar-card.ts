@@ -38,8 +38,8 @@ export class PillarCard extends HTMLElement {
     this.innerHTML = `
       <div class="pillar-card glass-panel ${this._isFatigued ? 'pillar-card--fatigued' : ''}">
         <header class="pillar-card__header">
-          <div class="pillar-card__icon" style="background: ${meta.color}22; color: ${meta.color}">
-            ${this._get_pillar_icon()}
+          <div class="pillar-card__icon icon" style="background: ${meta.color}22; color: ${meta.color}">
+            ${meta.icon}
           </div>
           <div class="pillar-card__title-group">
             <h3 class="pillar-card__title">${t(meta.labelKey)}</h3>
@@ -56,7 +56,7 @@ export class PillarCard extends HTMLElement {
 
         ${this._isFatigued ? `
           <div class="pillar-card__fatigue-overlay">
-            <span class="pillar-card__fatigue-icon">💤</span>
+            <span class="pillar-card__fatigue-icon icon">bedtime</span>
             <span class="pillar-card__fatigue-text">Neural load high</span>
           </div>
         ` : ''}
@@ -84,24 +84,13 @@ export class PillarCard extends HTMLElement {
     
     return `
       <div class="exercise-item ${isLocked ? 'exercise-item--locked' : ''} ${isDue ? 'exercise-item--due' : ''}" data-type="${ex.type}">
-        <span class="exercise-item__glyph">${ex.iconGlyph}</span>
+        <span class="exercise-item__glyph icon">${ex.iconGlyph}</span>
         <span class="exercise-item__name">${t(ex.nameKey)}</span>
-        ${isDue && !isLocked ? '<span class="exercise-item__due-badge" style="margin-left: auto; margin-right: 8px; font-size: 10px; color: var(--color-warning); border: 1px solid var(--color-warning); padding: 2px 6px; border-radius: 4px; font-weight: 600;">🔥 Due</span>' : ''}
-        ${isLocked ? '<span class="exercise-item__lock">🔒</span>' : '<span class="exercise-item__arrow">→</span>'}
+        ${isDue && !isLocked ? '<span class="exercise-item__due-badge icon" style="margin-left: auto; margin-right: 8px; font-size: 16px; color: var(--color-warning);">history</span>' : ''}
+        ${isLocked ? '<span class="exercise-item__lock icon">lock</span>' : '<span class="exercise-item__arrow icon">chevron_right</span>'}
         <div class="exercise-item__tooltip">${isLocked ? t('train.locked') : t(ex.descriptionKey)}</div>
       </div>
     `;
-  }
-
-  private _get_pillar_icon(): string {
-    switch(this._pillar) {
-      case 'ProcessingSpeed': return '⚡';
-      case 'InhibitoryControl': return '🎨';
-      case 'WorkingMemory': return '🧠';
-      case 'SustainedAttention': return '🔍';
-      case 'CognitiveFlexibility': return '🔀';
-      default: return '●';
-    }
   }
 }
 

@@ -4,12 +4,16 @@
 // ============================================================
 
 import { t, get_locale, set_locale } from '@shared/i18n.ts';
-import { get_profile, export_data_json, export_data_csv, import_data_json, clear_all_data, db } from '@shared/db.ts';
+import { get_profile, get_hardware_profile, export_data_json, export_data_csv, import_data_json, clear_all_data, db } from '@shared/db.ts';
 import { calculate_percentile } from '@shared/utils.ts';
 import { audioEngine } from '@core/audio/audio-engine.ts';
 import { supabase } from '@core/sync/supabase-client.ts';
 import { syncManager } from '@core/sync/sync-manager.ts';
 import { export_clinical_report } from '@core/analytics/pdf-export.ts';
+import { show_calibration_screen } from '@ui/components/calibration-screen.ts';
+import { grade_description } from '@core/calibration/hardware-calibration.ts';
+import { notificationManager } from '@core/notifications/notification-manager.ts';
+import { GLICKO2_DEFAULTS, PILLAR_META, ALL_PILLARS } from '@shared/constants.ts';
 import type { Locale } from '@shared/types.ts';
 
 export function render_profile(): HTMLElement {
@@ -62,14 +66,37 @@ export function render_profile(): HTMLElement {
         </div>
       </div>
       <div class="profile-field" style="border-bottom: none; flex-direction: column; align-items: flex-start; gap: var(--space-sm);">
+        <span class="profile-field__label">${t('profile.smartNotifications', { defaultValue: 'Cognitive Reminders' })}</span>
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; background: hsla(225, 30%, 12%, 0.4); border: 1px solid var(--glass-border); border-radius: 8px; padding: var(--space-md);">
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+             <span style="font-size: 13px; font-weight: 600;">Neural Rhythm Reminders</span>
+             <span id="peak-hour-label" style="font-size: 11px; color: var(--color-text-dim);">Analyzing your heatmap...</span>
+          </div>
+          <button class="btn btn--ghost btn--small" id="btn-toggle-notifications">
+            ${Notification.permission === 'granted' ? 'Enabled' : 'Enable'}
+          </button>
+        </div>
+      </div>
+
+      <div class="profile-field" style="border-bottom: none; flex-direction: column; align-items: flex-start; gap: var(--space-sm);">
         <span class="profile-field__label">${t('profile.dataSovereignty')}</span>
+        <p style="font-size: 12px; color: var(--color-text-dim); line-height: 1.5; margin-bottom: var(--space-xs);">
+           NeuroSustain operates on a <strong>Local-First</strong> architecture. Your neural profile, reaction times, and training history stay on this device. Exports are available for clinicians.
+        </p>
         <div style="display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-top: var(--space-xs);">
-          <button class="btn btn--primary btn--small" id="btn-export-pdf" style="background: hsla(175, 70%, 50%, 0.15); border-color: hsla(175, 70%, 50%, 0.3); color: hsl(175, 70%, 70%);">
+          <button class="btn btn--primary btn--small" id="btn-export-pdf" style="background: hsla(175, 70%, 50%, 0.15); border-color: hsla(175, 70%, 50%, 0.3); color: hsl(175, 70%, 70%); display: flex; align-items: center; gap: 6px;">
+            <span class="icon" style="font-size: 16px;">picture_as_pdf</span>
             ${t('profile.downloadReport', { defaultValue: 'Download Clinical PDF' })}
           </button>
-          <button class="btn btn--ghost btn--small" id="btn-export-json">JSON</button>
-          <button class="btn btn--ghost btn--small" id="btn-export-csv">CSV</button>
-          <button class="btn btn--ghost btn--small" id="btn-import-json">${t('profile.import')}</button>
+          <button class="btn btn--ghost btn--small" id="btn-export-json" style="display: flex; align-items: center; gap: 6px;">
+            <span class="icon" style="font-size: 16px;">terminal</span> JSON
+          </button>
+          <button class="btn btn--ghost btn--small" id="btn-export-csv" style="display: flex; align-items: center; gap: 6px;">
+            <span class="icon" style="font-size: 16px;">table_chart</span> CSV
+          </button>
+          <button class="btn btn--ghost btn--small" id="btn-import-json" style="display: flex; align-items: center; gap: 6px;">
+            <span class="icon" style="font-size: 16px;">upload_file</span> ${t('profile.import')}
+          </button>
           <input type="file" id="file-import-json" accept=".json" style="display: none;" />
         </div>
       </div>
@@ -81,9 +108,26 @@ export function render_profile(): HTMLElement {
         </div>
       </div>
       <div class="profile-field" style="border-bottom: none; flex-direction: column; align-items: flex-start; gap: var(--space-sm); margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid hsla(0, 0%, 100%, 0.1);">
+        <span class="profile-field__label">${t('profile.hardwareTitle', { defaultValue: 'Hardware & Performance' })}</span>
+        <div id="hardware-status" style="width: 100%; background: hsla(225, 30%, 12%, 0.4); border: 1px solid var(--glass-border); border-radius: 8px; padding: var(--space-md); display: flex; flex-direction: column; gap: var(--space-sm);">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 11px; color: var(--color-text-dim); text-transform: uppercase;">Current Grade</span>
+              <span id="hardware-grade-label" style="font-size: 16px; font-weight: 700;">—</span>
+            </div>
+            <button class="btn btn--ghost btn--small" id="btn-recalibrate" style="display: flex; align-items: center; gap: 6px;">
+              <span class="icon" style="font-size: 16px;">settings_suggest</span>
+              ${t('profile.recalibrate', { defaultValue: 'Recalibrate' })}
+            </button>
+          </div>
+          <p style="font-size: 12px; color: var(--color-text-dim); line-height: 1.4;">${t('profile.hardwareDesc', { defaultValue: 'Measures your device jitter to ensure clinical accuracy across different screens and hardware.' })}</p>
+        </div>
+      </div>
+      <div class="profile-field" style="border-bottom: none; flex-direction: column; align-items: flex-start; gap: var(--space-sm); margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid hsla(0, 0%, 100%, 0.1);">
         <span class="profile-field__label" style="color: var(--color-error);">${t('profile.deleteData')}</span>
         <p style="font-size: 12px; color: var(--color-text-dim); margin-bottom: var(--space-sm);">${t('profile.deleteConfirm')}</p>
-        <button class="btn btn--danger btn--small" id="btn-delete-all" style="background: hsla(0, 80%, 50%, 0.2); border-color: hsla(0, 80%, 50%, 0.4); color: hsl(0, 90%, 70%);">
+        <button class="btn btn--danger btn--small" id="btn-delete-all" style="background: hsla(0, 80%, 50%, 0.2); border-color: hsla(0, 80%, 50%, 0.4); color: hsl(0, 90%, 70%); display: flex; align-items: center; gap: 6px;">
+          <span class="icon" style="font-size: 16px;">delete_forever</span>
           ${t('profile.deleteButton')}
         </button>
       </div>
@@ -117,6 +161,16 @@ export function render_profile(): HTMLElement {
       } else {
         audioEngine.stop_ambience();
       }
+    }
+  });
+  // Notification Toggle
+  page.querySelector('#btn-toggle-notifications')?.addEventListener('click', async () => {
+    const granted = await notificationManager.request_permission();
+    if (granted) {
+      const btn = page.querySelector('#btn-toggle-notifications') as HTMLButtonElement;
+      btn.textContent = 'Enabled';
+      btn.style.color = 'var(--color-success)';
+      await notificationManager.schedule_test_notification();
     }
   });
 
@@ -187,6 +241,14 @@ export function render_profile(): HTMLElement {
     reader.readAsText(file);
   });
 
+  // Recalibrate Button
+  page.querySelector('#btn-recalibrate')?.addEventListener('click', () => {
+    show_calibration_screen((_profile) => {
+      // Re-populate to update the grade label
+      _populate_profile(page);
+    });
+  });
+
   // Delete All Data
   page.querySelector('#btn-delete-all')?.addEventListener('click', async () => {
     if (confirm(t('profile.deleteConfirm'))) {
@@ -214,6 +276,16 @@ async function _populate_profile(page: HTMLElement): Promise<void> {
   const profile = await get_profile();
   if (!profile) return;
 
+  const hw = await get_hardware_profile();
+  if (hw) {
+    const gradeLabel = page.querySelector('#hardware-grade-label');
+    if (gradeLabel) {
+      const desc = grade_description(hw.grade);
+      gradeLabel.textContent = desc.label;
+      (gradeLabel as HTMLElement).style.color = desc.color;
+    }
+  }
+
   const memberSince = page.querySelector('#profile-member-since');
   if (memberSince) {
     memberSince.textContent = new Date(profile.createdAt).toLocaleDateString();
@@ -239,20 +311,25 @@ async function _populate_profile(page: HTMLElement): Promise<void> {
     audioToggle.checked = profile.audioFocusAmbience ?? false;
   }
 
+  // Populate Peak Hour
+  const peakLabel = page.querySelector('#peak-hour-label');
+  if (peakLabel) {
+    const peak = await notificationManager.get_peak_hour();
+    peakLabel.textContent = `Optimal Training Hour: ${peak}:00 (based on your focus heatmap)`;
+  }
+
   // Populate Pillar Ratings
-  const ratings = await db.ratings.toArray();
+  const ratingsRaw = await db.ratings.toArray();
   const ratingsContainer = page.querySelector('#profile-pillar-ratings');
+  
   if (ratingsContainer) {
     ratingsContainer.innerHTML = '';
     
-    // Sort by rating desc
-    ratings.sort((a, b) => b.rating - a.rating);
-
-    if (ratings.length === 0) {
-      ratingsContainer.innerHTML = `<p style="color: var(--color-text-dim); font-size: 13px;">${t('dashboard.noSessions')}</p>`;
-    }
-
-    for (const r of ratings) {
+    // Always show all 5 pillars for clinical completeness
+    for (const pillar of ALL_PILLARS) {
+      const r = ratingsRaw.find(rt => rt.pillar === pillar);
+      const rating = r ? r.rating : GLICKO2_DEFAULTS.INITIAL_RATING;
+      
       const card = document.createElement('div');
       card.style.cssText = `
         background: hsla(225, 30%, 12%, 0.4);
@@ -264,11 +341,15 @@ async function _populate_profile(page: HTMLElement): Promise<void> {
         gap: 4px;
       `;
       
-      const difficulty = Math.max(1, Math.min(10, ((r.rating - 1300) / 100) + 1)).toFixed(1);
-      const percentile = calculate_percentile(r.rating);
+      const difficulty = Math.max(1, Math.min(10, ((rating - 1300) / 100) + 1)).toFixed(1);
+      const percentile = calculate_percentile(rating);
+      const meta = PILLAR_META[pillar];
       
       card.innerHTML = `
-        <span style="font-size: 11px; color: var(--color-text-dim); text-transform: uppercase; letter-spacing: 0.05em;">${t(`pillar.${r.pillar}`)}</span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="icon" style="font-size: 16px; color: ${meta?.color || 'var(--color-text-dim)'}">${meta?.icon || 'adjust'}</span>
+          <span style="font-size: 11px; color: var(--color-text-dim); text-transform: uppercase; letter-spacing: 0.05em;">${t(`pillar.${pillar}`)}</span>
+        </div>
         <div style="display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-xs);">
           <div style="display: flex; align-items: baseline; gap: 4px;">
             <span style="font-size: 20px; font-weight: 700; color: hsl(175, 70%, 60%);">LV ${difficulty}</span>
@@ -296,18 +377,25 @@ async function _populate_profile(page: HTMLElement): Promise<void> {
           <span style="font-size: 11px; color: var(--color-text-dim);">${session.user.email}</span>
         </div>
         <div style="display: flex; gap: var(--space-sm);">
-          <button class="btn btn--primary btn--small" id="btn-sync-now" style="flex: 1;">${t('profile.syncNow')}</button>
-          <button class="btn btn--ghost btn--small" id="btn-logout">${t('profile.syncLogout')}</button>
+          <button class="btn btn--primary btn--small" id="btn-sync-now" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <span class="icon" style="font-size: 16px;">sync</span>
+            ${t('profile.syncNow')}
+          </button>
+          <button class="btn btn--ghost btn--small" id="btn-logout" style="display: flex; align-items: center; gap: 6px;">
+            <span class="icon" style="font-size: 16px;">logout</span>
+            ${t('profile.syncLogout')}
+          </button>
         </div>
       `;
 
       page.querySelector('#btn-sync-now')?.addEventListener('click', async () => {
         const btn = page.querySelector('#btn-sync-now') as HTMLButtonElement;
+        const icon = btn.querySelector('.icon') as HTMLElement;
         btn.disabled = true;
-        btn.textContent = '...';
+        if (icon) icon.style.animation = 'spin 1s linear infinite';
         await syncManager.sync();
         btn.disabled = false;
-        btn.textContent = t('profile.syncNow');
+        if (icon) icon.style.animation = '';
       });
 
       page.querySelector('#btn-logout')?.addEventListener('click', async () => {
@@ -318,7 +406,10 @@ async function _populate_profile(page: HTMLElement): Promise<void> {
       syncControls.innerHTML = `
         <div style="display: flex; flex-direction: column; gap: var(--space-sm);">
           <input type="email" id="sync-email" placeholder="email@example.com" style="background: var(--color-bg-tertiary); border: 1px solid var(--glass-border); border-radius: 4px; padding: 10px; color: white;" />
-          <button class="btn btn--primary btn--small" id="btn-login">${t('profile.syncLogin')}</button>
+          <button class="btn btn--primary btn--small" id="btn-login" style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <span class="icon" style="font-size: 16px;">login</span>
+            ${t('profile.syncLogin')}
+          </button>
         </div>
       `;
 

@@ -155,7 +155,7 @@ export interface NeuroscientificInsight {
 export interface Route {
   path: string;
   title: string;
-  render: () => HTMLElement;
+  render: () => HTMLElement | Promise<HTMLElement>;
 }
 
 // EngineCallbacks defined below with fatigue extension

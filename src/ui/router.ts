@@ -39,7 +39,7 @@ class Router {
   }
 
   /** Handle the current hash route */
-  private _handle_route(): void {
+  private async _handle_route(): Promise<void> {
     const hash = window.location.hash.slice(1) || '/dashboard';
     const route = this._routes.get(hash);
 
@@ -53,8 +53,15 @@ class Router {
     const container = document.getElementById('page-container');
     if (container) {
       container.innerHTML = '';
-      const page = route.render();
-      container.appendChild(page);
+      const pageResult = route.render();
+      
+      if (pageResult instanceof Promise) {
+        const page = await pageResult;
+        container.innerHTML = ''; // Double check in case of race conditions
+        container.appendChild(page);
+      } else {
+        container.appendChild(pageResult);
+      }
     }
 
     document.title = `${route.title} — NeuroSustain`;

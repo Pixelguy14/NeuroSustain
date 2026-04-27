@@ -4,20 +4,24 @@
 // ============================================================
 
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { get_ratings, get_recent_sessions, get_profile } from '@shared/db.ts';
 import { PILLAR_META } from '@shared/constants.ts';
 import { format_ms } from '@shared/utils.ts';
+import { toast } from '@ui/components/toast.ts';
 import { t } from '@shared/i18n.ts';
 
 /** Generate and download a clinical cognitive report */
 export async function export_clinical_report(): Promise<void> {
-  const doc = new jsPDF() as any;
-  const profile = await get_profile();
-  const ratings = await get_ratings();
-  const recentSessions = await get_recent_sessions(20);
+  const loadingToast = toast.show('Generating Clinical Report...', 'info', 10000);
+  
+  try {
+    const doc = new jsPDF() as any;
+    const profile = await get_profile();
+    const ratings = await get_ratings();
+    const recentSessions = await get_recent_sessions(20);
 
-  const timestamp = new Date().toLocaleString();
+    const timestamp = new Date().toLocaleString();
 
   // 1. Header & Branding
   doc.setFillColor(10, 15, 30); // Theme Dark
@@ -57,7 +61,7 @@ export async function export_clinical_report(): Promise<void> {
     new Date(r.lastUpdated).toLocaleDateString()
   ]);
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: 88,
     head: [['Pillar', 'Skill Rating', 'Confidence (RD)', 'Last Updated']],
     body: ratingData,
@@ -67,7 +71,7 @@ export async function export_clinical_report(): Promise<void> {
 
   // 4. Recent Session Log
   doc.setFontSize(12);
-  doc.text('Recent Session Log', 14, doc.lastAutoTable.finalY + 15);
+  doc.text('Recent Session Log', 14, (doc as any).lastAutoTable.finalY + 15);
 
   const sessionData = recentSessions.map(s => [
     new Date(s.startedAt).toLocaleDateString(),
@@ -78,8 +82,8 @@ export async function export_clinical_report(): Promise<void> {
     `Lv ${Math.round(s.meanDifficulty)}`
   ]);
 
-  doc.autoTable({
-    startY: doc.lastAutoTable.finalY + 18,
+  autoTable(doc, {
+    startY: (doc as any).lastAutoTable.finalY + 18,
     head: [['Date', 'Exercise', 'Accuracy', 'Avg RT', 'Focus', 'Difficulty']],
     body: sessionData,
     headStyles: { fillColor: [40, 60, 80] },
@@ -99,5 +103,12 @@ export async function export_clinical_report(): Promise<void> {
     doc.text(`Page ${i} of ${pageCount}`, 196, 285, { align: 'right' });
   }
 
-  doc.save(`NeuroSustain_Report_${new Date().toISOString().slice(0,10)}.pdf`);
+    doc.save(`NeuroSustain_Report_${new Date().toISOString().slice(0,10)}.pdf`);
+    loadingToast.remove();
+    toast.show('Report Downloaded', 'success');
+  } catch (err) {
+    loadingToast.remove();
+    toast.show('Failed to generate report', 'error');
+    console.error('PDF Export Error:', err);
+  }
 }

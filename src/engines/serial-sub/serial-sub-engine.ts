@@ -389,12 +389,25 @@ export class SerialSubtractionEngine extends BaseEngine {
   // ── Numpad Geometry ──────────────────────────────────────
 
   private _compute_numpad_layout(): void {
-    const padAreaW = this.width * 0.3;
-    const padAreaH = this.height * 0.5;
-    this._numpadX = this.width - padAreaW - 24;
-    this._numpadY = (this.height - padAreaH) / 2 + 30;
-    this._btnW = (padAreaW - this._numpadGap * 2) / 3;
-    this._btnH = (padAreaH - this._numpadGap * 3) / 4;
+    const isMobile = this.width < 600;
+
+    if (isMobile) {
+      // Mobile: Full width at the bottom
+      const padAreaW = this.width * 0.9;
+      const padAreaH = Math.min(220, this.height * 0.4);
+      this._numpadX = (this.width - padAreaW) / 2;
+      this._numpadY = this.height - padAreaH - 10;
+      this._btnW = (padAreaW - this._numpadGap * 2) / 3;
+      this._btnH = (padAreaH - this._numpadGap * 3) / 4;
+    } else {
+      // Desktop: Side-by-side
+      const padAreaW = this.width * 0.3;
+      const padAreaH = this.height * 0.5;
+      this._numpadX = this.width - padAreaW - 24;
+      this._numpadY = (this.height - padAreaH) / 2 + 30;
+      this._btnW = (padAreaW - this._numpadGap * 2) / 3;
+      this._btnH = (padAreaH - this._numpadGap * 3) / 4;
+    }
   }
 
   private _hit_test_numpad(x: number, y: number): string | null {
@@ -439,10 +452,11 @@ export class SerialSubtractionEngine extends BaseEngine {
   // ── Render Methods ───────────────────────────────────────
 
   private _render_chalkboard(ctx: CanvasRenderingContext2D): void {
-    const chalkX = 32;
-    const chalkW = this.width * 0.6;
+    const isMobile = this.width < 600;
+    const chalkX = isMobile ? 12 : 32;
+    const chalkW = isMobile ? this.width - 24 : this.width * 0.6;
     const chalkY = 80;
-    const chalkH = this.height - 160;
+    const chalkH = isMobile ? this.height * 0.35 : this.height - 160;
 
     // Chalkboard background
     ctx.fillStyle = 'hsla(225, 30%, 10%, 0.5)';

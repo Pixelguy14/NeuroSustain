@@ -411,9 +411,12 @@ class AudioEngine {
   }
 
   /** Unlock the AudioContext (call from a user gesture handler) */
-  unlock(): void {
-    this._ensure_context();
-    this._init_nback_audio(); // Pre-decode N-Back buffers on first gesture
+  async unlock(): Promise<void> {
+    const ctx = this._ensure_context();
+    if (ctx && ctx.state === 'suspended') {
+      await ctx.resume();
+    }
+    await this._init_nback_audio(); // Pre-decode N-Back buffers on first gesture
   }
 
   /** Force stop all active oscillators and buffer sources */

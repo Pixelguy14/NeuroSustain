@@ -139,6 +139,10 @@ const SHAPES: ShapeDef[] = [
         else p.lineTo(x, y);
       }
       p.closePath();
+      // Add center dot to distinguish from pentagon
+      const dotR = s * 0.08;
+      p.moveTo(cx + dotR, cy);
+      p.arc(cx, cy, dotR, 0, Math.PI * 2);
       return p;
     },
   },

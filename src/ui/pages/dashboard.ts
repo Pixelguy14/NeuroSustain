@@ -3,15 +3,17 @@
 // Cognitive overview with radar chart, stats, and quick actions
 // ============================================================
 
-import { t, on_locale_change } from '@shared/i18n.ts';
+import { t, on_locale_change, get_locale } from '@shared/i18n.ts';
 import { get_profile, get_ratings, get_recent_sessions, get_sessions_history, get_sessions_raw } from '@shared/db.ts';
 import { render_radar_chart } from '../components/radar-chart.ts';
 import { render_line_chart } from '../components/line-chart.ts';
 import { render_performance_heatmap } from '../components/heatmap.ts';
-import { GLICKO2_DEFAULTS, EXERCISES } from '@shared/constants.ts';
+import { GLICKO2_DEFAULTS, EXERCISES, PILLAR_META } from '@shared/constants.ts';
 import { router } from '../router.ts';
 import { fsrsBridge } from '@core/fsrs/fsrs-bridge.ts';
 import { get_current_retrievability } from '@core/fsrs/fsrs-algorithm.ts';
+import { syncManager } from '@core/sync/sync-manager.ts';
+import { render_sparkline } from '../components/sparkline.ts';
 import type { CognitivePillar, PillarRating } from '@shared/types.ts';
 
 /** Normalize Glicko-2 rating to 0-1 for radar chart */
@@ -34,23 +36,32 @@ export function render_dashboard(): HTMLElement {
 
   // Build initial skeleton
   page.innerHTML = `
-    <div class="section-header">
-      <h1 class="section-header__title">${t('dashboard.title')}</h1>
-      <p class="section-header__subtitle" id="dashboard-subtitle"></p>
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-md); flex-wrap: wrap;">
+        <div>
+          <h1 class="section-header__title">${t('dashboard.title')}</h1>
+          <p class="section-header__subtitle" id="dashboard-subtitle"></p>
+        </div>
+        <div class="glass-panel" style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-color: hsla(145, 65%, 50%, 0.3); background: hsla(145, 65%, 10%, 0.4);">
+          <span style="font-size: 14px;">🛡️</span>
+          <span style="font-size: 11px; font-weight: 600; color: hsl(145, 70%, 65%); letter-spacing: 0.5px; text-transform: uppercase;">
+            ${t('dashboard.dataSovereignty', { defaultValue: 'Data Sovereignty: Local-Only' })}
+          </span>
+        </div>
+      </div>
     </div>
 
     <div class="stats-grid" id="dashboard-stats" style="margin-bottom: var(--space-xl);">
       <div class="glass-panel stat-card" id="stat-streak">
         <div class="stat-card__label">${t('dashboard.streak')}</div>
-        <div class="stat-card__value stat-card__accent" id="stat-streak-value">—</div>
+        <div class="stat-card__value stat-card__accent skeleton" id="stat-streak-value" style="width: 40px;">&nbsp;</div>
       </div>
       <div class="glass-panel stat-card" id="stat-sessions">
         <div class="stat-card__label">${t('dashboard.totalSessions')}</div>
-        <div class="stat-card__value" id="stat-sessions-value">—</div>
+        <div class="stat-card__value skeleton" id="stat-sessions-value" style="width: 60px;">&nbsp;</div>
       </div>
       <div class="glass-panel stat-card" id="stat-last">
         <div class="stat-card__label">${t('dashboard.lastSession')}</div>
-        <div class="stat-card__value" id="stat-last-value">—</div>
+        <div class="stat-card__value skeleton" id="stat-last-value" style="width: 80px;">&nbsp;</div>
       </div>
     </div>
 
@@ -64,14 +75,21 @@ export function render_dashboard(): HTMLElement {
 
     <div class="glass-panel radar-container" style="margin-bottom: var(--space-xl);">
       <h2 class="radar-container__title">${t('dashboard.radarTitle')}</h2>
-      <canvas id="radar-canvas"></canvas>
-      <p id="radar-empty" style="display:none; color: var(--color-text-tertiary); font-size: var(--font-size-sm); margin-top: var(--space-md);">
+      <div class="radar-layout">
+        <div class="radar-canvas-wrapper">
+          <canvas id="radar-canvas"></canvas>
+        </div>
+        <div class="pillar-cards-grid" id="pillar-cards">
+          <!-- Dynamic pillar cards go here -->
+        </div>
+      </div>
+      <p id="radar-empty" style="display:none; color: var(--color-text-tertiary); font-size: var(--font-size-sm); margin-top: var(--space-md); text-align: center;">
         ${t('dashboard.radarEmpty')}
       </p>
     </div>
 
     <div class="glass-panel" id="history-container" style="margin-bottom: var(--space-xl); padding: var(--space-lg);">
-      <h2 class="radar-container__title" style="margin-bottom: var(--space-md);">${t('dashboard.historyTitle')}</h2>
+      <h2 class="radar-container__title" style="margin-bottom: var(--space-md);">${t('dashboard.historyTitle', { defaultValue: 'Longitudinal History' })}</h2>
       <div id="history-charts" style="display: flex; flex-direction: column; gap: var(--space-md); width: 100%;">
         <div style="height: 120px; width: 100%;"><canvas id="chart-focus"></canvas></div>
         <div style="height: 120px; width: 100%;"><canvas id="chart-accuracy"></canvas></div>
@@ -90,6 +108,14 @@ export function render_dashboard(): HTMLElement {
       <p style="color: var(--color-text-tertiary); font-size: 11px; margin-top: var(--space-md); text-align: center;">
         ${t('dashboard.heatmapDesc')}
       </p>
+    </div>
+
+    <div class="glass-panel" id="community-section" style="margin-bottom: var(--space-xl); padding: var(--space-lg); border-color: hsla(280, 55%, 58%, 0.2);">
+      <h2 class="radar-container__title" style="margin-bottom: var(--space-xs); color: var(--color-accent-tertiary);">${t('dashboard.communityTitle')}</h2>
+      <p style="color: var(--color-text-dim); font-size: 12px; margin-bottom: var(--space-md);">${t('dashboard.communityDesc')}</p>
+      <div id="community-benchmarks-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--space-md);">
+        <!-- Dynamic community stats go here -->
+      </div>
     </div>
 
     <div style="display: flex; justify-content: center;">
@@ -153,24 +179,76 @@ async function _populate_dashboard(page: HTMLElement): Promise<void> {
   }
 
   // Stats
-  const streakEl = page.querySelector('#stat-streak-value');
+  const streakEl = page.querySelector('#stat-streak-value') as HTMLElement | null;
   if (streakEl) {
+    streakEl.classList.remove('skeleton');
+    streakEl.style.width = 'auto';
     streakEl.textContent = profile ? t('dashboard.streakDays', { days: profile.currentStreak }) : '0';
   }
 
-  const sessionsEl = page.querySelector('#stat-sessions-value');
+  const sessionsEl = page.querySelector('#stat-sessions-value') as HTMLElement | null;
   if (sessionsEl) {
+    sessionsEl.classList.remove('skeleton');
+    sessionsEl.style.width = 'auto';
     sessionsEl.textContent = String(profile?.totalSessions ?? 0);
   }
 
-  const lastEl = page.querySelector('#stat-last-value');
+  const lastEl = page.querySelector('#stat-last-value') as HTMLElement | null;
   if (lastEl) {
+    lastEl.classList.remove('skeleton');
+    lastEl.style.width = 'auto';
     const lastSession = recentSessions[0];
     if (lastSession) {
       const date = new Date(lastSession.startedAt);
       lastEl.textContent = date.toLocaleDateString();
     } else {
       lastEl.textContent = t('dashboard.noSessions');
+    }
+  }
+
+  // Pillar cards with Sparklines
+  const pillarCardsGrid = page.querySelector('#pillar-cards') as HTMLElement;
+  if (pillarCardsGrid) {
+    pillarCardsGrid.innerHTML = '';
+    const allPillars: CognitivePillar[] = ['WorkingMemory', 'CognitiveFlexibility', 'InhibitoryControl', 'SustainedAttention', 'ProcessingSpeed'];
+    
+    for (const p of allPillars) {
+      const pMeta = PILLAR_META[p];
+      const pRating = ratings.find(r => r.pillar === p);
+      const pSessions = historyRaw.filter(s => s.pillar === p).slice(-7);
+      
+      const card = document.createElement('div');
+      card.className = 'glass-panel pillar-card';
+      card.style.borderColor = pMeta.color.replace(')', ', 0.2)');
+      
+      const slug = p.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
+      
+      card.innerHTML = `
+        <div class="pillar-card__header">
+          <span class="material-symbols-rounded" style="color: ${pMeta.color}; font-size: 18px;">${pMeta.icon}</span>
+          <span class="pillar-card__name">${t(pMeta.labelKey)}</span>
+        </div>
+        <div class="pillar-card__body">
+          <div class="pillar-card__rating">${Math.round(pRating?.rating ?? 1500)}</div>
+          <div class="pillar-card__trend">
+            <canvas id="spark-${p}" width="60" height="20"></canvas>
+          </div>
+        </div>
+      `;
+      
+      card.addEventListener('click', () => router.navigate(`/pillar/${slug}`));
+      pillarCardsGrid.appendChild(card);
+      
+      // Render micro-sparkline
+      if (pSessions.length > 0) {
+        setTimeout(() => {
+          const spCanvas = page.querySelector(`#spark-${p}`) as HTMLCanvasElement;
+          if (spCanvas) {
+            const data = pSessions.map(s => s.accuracy);
+            render_sparkline(spCanvas, data, { color: pMeta.color, height: 20 });
+          }
+        }, 0);
+      }
     }
   }
 
@@ -188,10 +266,14 @@ async function _populate_dashboard(page: HTMLElement): Promise<void> {
         values[r.pillar] = normalize_rating(r.rating);
         uncertainties[r.pillar] = normalize_rd(r.rd);
       }
-      render_radar_chart(canvas, { values, uncertainties });
+      const isMobile = window.innerWidth < 768;
+      const size = isMobile ? Math.min(260, window.innerWidth - 64) : 280;
+      render_radar_chart(canvas, { values, uncertainties }, size);
       if (emptyMsg) emptyMsg.style.display = 'none';
     } else {
       // Show empty radar with default values
+      const isMobile = window.innerWidth < 768;
+      const size = isMobile ? Math.min(260, window.innerWidth - 64) : 280;
       render_radar_chart(canvas, {
         values: {
           WorkingMemory: 0.1,
@@ -200,7 +282,7 @@ async function _populate_dashboard(page: HTMLElement): Promise<void> {
           SustainedAttention: 0.1,
           ProcessingSpeed: 0.1,
         },
-      });
+      }, size);
       if (emptyMsg) emptyMsg.style.display = 'block';
     }
   }
@@ -212,31 +294,49 @@ async function _populate_dashboard(page: HTMLElement): Promise<void> {
     if (historyEmpty) historyEmpty.style.display = 'none';
     if (historyCharts) historyCharts.style.display = 'flex';
     
-    render_line_chart(page.querySelector('#chart-focus') as HTMLCanvasElement, history, {
-      metric: 'meanFocusScore',
-      color: 'hsl(215, 90%, 65%)', // Secondary accent
-      label: 'Focus Score'
-    });
-    render_line_chart(page.querySelector('#chart-accuracy') as HTMLCanvasElement, history, {
-      metric: 'meanAccuracy',
-      color: 'hsl(145, 65%, 45%)', // Success
-      label: 'Accuracy'
-    });
-    render_line_chart(page.querySelector('#chart-rt') as HTMLCanvasElement, history, {
-      metric: 'meanRT',
-      color: 'hsl(38, 90%, 55%)',  // Primary accent
-      label: 'Mean Reaction Time (ms)',
-      isInverse: true
-    });
+    const locale = get_locale();
+    const canvasFocus = page.querySelector('#chart-focus') as HTMLCanvasElement;
+    const canvasAccuracy = page.querySelector('#chart-accuracy') as HTMLCanvasElement;
+    const canvasRT = page.querySelector('#chart-rt') as HTMLCanvasElement;
+
+    if (canvasFocus) {
+      render_line_chart(canvasFocus, history, {
+        metric: 'meanFocusScore',
+        color: 'hsl(175, 70%, 50%)',
+        label: t('dashboard.metricFocus'),
+        locale
+      });
+    }
+    if (canvasAccuracy) {
+      render_line_chart(canvasAccuracy, history, {
+        metric: 'meanAccuracy',
+        color: 'hsl(210, 80%, 60%)',
+        label: t('dashboard.metricAccuracy'),
+        locale
+      });
+    }
+    if (canvasRT) {
+      render_line_chart(canvasRT, history, {
+        metric: 'meanRT',
+        color: 'hsl(20, 80%, 60%)',
+        label: t('dashboard.metricRT'),
+        isInverse: true,
+        locale
+      });
+    }
   } else {
     if (historyEmpty) historyEmpty.style.display = 'block';
     if (historyCharts) historyCharts.style.display = 'none';
   }
 
-  // Render Heatmap
-  const heatmapCanvas = page.querySelector('#chart-heatmap') as HTMLCanvasElement;
-  if (heatmapCanvas && historyRaw.length > 0) {
-    render_performance_heatmap(heatmapCanvas, historyRaw);
+  // Heatmap
+  const canvasHeatmap = page.querySelector('#chart-heatmap') as HTMLCanvasElement;
+  if (canvasHeatmap && historyRaw.length > 0) {
+    const dayLabels = [
+      t('day.sun'), t('day.mon'), t('day.tue'), t('day.wed'), 
+      t('day.thu'), t('day.fri'), t('day.sat')
+    ];
+    render_performance_heatmap(canvasHeatmap, historyRaw, { dayLabels });
   }
 
   // Render Due Today
@@ -268,7 +368,7 @@ async function _populate_dashboard(page: HTMLElement): Promise<void> {
       const rColor = currentR > 0.8 ? 'var(--color-success)' : 'var(--color-warning)';
 
       cardEl.innerHTML = `
-        <span style="font-size: 24px;">${exercise.iconGlyph}</span>
+        <span class="icon" style="font-size: 24px;">${exercise.iconGlyph}</span>
         <span style="font-size: 12px; font-weight: 600; text-align: center;">${t(exercise.nameKey)}</span>
         <div style="font-size: 10px; color: ${rColor}; font-weight: 700;">${rPercent}% ${t('dashboard.retrievability', { defaultValue: 'R' })}</div>
       `;
@@ -278,6 +378,43 @@ async function _populate_dashboard(page: HTMLElement): Promise<void> {
       });
       
       dueList.appendChild(cardEl);
+    }
+  }
+
+  // Render Community Benchmarks
+  const communityList = page.querySelector('#community-benchmarks-list') as HTMLElement;
+  if (communityList) {
+    const benchmarks = await syncManager.get_community_benchmarks();
+    if (benchmarks) {
+      communityList.innerHTML = '';
+      for (const [pillar, avg] of Object.entries(benchmarks)) {
+        const meta = PILLAR_META[pillar as CognitivePillar];
+        if (!meta) continue;
+
+        const statEl = document.createElement('div');
+        statEl.className = 'glass-panel community-stat-card';
+        statEl.style.cssText = `
+          padding: var(--space-md);
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          border-left: 3px solid ${meta.color};
+        `;
+
+        statEl.innerHTML = `
+          <div style="font-size: 10px; color: var(--color-text-tertiary); text-transform: uppercase; font-weight: 600;">
+            ${t(meta.labelKey)}
+          </div>
+          <div style="display: flex; align-items: baseline; gap: 6px;">
+            <div style="font-size: 18px; font-weight: 800; color: var(--color-text-primary);">${Math.round(avg as number)}</div>
+            <div style="font-size: 10px; color: var(--color-text-tertiary);">${t('dashboard.communityAvg')}</div>
+          </div>
+        `;
+        communityList.appendChild(statEl);
+      }
+    } else {
+      const communitySection = page.querySelector('#community-section') as HTMLElement;
+      if (communitySection) communitySection.style.display = 'none';
     }
   }
 }

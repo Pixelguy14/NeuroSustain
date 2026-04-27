@@ -169,6 +169,11 @@ export async function get_recent_sessions(count: number): Promise<Session[]> {
   return db.sessions.orderBy('startedAt').reverse().limit(count).toArray();
 }
 
+/** Get all sessions for a specific pillar */
+export async function get_pillar_sessions(pillar: CognitivePillar): Promise<Session[]> {
+  return db.sessions.where('pillar').equals(pillar).toArray();
+}
+
 // ── System A: Hardware Profile ──────────────────────────────
 
 /** Get the stored hardware calibration profile (null if never calibrated) */

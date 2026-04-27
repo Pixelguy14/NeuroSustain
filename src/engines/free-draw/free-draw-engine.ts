@@ -152,10 +152,8 @@ export class FreeDrawEngine extends BaseEngine {
   private _start_drawing(e: PointerEvent): void {
     this._isDrawing = true;
     const rect = this.canvas.getBoundingClientRect();
-    const scaleX = this.canvas.width / (rect.width * this.dpr);
-    const scaleY = this.canvas.height / (rect.height * this.dpr);
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
     
     this._lastX = x;
     this._lastY = y;
@@ -167,10 +165,8 @@ export class FreeDrawEngine extends BaseEngine {
     if (!this._isDrawing) return;
 
     const rect = this.canvas.getBoundingClientRect();
-    const scaleX = this.canvas.width / (rect.width * this.dpr);
-    const scaleY = this.canvas.height / (rect.height * this.dpr);
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
 
     // Pressure-sensitive line width
     const pressure = e.pressure > 0 ? e.pressure : 0.5;

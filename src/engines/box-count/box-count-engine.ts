@@ -73,6 +73,7 @@ export class BoxCountEngine extends BaseEngine {
   // We mount the WebGL canvas over the 2D canvas
   private _glCanvas: HTMLCanvasElement;
   private _isThreeLoaded: boolean = false;
+  private _loadError: string | null = null;
 
   constructor(canvas: HTMLCanvasElement, callbacks: EngineCallbacks) {
     super(canvas, callbacks);
@@ -102,19 +103,38 @@ export class BoxCountEngine extends BaseEngine {
   protected on_start(): void {
     this._phaseStart = precise_now();
     this.start_countdown(() => this._next_trial());
-    this._init_three_async();
+    this._init_three_with_retry();
   }
 
-  private async _init_three_async(): Promise<void> {
+  private async _init_three_with_retry(attempts: number = 0): Promise<void> {
+    if (attempts > 50) {
+      this._loadError = '3D Graphics Initialization Failed';
+      this.record_trial({
+        exerciseType: this.exerciseType,
+        pillar: this.primaryPillar,
+        timestamp: Date.now(),
+        difficulty: this._currentDifficulty,
+        isCorrect: false,
+        reactionTimeMs: 0,
+        metadata: { error: 'webgl_timeout' }
+      });
+      return;
+    }
+
     try {
       if (!THREE) {
-        // @ts-ignore - dynamic import of three
         THREE = await import('three');
       }
-      this._setup_three_scene();
+      if (!this._scene) this._setup_three_scene();
       this._isThreeLoaded = true;
-      
-      // Register click handler for Numpad
+      this._register_input_handlers();
+    } catch (e) {
+      setTimeout(() => this._init_three_with_retry(attempts + 1), 100);
+    }
+  }
+
+  private _register_input_handlers(): void {
+    try {
       this.canvas.onclick = (e: MouseEvent) => {
         if (this._phase !== 'playing') return;
         const rect = this.canvas.getBoundingClientRect();
@@ -165,7 +185,7 @@ export class BoxCountEngine extends BaseEngine {
 
     } catch (e) {
       console.error('Failed to load Three.js:', e);
-      // Degrade gracefully or show error
+      this._loadError = 'Graphics Warning: WebGL Engine failed to initialize.';
     }
   }
 
@@ -179,8 +199,11 @@ export class BoxCountEngine extends BaseEngine {
     const aspect = w / h;
     const d = 10;
     this._camera = new THREE.OrthographicCamera(-d * aspect, d * aspect, d, -d, 1, 1000);
-    this._camera.position.set(20, 20, 20); // Isometric angle
-    this._camera.lookAt(this._scene.position);
+    
+    const isMobile = w < 600;
+    const verticalShift = isMobile ? -6 : 2; // Look DOWN on mobile to move blocks UP
+    this._camera.position.set(20, 20 + verticalShift, 20); 
+    this._camera.lookAt(new THREE.Vector3(0, verticalShift, 0));
 
     this._renderer = new THREE.WebGLRenderer({ canvas: this._glCanvas, alpha: true, antialias: true });
     this._renderer.setSize(w, h);
@@ -314,10 +337,17 @@ export class BoxCountEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown':
-        if (!this._isThreeLoaded) {
+        if (!this._isThreeLoaded && !this._loadError) {
           ctx.font = '400 14px Inter, sans-serif';
           ctx.fillStyle = 'hsla(220, 15%, 55%, 0.8)';
           ctx.fillText('Loading 3D Engine...', cx, cy + 60);
+        } else if (this._loadError) {
+          ctx.font = '500 14px Inter, sans-serif';
+          ctx.fillStyle = 'hsl(0, 70%, 60%)';
+          ctx.fillText(this._loadError, cx, cy + 60);
+          ctx.font = '400 12px Inter, sans-serif';
+          ctx.fillStyle = 'hsla(0, 0%, 100%, 0.5)';
+          ctx.fillText('Tap Abort to exit.', cx, cy + 85);
         }
         break;
 
@@ -492,6 +522,12 @@ export class BoxCountEngine extends BaseEngine {
   // ── Logic ───────────────────────────────────────────────
 
   private _next_trial(): void {
+    if (!this._isThreeLoaded) {
+      // If Three.js isn't ready yet, defer for 100ms
+      setTimeout(() => this._next_trial(), 100);
+      return;
+    }
+
     const diff = this._currentDifficulty;
 
     // Grid bounds

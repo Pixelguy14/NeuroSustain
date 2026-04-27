@@ -34,18 +34,20 @@ function build_base_shape(type: number, size: number): Path2D {
   const hs = size / 2;
   switch (type) {
     case 0: // Pentagon with center dot
-      for (let i = 0; i < 5; i++) {
-        const angle = (i * 2 * Math.PI) / 5 - Math.PI / 2;
-        const x = hs + hs * 0.8 * Math.cos(angle);
-        const y = hs + hs * 0.8 * Math.sin(angle);
-        if (i === 0) p.moveTo(x, y);
-        else p.lineTo(x, y);
+      {
+        for (let i = 0; i < 5; i++) {
+          const angle = (i * 2 * Math.PI) / 5 - Math.PI / 2;
+          const x = hs + hs * 0.8 * Math.cos(angle);
+          const y = hs + hs * 0.8 * Math.sin(angle);
+          if (i === 0) p.moveTo(x, y);
+          else p.lineTo(x, y);
+        }
+        p.closePath();
+        // Center dot (relative sizing)
+        const dotR = size * 0.08;
+        p.moveTo(hs + dotR, hs);
+        p.arc(hs, hs, dotR, 0, Math.PI * 2);
       }
-      p.closePath();
-      // Center dot (relative sizing)
-      const dotR = size * 0.08;
-      p.moveTo(hs + dotR, hs);
-      p.arc(hs, hs, dotR, 0, Math.PI * 2);
       break;
     case 1: // Arrow pointing up with line
       p.moveTo(hs, size * 0.1);
@@ -79,14 +81,20 @@ function build_base_shape(type: number, size: number): Path2D {
       p.closePath();
       break;
     default: // Hexagon
-      for (let i = 0; i < 6; i++) {
-        const angle = (i * Math.PI) / 3;
-        const x = hs + hs * 0.8 * Math.cos(angle);
-        const y = hs + hs * 0.8 * Math.sin(angle);
-        if (i === 0) p.moveTo(x, y);
-        else p.lineTo(x, y);
+      {
+        for (let i = 0; i < 6; i++) {
+          const angle = (i * Math.PI) / 3;
+          const x = hs + hs * 0.8 * Math.cos(angle);
+          const y = hs + hs * 0.8 * Math.sin(angle);
+          if (i === 0) p.moveTo(x, y);
+          else p.lineTo(x, y);
+        }
+        p.closePath();
+        // Add center dot to distinguish from pentagon
+        const dotR = size * 0.08;
+        p.moveTo(hs + dotR, hs);
+        p.arc(hs, hs, dotR, 0, Math.PI * 2);
       }
-      p.closePath();
       break;
   }
   return p;
@@ -266,11 +274,12 @@ export class PatternBreakerEngine extends BaseEngine {
 
         ctx.translate(-shapeSize / 2, -shapeSize / 2);
         ctx.fillStyle = this._anomalyColor;
-        ctx.fill(this._anomalyPath || this._basePath!, 'evenodd');
+        // Non-zero winding to ensure solid fills unless explicitly subtracted
+        ctx.fill(this._anomalyPath || this._basePath!, 'nonzero');
       } else {
         ctx.translate(-shapeSize / 2, -shapeSize / 2);
         ctx.fillStyle = this._baseColor;
-        ctx.fill(this._basePath!, 'evenodd');
+        ctx.fill(this._basePath!, 'nonzero');
       }
 
       ctx.restore();
@@ -366,22 +375,22 @@ export class PatternBreakerEngine extends BaseEngine {
 
     switch (this._anomalyType) {
       case 'rotation':
-        // 8° (hard) to 22° (easy) - avoids pop-out effect
-        this._anomalyMagnitude = 8 + diffFactor * 14;
+        // 15° (hard) to 35° (easy) - boosted for mobile detectability
+        this._anomalyMagnitude = 15 + diffFactor * 20;
         this._anomalyRotation = this._anomalyMagnitude * (Math.random() > 0.5 ? 1 : -1);
         break;
 
       case 'colorShift': {
-        // 10 (subtle) to 25 (noticeable) hue delta
-        const hueDelta = 10 + diffFactor * 15;
+        // 15 (subtle) to 35 (noticeable) hue delta
+        const hueDelta = 15 + diffFactor * 20;
         this._anomalyMagnitude = hueDelta;
         this._anomalyColor = `hsl(${200 + hueDelta}, 65%, 55%)`;
         break;
       }
 
       case 'scale':
-        // Scale DOWNWARDS (0.75 to 0.9) to stay inside cell bounds
-        this._anomalyMagnitude = 0.9 - diffFactor * 0.15;
+        // Scale DOWNWARDS (0.55 to 0.75) - noticeably smaller but still a figure
+        this._anomalyMagnitude = 0.75 - diffFactor * 0.2;
         this._anomalyScale = this._anomalyMagnitude;
         break;
 
@@ -414,8 +423,9 @@ export class PatternBreakerEngine extends BaseEngine {
     const p = new Path2D();
     const hs = size / 2;
     
+    // Always start by drawing the base silhouette so the figure doesn't disappear
     switch (baseType) {
-      case 0: // Pentagon + Center Dot
+      case 0: // Pentagon
         for (let i = 0; i < 5; i++) {
           const angle = (i * 2 * Math.PI) / 5 - Math.PI / 2;
           const x = hs + hs * 0.8 * Math.cos(angle);
@@ -424,18 +434,7 @@ export class PatternBreakerEngine extends BaseEngine {
           else p.lineTo(x, y);
         }
         p.closePath();
-        if (mode === 'count') {
-          // Add a SECOND dot for 'count' anomaly (relative)
-          const dotR = size * 0.06;
-          p.moveTo(hs - dotR, hs - dotR);
-          p.arc(hs - dotR * 1.5, hs - dotR * 1.5, dotR, 0, Math.PI * 2);
-          p.moveTo(hs + dotR, hs + dotR);
-          p.arc(hs + dotR * 1.5, hs + dotR * 1.5, dotR, 0, Math.PI * 2);
-        } else {
-          // Missing dot for 'missing' anomaly
-        }
         break;
-
       case 1: // Arrow
         p.moveTo(hs, size * 0.1);
         p.lineTo(size * 0.8, size * 0.45);
@@ -445,13 +444,52 @@ export class PatternBreakerEngine extends BaseEngine {
         p.lineTo(size * 0.4, size * 0.45);
         p.lineTo(size * 0.2, size * 0.45);
         p.closePath();
+        break;
+      case 2: // Cross
+        const t = size * 0.18;
+        p.rect(hs - t / 2, size * 0.1, t, size * 0.8);
+        p.rect(size * 0.1, hs - t / 2, size * 0.8, t);
+        break;
+      case 3: // Diamond
+        p.moveTo(hs, size * 0.08);
+        p.lineTo(size * 0.92, hs);
+        p.lineTo(hs, size * 0.92);
+        p.lineTo(size * 0.08, hs);
+        p.closePath();
+        break;
+      default: // Hexagon
+        for (let i = 0; i < 6; i++) {
+          const angle = (i * Math.PI) / 3;
+          const x = hs + hs * 0.8 * Math.cos(angle);
+          const y = hs + hs * 0.8 * Math.sin(angle);
+          if (i === 0) p.moveTo(x, y);
+          else p.lineTo(x, y);
+        }
+        p.closePath();
+        break;
+    }
+
+    // Now add the actual anomaly modifier
+    switch (baseType) {
+      case 0: // Pentagon + Center Dot
+        if (mode === 'count') {
+          // Add a SECOND dot
+          const dotR = size * 0.06;
+          p.moveTo(hs - dotR, hs - dotR);
+          p.arc(hs - dotR * 1.5, hs - dotR * 1.5, dotR, 0, Math.PI * 2);
+          p.moveTo(hs + dotR, hs + dotR);
+          p.arc(hs + dotR * 1.5, hs + dotR * 1.5, dotR, 0, Math.PI * 2);
+        } else {
+          // Missing dot is already handled because we didn't draw the base center dot
+        }
+        break;
+
+      case 1: // Arrow
         if (mode === 'missing') {
-          // Cut a hole in the arrow (relative)
           const holeSize = size * 0.15;
           p.moveTo(hs + holeSize, hs + holeSize);
           p.rect(hs - holeSize / 2, hs + size * 0.2, holeSize, holeSize);
         } else {
-          // Add a line to the arrow
           p.moveTo(size * 0.1, size * 0.9);
           p.lineTo(size * 0.9, size * 0.9);
         }
@@ -459,12 +497,8 @@ export class PatternBreakerEngine extends BaseEngine {
 
       case 2: // Cross + dots
         {
-          const t = size * 0.18;
-          p.rect(hs - t / 2, size * 0.1, t, size * 0.8);
-          p.rect(size * 0.1, hs - t / 2, size * 0.8, t);
           const corners = [[0.2, 0.2], [0.8, 0.2], [0.2, 0.8], [0.8, 0.8]];
           if (mode === 'missing') {
-            // Only 3 dots
             const dotR = size * 0.06;
             for (let i = 0; i < 3; i++) {
               const [cx, cy] = corners[i]!;
@@ -472,7 +506,6 @@ export class PatternBreakerEngine extends BaseEngine {
               p.arc(size * cx!, size * cy!, dotR, 0, Math.PI * 2);
             }
           } else {
-            // Larger dots
             const dotR = size * 0.1;
             for (const [cx, cy] of corners) {
               p.moveTo(size * cx! + dotR, size * cy!);
@@ -483,7 +516,6 @@ export class PatternBreakerEngine extends BaseEngine {
         break;
 
       default: // Diamond or Hexagon
-        // Generic: just add a tiny internal circle
         const largeDotR = size * 0.12;
         const smallDotR = size * 0.06;
         if (mode === 'count') {

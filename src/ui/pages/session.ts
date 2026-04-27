@@ -32,9 +32,11 @@ import { audioEngine } from '@core/audio/audio-engine.ts';
 
 let _activeEngine: BaseEngine | null = null;
 let _neuralStormTimeout: number | null = null;
+let _sessionMode: 'normal' | 'baseline' = 'normal';
 
 /** Start an exercise session */
-export function start_exercise_session(exerciseType: string, difficulty: number = 1): void {
+export function start_exercise_session(exerciseType: string, difficulty: number = 1, mode: 'normal' | 'baseline' = 'normal'): void {
+  _sessionMode = mode;
   // If debug override exists, use it
   const debugDiff = localStorage.getItem('DEBUG_DIFFICULTY');
   if (debugDiff) difficulty = parseInt(debugDiff, 10);
@@ -46,6 +48,7 @@ export function start_exercise_session(exerciseType: string, difficulty: number 
 
 /** Start a Neural Storm session (mixed mode) */
 export function start_neural_storm(): void {
+  _sessionMode = 'normal';
   show_loading('loading.neural_storm', true).then(() => {
     _launch_neural_storm();
   });
@@ -87,7 +90,7 @@ async function _launch_engine(exerciseType: string, isNeuralStorm: boolean = fal
         _neuralStormTimeout = null;
       }
       container?.remove();
-      router.navigate('/train');
+      router.navigate(_sessionMode === 'baseline' ? '/baseline' : '/train');
     },
     onFatigueDetected: (event: FatigueEvent) => {
       if (!isNeuralStorm) _show_fatigue_warning(container!, event);
@@ -339,72 +342,93 @@ function _render_results_screen(results: TrialResults, fsrs: FsrsDisplayData | n
   const isFatigued = detect_fatigue(results.cvReactionTime);
 
   screen.innerHTML = `
-    <h1 class="results-screen__title">${t('results.title')}</h1>
-
-    <div class="results-screen__grid">
-      <div class="glass-panel stat-card">
-        <div class="stat-card__label">${t('results.meanRT')}</div>
-        <div class="stat-card__value stat-card__accent">${format_ms(results.meanReactionTimeMs)}</div>
-      </div>
-      <div class="glass-panel stat-card">
-        <div class="stat-card__label">${t('results.accuracy')}</div>
-        <div class="stat-card__value">${Math.round(results.accuracy * 100)}%</div>
-      </div>
-      <div class="glass-panel stat-card">
-        <div class="stat-card__label">${t('results.sdRT')}</div>
-        <div class="stat-card__value">${format_ms(results.sdReactionTimeMs)}</div>
-      </div>
-      <div class="glass-panel stat-card">
-        <div class="stat-card__label">${t('results.cv')}</div>
-        <div class="stat-card__value" style="color: ${cvColor}">${results.cvReactionTime.toFixed(3)}</div>
-      </div>
-      <div class="glass-panel stat-card">
-        <div class="stat-card__label">${t('results.focusScore')}</div>
-        <div class="stat-card__value stat-card__accent">${results.focusScore.toFixed(1)}</div>
-      </div>
-      <div class="glass-panel stat-card">
-        <div class="stat-card__label">${t('results.trials')}</div>
-        <div class="stat-card__value">${results.trials.length}</div>
-      </div>
-    </div>
-
-    <!-- RT Trend Sparkline -->
-    <div class="glass-panel" style="padding: var(--space-md); margin-bottom: var(--space-lg);">
-      <div style="font-size: 10px; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; text-align: center;">
-        Intra-Session Fatigue Trend (RT)
-      </div>
-      <canvas id="rt-trend-sparkline" style="width: 100%; height: 60px;"></canvas>
-    </div>
-
-    <p class="results-screen__insight" style="border-left-color: ${cvColor}">
-      ${cvLabel}${isFatigued ? ' 💤' : ''}
-    </p>
-
-    ${fsrs ? `
-    <div class="glass-panel" style="padding: var(--space-md) var(--space-lg); margin-bottom: var(--space-lg); display: flex; gap: var(--space-xl); align-items: center; justify-content: center;">
-      <div style="text-align: center;">
-        <div style="font-size: var(--font-size-xs); color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px;">${t('results.fsrs.memory')}</div>
-        <div style="font-size: var(--font-size-lg); font-weight: 600; color: hsl(${Math.round(fsrs.retrievability * 120)}, 65%, 55%)">
-          ${Math.round(fsrs.retrievability * 100)}%
+    <div class="results-screen__scroll-container" style="width: 100%; height: 100%; overflow-y: auto; display: flex; flex-direction: column; align-items: center; padding: var(--space-2xl) var(--space-lg);">
+      <h1 class="results-screen__title">${t('results.title')}</h1>
+  
+      <div class="results-screen__grid">
+        <div class="glass-panel stat-card">
+          <div class="stat-card__label">${t('results.meanRT')}</div>
+          <div class="stat-card__value stat-card__accent">${format_ms(results.meanReactionTimeMs)}</div>
+        </div>
+        <div class="glass-panel stat-card">
+          <div class="stat-card__label">${t('results.accuracy')}</div>
+          <div class="stat-card__value">${Math.round(results.accuracy * 100)}%</div>
+        </div>
+        <div class="glass-panel stat-card">
+          <div class="stat-card__label">${t('results.sdRT')}</div>
+          <div class="stat-card__value">${format_ms(results.sdReactionTimeMs)}</div>
+        </div>
+        <div class="glass-panel stat-card">
+          <div class="stat-card__label">${t('results.cv')}</div>
+          <div class="stat-card__value" style="color: ${cvColor}">${results.cvReactionTime.toFixed(3)}</div>
+        </div>
+        <div class="glass-panel stat-card">
+          <div class="stat-card__label">${t('results.focusScore')}</div>
+          <div class="stat-card__value stat-card__accent">${results.focusScore.toFixed(1)}</div>
+        </div>
+        <div class="glass-panel stat-card">
+          <div class="stat-card__label">${t('results.trials')}</div>
+          <div class="stat-card__value">${results.trials.length}</div>
         </div>
       </div>
-      <div style="width: 1px; height: 40px; background: var(--glass-border);"></div>
-      <div style="text-align: center;">
-        <div style="font-size: var(--font-size-xs); color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px;">${t('results.fsrs.nextReview')}</div>
-        <div style="font-size: var(--font-size-lg); font-weight: 600; color: var(--color-accent-primary)">
-          ${fsrs.scheduledDays === 1 ? t('results.fsrs.tomorrow') : t('results.fsrs.days', { days: fsrs.scheduledDays })}
+  
+      <!-- RT Trend Sparkline -->
+      <div class="glass-panel" style="padding: var(--space-md); margin-bottom: var(--space-lg); width: 100%; max-width: 700px;">
+        <div style="font-size: 10px; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; text-align: center;">
+          Intra-Session Fatigue Trend (RT)
+        </div>
+        <canvas id="rt-trend-sparkline" style="width: 100%; height: 60px;"></canvas>
+      </div>
+  
+      <p class="results-screen__insight" style="border-left-color: ${cvColor}">
+        ${cvLabel}${isFatigued ? ' 💤' : ''}
+      </p>
+  
+      ${fsrs ? `
+      <div class="glass-panel" style="padding: var(--space-md) var(--space-lg); margin-bottom: var(--space-lg); display: flex; gap: var(--space-xl); align-items: center; justify-content: center; width: 100%; max-width: 700px;">
+        <div style="text-align: center;">
+          <div style="font-size: var(--font-size-xs); color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px;">${t('results.fsrs.memory')}</div>
+          <div style="font-size: var(--font-size-lg); font-weight: 600; color: hsl(${Math.round(fsrs.retrievability * 120)}, 65%, 55%)">
+            ${Math.round(fsrs.retrievability * 100)}%
+          </div>
+        </div>
+        <div style="width: 1px; height: 40px; background: var(--glass-border);"></div>
+        <div style="text-align: center;">
+          <div style="font-size: var(--font-size-xs); color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px;">${t('results.fsrs.nextReview')}</div>
+          <div style="font-size: var(--font-size-lg); font-weight: 600; color: var(--color-accent-primary)">
+            ${fsrs.scheduledDays === 1 ? t('results.fsrs.tomorrow') : t('results.fsrs.days', { days: fsrs.scheduledDays })}
+          </div>
         </div>
       </div>
-    </div>
-    ` : ''}
-
-    <div class="results-screen__actions">
-      <button class="btn btn--ghost btn--large" id="btn-back-dashboard">${t('results.backToDashboard')}</button>
-      <button class="btn btn--primary btn--large" id="btn-train-again">${t('results.trainAgain')}</button>
+      ` : ''}
+  
+      <div class="results-screen__actions" style="padding-bottom: 40px;">
+        ${_sessionMode === 'baseline' ? `
+          <button class="btn btn--primary btn--large" id="btn-continue-baseline">Continue Baseline</button>
+        ` : `
+          <button class="btn btn--ghost btn--large" id="btn-back-dashboard">${t('results.backToDashboard')}</button>
+          <button class="btn btn--primary btn--large" id="btn-train-again">${t('results.trainAgain')}</button>
+        `}
+      </div>
     </div>
   `;
 
   document.body.appendChild(screen);
+
+  screen.querySelector('#btn-continue-baseline')?.addEventListener('click', async () => {
+    screen.remove();
+    const { get_next_baseline_step, render_baseline } = await import('./baseline.ts');
+    const nextStep = get_next_baseline_step(results.exerciseType);
+    if (nextStep !== null) {
+      const container = document.getElementById('page-container');
+      if (container) {
+        container.innerHTML = '';
+        container.appendChild(render_baseline(nextStep));
+      }
+    } else {
+      router.navigate('/dashboard');
+    }
+  });
 
   screen.querySelector('#btn-back-dashboard')?.addEventListener('click', () => {
     screen.remove();

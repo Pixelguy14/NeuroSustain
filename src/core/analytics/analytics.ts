@@ -108,7 +108,7 @@ export function init_ema(firstValue: number): number {
 export function detect_ema_fatigue(
   baselineEma: number,
   currentEma: number,
-  threshold = 0.20
+  threshold = 0.35
 ): boolean {
   if (baselineEma <= 0) return false;
   return currentEma > baselineEma * (1 + threshold);

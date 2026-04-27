@@ -12,9 +12,9 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { path: '/dashboard', labelKey: 'nav.dashboard', icon: '📊' },
-  { path: '/train', labelKey: 'nav.train', icon: '🧠' },
-  { path: '/profile', labelKey: 'nav.profile', icon: '👤' },
+  { path: '/dashboard', labelKey: 'nav.dashboard', icon: 'dashboard' },
+  { path: '/train', labelKey: 'nav.train', icon: 'exercise' },
+  { path: '/profile', labelKey: 'nav.profile', icon: 'person' },
 ];
 
 export class SidebarNav extends HTMLElement {
@@ -45,23 +45,44 @@ export class SidebarNav extends HTMLElement {
                class="sidebar__link ${router.currentPath === item.path ? 'sidebar__link--active' : ''}"
                data-path="${item.path}"
                id="nav-${item.path.slice(1)}">
-              <span class="sidebar__link-icon">${item.icon}</span>
+              <span class="sidebar__link-icon icon">${item.icon}</span>
               <span>${t(item.labelKey)}</span>
             </a>
           `).join('')}
         </nav>
         <div class="sidebar__footer">
-          <span class="sidebar__version">v0.2.0 · Launch Version</span>
+          <div class="privacy-badge" style="display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--color-success); opacity: 0.8; margin-bottom: 8px;">
+            <span class="icon" style="font-size: 14px;">verified_user</span>
+            Local-First Encryption
+          </div>
+          <span class="sidebar__version">v4.2.0 · Production Hardened</span>
         </div>
       </aside>
+
+      <nav class="bottom-nav">
+        ${NAV_ITEMS.map(item => `
+          <a href="#${item.path}"
+             class="bottom-nav__link ${router.currentPath === item.path ? 'bottom-nav__link--active' : ''}"
+             data-path="${item.path}">
+            <span class="bottom-nav__link-icon icon">${item.icon}</span>
+            <span>${t(item.labelKey)}</span>
+          </a>
+        `).join('')}
+      </nav>
     `;
   }
 
   private _update_active(): void {
-    const links = this.querySelectorAll('.sidebar__link');
+    const links = this.querySelectorAll('.sidebar__link, .bottom-nav__link');
     links.forEach(link => {
       const path = (link as HTMLElement).dataset['path'];
-      link.classList.toggle('sidebar__link--active', path === router.currentPath);
+      const isActive = path === router.currentPath;
+
+      if (link.classList.contains('sidebar__link')) {
+        link.classList.toggle('sidebar__link--active', isActive);
+      } else {
+        link.classList.toggle('bottom-nav__link--active', isActive);
+      }
     });
   }
 }

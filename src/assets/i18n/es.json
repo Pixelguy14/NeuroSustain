@@ -1,17 +1,24 @@
 {
   "app.name": "NeuroSustain",
   "app.tagline": "Sostén tus vías neuronales",
-
   "nav.dashboard": "Panel",
   "nav.train": "Entrenar",
   "nav.profile": "Perfil",
-
   "pillar.workingMemory": "Trabajar la Memoria",
+  "pillar.workingMemory.desc": "La memoria de trabajo es su 'espacio de trabajo mental': la capacidad de retener y manipular información durante períodos cortos. Una memoria de trabajo alta le ayuda a seguir instrucciones complejas y resolver problemas de varios pasos sin perder el hilo.",
   "pillar.cognitiveFlexibility": "Flexibilidad Cognitiva",
+  "pillar.cognitiveFlexibility.desc": "La flexibilidad cognitiva es la capacidad de adaptar su pensamiento y comportamiento en respuesta a reglas o entornos cambiantes. Le ayuda a alternar entre tareas y abordar los problemas desde nuevas perspectivas.",
   "pillar.inhibitoryControl": "Control Inhibitorio",
+  "pillar.inhibitoryControl.desc": "El control inhibitorio es la capacidad de suprimir respuestas impulsivas y resistir distracciones. Es el 'freno neural' que le ayuda a mantenerse concentrado y resistir tentaciones digitales como el desplazamiento infinito en redes sociales.",
   "pillar.sustainedAttention": "Atención Sostenida",
+  "pillar.sustainedAttention.desc": "La atención sostenida es la capacidad de mantener la concentración en una sola tarea durante un tiempo prolongado a pesar del aburrimiento o la fatiga. Es la base del 'Trabajo Profundo' (Deep Work).",
   "pillar.processingSpeed": "Velocidad de Procesamiento",
-
+  "pillar.processingSpeed.desc": "La velocidad de procesamiento es la eficiencia con la que su cerebro percibe, analiza y responde a la nueva información. Un procesamiento más rápido reduce la carga cognitiva durante tareas complejas.",
+  "pillarDetail.history": "Historial de Rendimiento del Pilar",
+  "pillarDetail.exercises": "Ejercicios Relacionados",
+  "pillarDetail.rating": "Nivel de Habilidad Actual",
+  "pillarDetail.about": "Acerca de este Pilar Cognitivo",
+  "pillarDetail.back": "← Volver al Panel",
   "dashboard.title": "Panel Cognitivo",
   "dashboard.welcome": "Bienvenido de nuevo",
   "dashboard.firstTime": "Bienvenido a NeuroSustain",
@@ -24,13 +31,27 @@
   "dashboard.startTraining": "Iniciar Entrenamiento",
   "dashboard.radarTitle": "Perfil Neuronal",
   "dashboard.radarEmpty": "Completa ejercicios para ver tu perfil cognitivo",
-  "dashboard.historyTitle": "Historial Longitudinal",
   "dashboard.historyEmpty": "El historial de entrenamiento requiere al menos 3 días activos para desbloquear el análisis de tendencias neuronales. ¡Sigue así!",
   "dashboard.dueTitle": "Próximos Repasos (FSRS)",
   "dashboard.dueDesc": "Ejercicios recomendados para hoy según tu curva de retención.",
+  "dashboard.historyTitle": "Historial Longitudinal",
+  "dashboard.historyDesc": "Tendencias de rendimiento cognitivo a través de todas las sesiones.",
   "dashboard.heatmapTitle": "Ritmo Neuronal (Cronotipo)",
   "dashboard.heatmapDesc": "Concentración promedio según la hora y el día. Los bloques brillantes indican picos de rendimiento.",
-
+  "dashboard.metricFocus": "Puntaje de Enfoque",
+  "dashboard.metricAccuracy": "Precisión",
+  "dashboard.metricRT": "Tiempo de Reacción",
+  "dashboard.retrievability": "Retención",
+  "dashboard.communityTitle": "Benchmarks de la Comunidad",
+  "dashboard.communityDesc": "Promedios globales anónimos basados en sesiones de entrenamiento activas. No se comparten datos personales.",
+  "dashboard.communityAvg": "Prom. Global",
+  "day.sun": "Dom",
+  "day.mon": "Lun",
+  "day.tue": "Mar",
+  "day.wed": "Mié",
+  "day.thu": "Jue",
+  "day.fri": "Vie",
+  "day.sat": "Sáb",
   "train.title": "Ejercicios de Entrenamiento",
   "train.selectExercise": "Selecciona un ejercicio para comenzar",
   "train.locked": "Próximamente",
@@ -39,7 +60,6 @@
   "train.storm.title": "TORMENTA NEURONAL",
   "train.storm.desc": "Modo mixto caótico de 3 minutos. Cambio rápido de ejercicios para maximizar flexibilidad cognitiva. Sin impacto en FSRS.",
   "train.storm.start": "INICIAR →",
-
   "exercise.reaction.name": "Tiempo de Reacción",
   "exercise.reaction.description": "Presiona ESPACIO en el instante que el círculo se ponga verde. Mide tu velocidad de procesamiento.",
   "exercise.reaction.instruction": "Presiona ESPACIO cuando el círculo se ponga verde",
@@ -48,10 +68,8 @@
   "exercise.reaction.tooEarly": "¡Muy pronto! Espera el verde.",
   "exercise.reaction.missed": "¡Muy lento! Intenta reaccionar más rápido.",
   "exercise.reaction.result": "{ms}ms",
-
   "exercise.stroop.name": "Tarea Stroop",
   "exercise.stroop.description": "Identifica el color del texto, no la palabra. Entrena el control inhibitorio.",
-
   "results.title": "Sesión Completada",
   "results.accuracy": "Precisión",
   "results.meanRT": "Tiempo de Reacción Promedio",
@@ -64,7 +82,6 @@
   "results.cvExcellent": "Excelente consistencia — enfoque profundo detectado",
   "results.cvGood": "Buena consistencia — rendimiento estable",
   "results.cvFatigue": "Variabilidad elevada — considera tomar un descanso",
-
   "profile.title": "Perfil",
   "profile.language": "Idioma",
   "profile.memberSince": "Miembro desde",
@@ -85,13 +102,14 @@
   "profile.syncLogout": "Cerrar Sesión",
   "profile.syncNow": "Sincronizar Ahora",
   "profile.syncStatus": "Estado de Sincronización",
+  "profile.recalibrate": "Recalibrar",
+  "profile.hardwareTitle": "Hardware y Rendimiento",
+  "profile.hardwareDesc": "Mide la latencia de tu dispositivo para garantizar la precisión clínica en diferentes pantallas y hardware.",
   "glicko.tooltip": "Calificación Glicko-2. RD indica incertidumbre (menor es más preciso).",
-
   "loading.syncing": "Sincronizando patrones neuronales...",
   "loading.calibrating": "Calibrando línea base cognitiva...",
   "loading.ready": "Vías neuronales listas",
   "loading.neural_storm": "Iniciando Neural Storm...",
-
   "insight.attention": "20 minutos de scroll pasivo pueden reducir tu capacidad de atención sostenida hasta por 2 horas. Esta sesión está diseñada para recalibrar tu corteza prefrontal.",
   "insight.sleep": "La consistencia de tu tiempo de reacción refleja frescura cognitiva. Estudios (DOI: 10.1093/sleep/zsaa170) muestran que incluso 1 hora de deuda de sueño incrementa la variabilidad del tiempo de reacción un 15%.",
   "insight.exercise": "Una caminata de 10 minutos antes del entrenamiento cognitivo incrementa el BDNF (factor neurotrófico derivado del cerebro), que potencia la plasticidad sináptica durante ejercicios como estos.",
@@ -104,7 +122,6 @@
   "insight.inhibition": "El scrolling es un comportamiento de \"Sigue-Sigue-Sigue\" — siempre deslizando, siempre haciendo clic. Los ejercicios con señales de No-Go (círculos rojos, tonos de engaño) fortalecen los frenos neuronales necesarios para dejar el teléfono.",
   "insight.deepWork": "El video de formato corto entrena a tu cerebro para cambiar de contexto cada 15 segundos. Ejercicios como la Resta Serial estiran esa ventana de vuelta a 2-3 minutos de enfoque sostenido en un solo contexto.",
   "insight.brainDrain": "La mera presencia de tu smartphone reduce la capacidad cognitiva disponible (Ward et al., 2017). Considera colocar tu teléfono en otra habitación durante el entrenamiento.",
-  
   "calibration.intro.badge": "CALIBRACIÓN ÚNICA",
   "calibration.intro.title": "Calibración de Hardware",
   "calibration.intro.instruction": "Haz clic en el objetivo {count} veces lo más rápido posible para establecer el umbral de ruido de tu hardware.",
@@ -122,37 +139,29 @@
   "calibration.result.continue": "Comenzar Entrenamiento",
   "calibration.warning.fair": "Latencia de hardware detectada (±{ms}ms jitter). Enfócate en las tendencias más que en los valores absolutos de ms.",
   "calibration.warning.poor": "Alta latencia de hardware detectada. Los valores absolutos de tiempo de reacción pueden estar desfasados hasta por un frame de pantalla (≈16ms). Las comparaciones de tendencias siguen siendo válidas.",
-  
   "fatigue.toast.title": "Fatiga Cognitiva Detectada",
   "fatigue.toast.desc": "EMA +{rise}% sobre la línea base ({base}ms → {curr}ms). Considera terminar esta sesión y descansar.",
-  
   "results.fsrs.memory": "Fuerza de Memoria",
   "results.fsrs.nextReview": "Próximo Repaso",
   "results.fsrs.tomorrow": "Mañana",
   "results.fsrs.days": "{days} días",
-
   "exercise.highNumber.name": "Número Mayor",
   "exercise.highNumber.description": "Selecciona el valor numéricamente más alto — ignora el tamaño físico. Entrena el control inhibitorio contra interferencia visual.",
   "exercise.highNumber.instruction": "Selecciona el número más alto",
-
   "exercise.serialSub.name": "Resta Serial",
   "exercise.serialSub.description": "Resta repetidamente desde un número inicial. La respuesta anterior desaparece — mantén el resultado en tu memoria de trabajo.",
   "exercise.serialSub.ruleChange": "CAMBIO DE REGLA",
   "exercise.serialSub.adapt": "Nuevo sustraendo — ¡adáptate!",
   "exercise.serialSub.addMode": "MODO SUMA",
   "exercise.serialSub.subMode": "MODO RESTA",
-
   "exercise.fakeout.wait": "✕ ESPERA",
   "exercise.pianoPlayer.name": "Pianista",
   "exercise.pianoPlayer.description": "Escucha la secuencia de tonos y repítela. Entrena la memoria de trabajo auditiva y secuencial.",
   "exercise.pianoPlayer.instruction": "Escucha la secuencia",
-
   "exercise.fallacy.name": "Detector de Falacias",
   "exercise.fallacy.description": "Clasifica argumentos lógicos como Válido o Falacia. Entrena el pensamiento crítico y la inhibición del razonamiento emocional.",
-
   "exercise.hanoi.name": "Torre de Hanói",
   "exercise.hanoi.description": "Mueve todos los discos de la clavija 1 a la 3 sin colocar un disco grande sobre uno pequeño. Entrena la planificación a futuro y la atención sostenida.",
-
   "exercise.setSwitch.name": "Cambio de Reglas",
   "exercise.setSwitch.description": "Empareja cartas según la regla activa (Color o Forma). Entrena la flexibilidad cognitiva.",
   "exercise.setSwitch.ruleColor": "🎨  Ordenar por COLOR",
@@ -160,25 +169,18 @@
   "exercise.setSwitch.ruleCount": "🔢  Ordenar por CANTIDAD",
   "exercise.setSwitch.findAnomaly": "Encuentra la anomalía",
   "exercise.setSwitch.findAll": "Encuentra todos los iguales ↑",
-
   "exercise.changeMaker.name": "Dar Cambio",
   "exercise.changeMaker.description": "Calcula el cambio exacto usando monedas y billetes. Entrena la aritmética mental y flexibilidad cognitiva.",
-
   "exercise.wordScramble.name": "Palabras Ocultas",
   "exercise.wordScramble.description": "Ordena las letras para formar una palabra. Entrena la flexibilidad lingüística y la rotación mental.",
-
   "exercise.blockCount3d.name": "Conteo 3D",
   "exercise.blockCount3d.description": "Calcula el número total de cubos en la estructura 3D, incluyendo los ocultos. Entrena la visualización espacial.",
-
   "exercise.nback.name": "Dual N-Back",
   "exercise.nback.description": "Rastrea estímulos auditivos y visuales de N pasos atrás. El estándar de oro para la memoria de trabajo.",
-
   "exercise.patternBreaker.name": "Rompe Patrones",
   "exercise.patternBreaker.description": "Encuentra la anomalía sutil en un patrón denso y repetitivo. Entrena la atención visual sostenida y la resistencia a la fatiga visual.",
-
   "exercise.symbolSearch.name": "Búsqueda de Símbolos",
   "exercise.symbolSearch.description": "Encuentra todos los símbolos iguales en la cuadrícula lo más rápido posible. Mide la velocidad de escaneo perceptual.",
-
   "exercise.inspectionTime.name": "El Flash",
   "exercise.inspectionTime.description": "Tres figuras aparecen brevemente — una cambia. Identifica cuál. Mide la velocidad de captación visual pura.",
   "exercise.inspectionTime.whichChanged": "¿Cuál ha cambiado?",
@@ -203,7 +205,24 @@
   "exercise.wordScramble.hintBoth": "Pista: Empieza con \"{start}\" y termina con \"{end}\"",
   "exercise.wordScramble.hintStart": "Pista: Empieza con \"{start}\"",
   "exercise.wordScramble.typeWord": "Escribe la palabra:",
-
   "session.abort": "Esc  Abortar",
-  "session.difficulty": "NV {level}"
+  "session.difficulty": "NV {level}",
+  "exercise.reaction.instructionMobile": "Toca en cualquier lugar cuando esté en verde",
+  "exercise.nback.tutorialTitle": "Tutorial Dual N-Back",
+  "exercise.nback.singleMode": "Modo Simple (Solo Visual)",
+  "exercise.nback.tapStart": "Toca para comenzar",
+  "exercise.nback.keyStart": "Presiona CUALQUIER TECLA...",
+  "exercise.nback.oneStep": "1 paso",
+  "exercise.nback.nSteps": "{n} pasos",
+  "exercise.nback.dualPos": "Coincide POSICIÓN {n} atrás",
+  "exercise.nback.dualAudio": "Coincide SONIDO {n} atrás",
+  "exercise.nback.bothMatch": "Ambos pueden coincidir a la vez.",
+  "exercise.nback.singlePos": "Coincide POSICIÓN {n} atrás",
+  "profile.smartNotifications": "Recordatorios de picos de enfoque",
+  "dashboard.dataSovereignty": "Privacidad Local-First",
+  "pillar.WorkingMemory": "Memoria de Trabajo",
+  "pillar.CognitiveFlexibility": "Flexibilidad Cognitiva",
+  "pillar.SustainedAttention": "Atención Sostenida",
+  "pillar.InhibitoryControl": "Control Inhibitorio",
+  "pillar.ProcessingSpeed": "Velocidad de Procesamiento"
 }

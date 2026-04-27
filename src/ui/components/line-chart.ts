@@ -10,7 +10,8 @@ interface ChartOptions {
   metric: 'meanFocusScore' | 'meanAccuracy' | 'meanRT';
   color: string;
   label: string;
-  isInverse?: boolean; // If true, lower is better (e.g. Reaction Time)
+  isInverse?: boolean;
+  locale?: string;
 }
 
 /**
@@ -132,8 +133,11 @@ export function render_line_chart(
     const d = data[dataIdx];
     if (!d) continue;
     const x = mapX(dataIdx);
-    // Format date MM/DD
-    const dateStr = d.date.substring(5).replace('-', '/');
+    // Format date based on locale
+    const parts = d.date.substring(5).split('-'); // [MM, DD]
+    const dateStr = options.locale === 'es' 
+      ? `${parts[1]}/${parts[0]}` // DD/MM
+      : `${parts[0]}/${parts[1]}`; // MM/DD
     ctx.fillText(dateStr, x, height - PADDING_BOTTOM + 8);
   }
 

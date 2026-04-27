@@ -195,13 +195,13 @@ export class WordScrambleEngine extends BaseEngine {
     ctx.font = '500 13px Inter, sans-serif';
     ctx.textAlign = 'center';
     
-    if (elapsed > this._timeLimitMs * 0.5 && this._currentDefinition) {
+    if (elapsed > this._timeLimitMs * 0.6 && this._currentDefinition) {
       ctx.fillStyle = 'hsla(45, 80%, 65%, 0.9)';
       ctx.fillText(t('exercise.wordScramble.hintDef', { def: this._currentDefinition }), cx, inputY - 36);
-    } else if (elapsed > this._timeLimitMs * 0.7) {
+    } else if (elapsed > this._timeLimitMs * 0.8) {
       ctx.fillStyle = 'hsla(45, 80%, 60%, 0.9)';
       ctx.fillText(t('exercise.wordScramble.hintBoth', { start: this._currentWord.charAt(0), end: this._currentWord.charAt(this._currentWord.length - 1) }), cx, inputY - 36);
-    } else if (elapsed > this._timeLimitMs * 0.4) {
+    } else if (elapsed > this._timeLimitMs * 0.3) {
       ctx.fillStyle = 'hsla(45, 80%, 60%, 0.8)';
       ctx.fillText(t('exercise.wordScramble.hintStart', { start: this._currentWord.charAt(0) }), cx, inputY - 36);
     }

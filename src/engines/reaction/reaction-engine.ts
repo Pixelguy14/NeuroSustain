@@ -147,15 +147,15 @@ export class ReactionTimeEngine extends BaseEngine {
         break;
 
       case 'too_early':
-        this._feedbackOpacity = Math.max(0, 1 - elapsed / 3000);
-        if (elapsed >= 3000) {
+        this._feedbackOpacity = Math.max(0, 1 - elapsed / 2500);
+        if (elapsed >= 2500) {
           this._start_waiting();
         }
         break;
 
       case 'result':
-        this._feedbackOpacity = Math.max(0, 1 - elapsed / 1500);
-        if (elapsed >= 1500) {
+        this._feedbackOpacity = Math.max(0, 1 - elapsed / 1200);
+        if (elapsed >= 1200) {
           if (this.currentTrial >= this.totalTrials) return;
           this._start_waiting();
         }
@@ -186,7 +186,7 @@ export class ReactionTimeEngine extends BaseEngine {
 
     switch (this._phase) {
       case 'countdown':
-        this._render_countdown(ctx, cx, cy);
+        // BaseEngine handles this
         break;
       case 'waiting':
         this._render_waiting(ctx, this._stimulusX, this._stimulusY);
@@ -209,17 +209,26 @@ export class ReactionTimeEngine extends BaseEngine {
     // Render Touch Pads at bottom (if Difficulty >= 4 or strictly touch-enabled)
     this._render_touch_pads(ctx);
 
-    // Instruction text at bottom
-    ctx.font = '500 14px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(175, 70%, 50%, 0.8)';
-    ctx.textAlign = 'center';
+    // Instruction text (Responsive positioning)
+    const isMobile = this.width < 600;
     
-    let instruction = t('exercise.reaction.instruction');
+    let instruction = isMobile ? t('exercise.reaction.instructionMobile', { defaultValue: 'Tap anywhere when Green' }) : t('exercise.reaction.instruction');
+    
     if (this._currentDifficulty >= 4) {
-      const keys = this._activeTargets.map(t => `${t.name === 'GREEN' ? 'SPACE' : t.key.replace('Key', '')} for ${t.name}`).join(', ');
-      instruction = `Press ${keys}. IGNORE RED.`;
+      const actions = this._activeTargets.map(t => {
+        const input = isMobile ? t.name : (t.name === 'GREEN' ? 'SPACE' : t.key.replace('Key', ''));
+        return `${input} for ${t.name}`;
+      }).join(', ');
+      instruction = isMobile ? `Tap ${actions}. IGNORE RED.` : `Press ${actions}. IGNORE RED.`;
     }
-    ctx.fillText(instruction, cx, h - 40);
+
+    ctx.font = (isMobile && instruction.length > 30) ? '500 11px Inter, sans-serif' : '500 13px Inter, sans-serif';
+    ctx.fillStyle = 'hsla(175, 70%, 50%, 0.7)';
+    ctx.textAlign = 'center';
+
+    // Move instruction higher if touch pads are visible to avoid overlap
+    const textY = this._currentDifficulty >= 4 ? h - 110 : h - 40;
+    ctx.fillText(instruction, cx, textY);
   }
 
   protected on_key_down(code: string, timestamp: number): void {
@@ -426,13 +435,6 @@ export class ReactionTimeEngine extends BaseEngine {
 
   // ── Render methods ──
 
-  private _render_countdown(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
-    ctx.font = 'bold 72px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(175, 70%, 50%, 0.8)';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(String(this._countdownValue), cx, cy);
-  }
 
   private _render_waiting(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
     const elapsed = precise_now() - this._phaseStartTime;

@@ -1,17 +1,24 @@
 {
   "app.name": "NeuroSustain",
   "app.tagline": "Sustain your neural pathways",
-
   "nav.dashboard": "Dashboard",
   "nav.train": "Train",
   "nav.profile": "Profile",
-
   "pillar.workingMemory": "Working Memory",
+  "pillar.workingMemory.desc": "Working memory is your 'mental workspace' — the ability to hold and manipulate information over short periods. High working memory helps you follow complex instructions and solve multi-step problems without losing track.",
   "pillar.cognitiveFlexibility": "Cognitive Flexibility",
+  "pillar.cognitiveFlexibility.desc": "Cognitive flexibility is the ability to adapt your thinking and behavior in response to changing rules or environments. It helps you switch between tasks and approach problems from new perspectives.",
   "pillar.inhibitoryControl": "Inhibitory Control",
+  "pillar.inhibitoryControl.desc": "Inhibitory control is the ability to suppress impulsive responses and resist distractions. It's the 'neural brake' that helps you stay on task and resist digital temptations like social media scrolling.",
   "pillar.sustainedAttention": "Sustained Attention",
+  "pillar.sustainedAttention.desc": "Sustained attention is the capacity to maintain focus on a single task for an extended duration despite boredom or fatigue. It is the foundation of 'Deep Work'.",
   "pillar.processingSpeed": "Processing Speed",
-
+  "pillar.processingSpeed.desc": "Processing speed is the efficiency with which your brain perceives, analyzes, and responds to new information. Faster processing reduces cognitive load during complex tasks.",
+  "pillarDetail.history": "Pillar Performance History",
+  "pillarDetail.exercises": "Related Exercises",
+  "pillarDetail.rating": "Current Skill Rating",
+  "pillarDetail.about": "About this Cognitive Pillar",
+  "pillarDetail.back": "← Back to Dashboard",
   "dashboard.title": "Cognitive Dashboard",
   "dashboard.welcome": "Welcome back",
   "dashboard.firstTime": "Welcome to NeuroSustain",
@@ -24,13 +31,27 @@
   "dashboard.startTraining": "Start Training",
   "dashboard.radarTitle": "Neural Profile",
   "dashboard.radarEmpty": "Complete exercises to see your cognitive profile",
-  "dashboard.historyTitle": "Longitudinal History",
   "dashboard.historyEmpty": "Training history requires at least 3 active days to unlock neural trend analysis. Keep pushing!",
   "dashboard.dueTitle": "Spaced Reviews (FSRS)",
   "dashboard.dueDesc": "Exercises recommended for today based on your memory stability.",
+  "dashboard.historyTitle": "Longitudinal History",
+  "dashboard.historyDesc": "Cognitive performance trends across all sessions.",
   "dashboard.heatmapTitle": "Neural Rhythm (Chronotype)",
   "dashboard.heatmapDesc": "Mean focus score by hour and day. Bright blocks indicate performance peaks.",
-
+  "dashboard.metricFocus": "Focus Score",
+  "dashboard.metricAccuracy": "Accuracy",
+  "dashboard.metricRT": "Reaction Time",
+  "dashboard.retrievability": "Retrievability",
+  "dashboard.communityTitle": "Neural Community Benchmarks",
+  "dashboard.communityDesc": "Anonymous global averages based on active training sessions. No personal data is shared.",
+  "dashboard.communityAvg": "Global Avg.",
+  "day.sun": "Sun",
+  "day.mon": "Mon",
+  "day.tue": "Tue",
+  "day.wed": "Wed",
+  "day.thu": "Thu",
+  "day.fri": "Fri",
+  "day.sat": "Sat",
   "train.title": "Training Exercises",
   "train.selectExercise": "Select an exercise to begin",
   "train.locked": "Coming Soon",
@@ -39,7 +60,6 @@
   "train.storm.title": "NEURAL STORM",
   "train.storm.desc": "Chaotic 3-minute mixed mode. Rapid exercise switching to maximize cognitive flexibility. No FSRS impact.",
   "train.storm.start": "START →",
-
   "exercise.reaction.name": "Reaction Time",
   "exercise.reaction.description": "Press SPACE the instant the circle turns green. Measures your raw processing speed.",
   "exercise.reaction.instruction": "Press SPACE when the circle turns green",
@@ -48,10 +68,8 @@
   "exercise.reaction.tooEarly": "Too early! Wait for green.",
   "exercise.reaction.missed": "Too slow! Try to react faster.",
   "exercise.reaction.result": "{ms}ms",
-
   "exercise.stroop.name": "Stroop Task",
   "exercise.stroop.description": "Identify the color of the text, not the word itself. Trains inhibitory control.",
-
   "results.title": "Session Complete",
   "results.accuracy": "Accuracy",
   "results.meanRT": "Mean Reaction Time",
@@ -64,7 +82,6 @@
   "results.cvExcellent": "Excellent consistency — deep focus detected",
   "results.cvGood": "Good consistency — steady performance",
   "results.cvFatigue": "Elevated variability — consider a break",
-
   "profile.title": "Profile",
   "profile.language": "Language",
   "profile.memberSince": "Member since",
@@ -85,13 +102,14 @@
   "profile.syncLogout": "Logout",
   "profile.syncNow": "Sync Now",
   "profile.syncStatus": "Sync Status",
+  "profile.recalibrate": "Recalibrate",
+  "profile.hardwareTitle": "Hardware & Performance",
+  "profile.hardwareDesc": "Measures your device jitter to ensure clinical accuracy across different screens and hardware.",
   "glicko.tooltip": "Glicko-2 Skill Rating. RD indicates uncertainty (lower is more accurate).",
-
   "loading.syncing": "Syncing neural patterns...",
   "loading.calibrating": "Calibrating cognitive baseline...",
   "loading.ready": "Neural pathways ready",
   "loading.neural_storm": "Initializing Neural Storm...",
-
   "insight.attention": "20 minutes of passive scrolling can reduce sustained attention capacity for up to 2 hours. This session is designed to recalibrate your prefrontal cortex.",
   "insight.sleep": "Your reaction time consistency reflects cognitive freshness. Studies (DOI: 10.1093/sleep/zsaa170) show even 1 hour of sleep debt increases reaction time variability by 15%.",
   "insight.exercise": "A 10-minute walk before cognitive training increases BDNF (brain-derived neurotrophic factor), which enhances synaptic plasticity during exercises like these.",
@@ -104,7 +122,6 @@
   "insight.inhibition": "Scrolling is a \"Go-Go-Go\" behavior — always swiping, always clicking. Exercises with No-Go signals (red circles, fakeout tones) strengthen the neural brakes needed to stop scrolling and put the phone down.",
   "insight.deepWork": "Short-form video trains your brain to switch contexts every 15 seconds. Exercises like Serial Subtraction stretch that window back to 2-3 minutes of sustained single-context focus.",
   "insight.brainDrain": "The mere presence of your smartphone reduces available cognitive capacity (Ward et al., 2017). Consider placing your phone in another room during training.",
-  
   "calibration.intro.badge": "ONE-TIME CALIBRATION",
   "calibration.intro.title": "Hardware Calibration",
   "calibration.intro.instruction": "Click the target {count} times as fast as you can to establish your hardware noise floor.",
@@ -122,37 +139,29 @@
   "calibration.result.continue": "Start Training",
   "calibration.warning.fair": "Hardware latency detected (±{ms}ms jitter). Focus on trend data rather than absolute millisecond values.",
   "calibration.warning.poor": "High hardware latency detected. Absolute reaction time values may be offset by up to one display frame (≈16ms). Trend comparisons remain valid.",
-  
   "fatigue.toast.title": "Cognitive Fatigue Detected",
   "fatigue.toast.desc": "EMA +{rise}% above baseline ({base}ms → {curr}ms). Consider finishing this session and resting.",
-  
   "results.fsrs.memory": "Memory Strength",
   "results.fsrs.nextReview": "Next Review",
   "results.fsrs.tomorrow": "Tomorrow",
   "results.fsrs.days": "{days} days",
-
   "exercise.highNumber.name": "High Number",
   "exercise.highNumber.description": "Select the numerically highest value — ignore the physical size. Trains inhibitory control against visual interference.",
   "exercise.highNumber.instruction": "Select the highest number",
-
   "exercise.serialSub.name": "Serial Subtraction",
   "exercise.serialSub.description": "Subtract repeatedly from a starting number. The previous answer disappears — hold it in working memory.",
   "exercise.serialSub.ruleChange": "RULE CHANGE",
   "exercise.serialSub.adapt": "New subtrahend — adapt!",
   "exercise.serialSub.addMode": "ADDITION MODE",
   "exercise.serialSub.subMode": "SUBTRACTION MODE",
-
   "exercise.fakeout.wait": "✕ WAIT",
   "exercise.pianoPlayer.name": "Piano Player",
   "exercise.pianoPlayer.description": "Listen to the sequence of tones and repeat it. Trains auditory and sequential working memory.",
   "exercise.pianoPlayer.instruction": "Listen to the sequence",
-
   "exercise.fallacy.name": "Fallacy Detector",
   "exercise.fallacy.description": "Classify logical arguments as Valid or Fallacy. Trains critical thinking and inhibition of emotional reasoning.",
-
   "exercise.hanoi.name": "Tower of Hanoi",
   "exercise.hanoi.description": "Move all discs from peg 1 to peg 3 without placing a larger disc on a smaller one. Trains forward-thinking and sustained planning.",
-
   "exercise.setSwitch.name": "Set Switching",
   "exercise.setSwitch.description": "Match cards based on the active rule (Color or Shape). Trains cognitive flexibility.",
   "exercise.setSwitch.ruleColor": "🎨  Sort by COLOR",
@@ -160,25 +169,18 @@
   "exercise.setSwitch.ruleCount": "🔢  Sort by COUNT",
   "exercise.setSwitch.findAnomaly": "Find the different one",
   "exercise.setSwitch.findAll": "Find all matching symbols ↑",
-
   "exercise.changeMaker.name": "Change Maker",
   "exercise.changeMaker.description": "Calculate exact change using a cash tray. Trains mental arithmetic and cognitive flexibility.",
-
   "exercise.wordScramble.name": "Word Scramble",
   "exercise.wordScramble.description": "Unscramble the letters to form a word. Trains linguistic flexibility and mental rotation.",
-
   "exercise.blockCount3d.name": "3D Box Counting",
   "exercise.blockCount3d.description": "Calculate the total number of cubes in the 3D structure, including hidden ones. Trains spatial visualization.",
-
   "exercise.nback.name": "Dual N-Back",
   "exercise.nback.description": "Track audio and visual stimuli from N steps ago. The gold standard for working memory.",
-
   "exercise.patternBreaker.name": "Pattern Breaker",
   "exercise.patternBreaker.description": "Find the subtle anomaly in a dense repeating pattern. Trains sustained visual attention and resistance to visual fatigue.",
-
   "exercise.symbolSearch.name": "Symbol Search",
   "exercise.symbolSearch.description": "Find all matching symbols in the grid as fast as possible. Measures raw perceptual scanning speed.",
-
   "exercise.inspectionTime.name": "The Flash",
   "exercise.inspectionTime.description": "Three shapes flash briefly — one changes. Identify which one. Measures raw visual intake speed.",
   "exercise.inspectionTime.whichChanged": "Which shape changed?",
@@ -203,7 +205,24 @@
   "exercise.wordScramble.hintBoth": "Hint: Starts with \"{start}\" and ends with \"{end}\"",
   "exercise.wordScramble.hintStart": "Hint: Starts with \"{start}\"",
   "exercise.wordScramble.typeWord": "Type the word:",
-
   "session.abort": "Esc  Abort",
-  "session.difficulty": "LV {level}"
+  "session.difficulty": "LV {level}",
+  "exercise.reaction.instructionMobile": "Tap anywhere when Green",
+  "exercise.nback.tutorialTitle": "Dual N-Back Tutorial",
+  "exercise.nback.singleMode": "Single Mode (Visual Only)",
+  "exercise.nback.tapStart": "Tap to Start",
+  "exercise.nback.keyStart": "Press ANY KEY to start...",
+  "exercise.nback.oneStep": "1 step",
+  "exercise.nback.nSteps": "{n} steps",
+  "exercise.nback.dualPos": "Match POSITION {n} back",
+  "exercise.nback.dualAudio": "Match SOUND {n} back",
+  "exercise.nback.bothMatch": "Both can match at the same time.",
+  "exercise.nback.singlePos": "Match POSITION {n} back",
+  "profile.smartNotifications": "Peak focus hour reminders",
+  "dashboard.dataSovereignty": "Local-First Privacy",
+  "pillar.WorkingMemory": "Working Memory",
+  "pillar.CognitiveFlexibility": "Cognitive Flexibility",
+  "pillar.SustainedAttention": "Sustained Attention",
+  "pillar.InhibitoryControl": "Inhibitory Control",
+  "pillar.ProcessingSpeed": "Processing Speed"
 }
