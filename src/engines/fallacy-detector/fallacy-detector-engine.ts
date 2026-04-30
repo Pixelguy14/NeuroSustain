@@ -289,7 +289,7 @@ export class FallacyDetectorEngine extends BaseEngine {
     this._phaseStart = precise_now();
 
     // Register click handler for buttons
-    this.canvas.onclick = (e: MouseEvent) => {
+    this.canvas.onpointerdown = (e: MouseEvent) => {
       if (this._phase !== 'presenting') return;
       const rect = this.canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
@@ -340,7 +340,7 @@ export class FallacyDetectorEngine extends BaseEngine {
       }
     });
 
-    this.canvas.onclick = null;
+    this.canvas.onpointerdown = null;
     this._phase = 'feedback';
     this._phaseStart = precise_now();
   }

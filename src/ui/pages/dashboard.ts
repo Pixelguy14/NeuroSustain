@@ -8,8 +8,10 @@ import { get_profile, get_ratings, get_recent_sessions, get_sessions_history, ge
 import { render_radar_chart } from '../components/radar-chart.ts';
 import { render_line_chart } from '../components/line-chart.ts';
 import { render_performance_heatmap } from '../components/heatmap.ts';
+import { render_calendar_heatmap } from '../components/calendar-heatmap.ts';
 import { GLICKO2_DEFAULTS, EXERCISES, PILLAR_META } from '@shared/constants.ts';
 import { router } from '../router.ts';
+import { start_exercise_session } from './session.ts';
 import { fsrsBridge } from '@core/fsrs/fsrs-bridge.ts';
 import { get_current_retrievability } from '@core/fsrs/fsrs-algorithm.ts';
 import { syncManager } from '@core/sync/sync-manager.ts';
@@ -40,12 +42,7 @@ export function render_dashboard(): HTMLElement {
         <div>
           <h1 class="section-header__title">${t('dashboard.title')}</h1>
           <p class="section-header__subtitle" id="dashboard-subtitle"></p>
-        </div>
-        <div class="glass-panel" style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-color: hsla(145, 65%, 50%, 0.3); background: hsla(145, 65%, 10%, 0.4);">
-          <span style="font-size: 14px;">🛡️</span>
-          <span style="font-size: 11px; font-weight: 600; color: hsl(145, 70%, 65%); letter-spacing: 0.5px; text-transform: uppercase;">
-            ${t('dashboard.dataSovereignty', { defaultValue: 'Data Sovereignty: Local-Only' })}
-          </span>
+          <br>
         </div>
       </div>
     </div>
@@ -108,6 +105,13 @@ export function render_dashboard(): HTMLElement {
       <p style="color: var(--color-text-tertiary); font-size: 11px; margin-top: var(--space-md); text-align: center;">
         ${t('dashboard.heatmapDesc')}
       </p>
+    </div>
+
+    <div class="glass-panel" style="margin-bottom: var(--space-xl); padding: var(--space-lg);">
+      <h2 class="radar-container__title" style="margin-bottom: var(--space-md);">${t('dashboard.consistencyTitle', { defaultValue: 'Training Consistency' })}</h2>
+      <div style="height: 160px; width: 100%; position: relative;">
+        <canvas id="chart-calendar" style="width: 100%; height: 100%;"></canvas>
+      </div>
     </div>
 
     <div class="glass-panel" id="community-section" style="margin-bottom: var(--space-xl); padding: var(--space-lg); border-color: hsla(280, 55%, 58%, 0.2);">
@@ -211,18 +215,18 @@ async function _populate_dashboard(page: HTMLElement): Promise<void> {
   if (pillarCardsGrid) {
     pillarCardsGrid.innerHTML = '';
     const allPillars: CognitivePillar[] = ['WorkingMemory', 'CognitiveFlexibility', 'InhibitoryControl', 'SustainedAttention', 'ProcessingSpeed'];
-    
+
     for (const p of allPillars) {
       const pMeta = PILLAR_META[p];
       const pRating = ratings.find(r => r.pillar === p);
       const pSessions = historyRaw.filter(s => s.pillar === p).slice(-7);
-      
+
       const card = document.createElement('div');
       card.className = 'glass-panel pillar-card';
       card.style.borderColor = pMeta.color.replace(')', ', 0.2)');
-      
+
       const slug = p.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
-      
+
       card.innerHTML = `
         <div class="pillar-card__header">
           <span class="material-symbols-rounded" style="color: ${pMeta.color}; font-size: 18px;">${pMeta.icon}</span>
@@ -235,10 +239,10 @@ async function _populate_dashboard(page: HTMLElement): Promise<void> {
           </div>
         </div>
       `;
-      
+
       card.addEventListener('click', () => router.navigate(`/pillar/${slug}`));
       pillarCardsGrid.appendChild(card);
-      
+
       // Render micro-sparkline
       if (pSessions.length > 0) {
         setTimeout(() => {
@@ -293,7 +297,7 @@ async function _populate_dashboard(page: HTMLElement): Promise<void> {
   if (history.length >= 3) {
     if (historyEmpty) historyEmpty.style.display = 'none';
     if (historyCharts) historyCharts.style.display = 'flex';
-    
+
     const locale = get_locale();
     const canvasFocus = page.querySelector('#chart-focus') as HTMLCanvasElement;
     const canvasAccuracy = page.querySelector('#chart-accuracy') as HTMLCanvasElement;
@@ -333,10 +337,24 @@ async function _populate_dashboard(page: HTMLElement): Promise<void> {
   const canvasHeatmap = page.querySelector('#chart-heatmap') as HTMLCanvasElement;
   if (canvasHeatmap && historyRaw.length > 0) {
     const dayLabels = [
-      t('day.sun'), t('day.mon'), t('day.tue'), t('day.wed'), 
+      t('day.sun'), t('day.mon'), t('day.tue'), t('day.wed'),
       t('day.thu'), t('day.fri'), t('day.sat')
     ];
     render_performance_heatmap(canvasHeatmap, historyRaw, { dayLabels });
+  }
+
+  // Consistency Calendar
+  const canvasCalendar = page.querySelector('#chart-calendar') as HTMLCanvasElement;
+  if (canvasCalendar && historyRaw.length > 0) {
+    const dayLabelsShort: string[] = [
+      t('day.sun')[0] || 'S', t('day.mon')[0] || 'M', t('day.tue')[0] || 'T', t('day.wed')[0] || 'W',
+      t('day.thu')[0] || 'T', t('day.fri')[0] || 'F', t('day.sat')[0] || 'S'
+    ];
+    render_calendar_heatmap(canvasCalendar, historyRaw, { 
+      months: 6,
+      locale: get_locale(),
+      dayLabels: dayLabelsShort
+    });
   }
 
   // Render Due Today
@@ -345,7 +363,7 @@ async function _populate_dashboard(page: HTMLElement): Promise<void> {
   if (dueSection && dueList && dueCards.length > 0) {
     dueSection.style.display = 'block';
     dueList.innerHTML = '';
-    
+
     for (const card of dueCards) {
       const exercise = EXERCISES.find(e => e.type === card.exerciseType);
       if (!exercise) continue;
@@ -372,11 +390,11 @@ async function _populate_dashboard(page: HTMLElement): Promise<void> {
         <span style="font-size: 12px; font-weight: 600; text-align: center;">${t(exercise.nameKey)}</span>
         <div style="font-size: 10px; color: ${rColor}; font-weight: 700;">${rPercent}% ${t('dashboard.retrievability', { defaultValue: 'R' })}</div>
       `;
-      
+
       cardEl.addEventListener('click', () => {
-        router.navigate(`/train/${exercise.type}`);
+        start_exercise_session(exercise.type);
       });
-      
+
       dueList.appendChild(cardEl);
     }
   }

@@ -373,9 +373,9 @@ function _render_results_screen(results: TrialResults, fsrs: FsrsDisplayData | n
       </div>
   
       <!-- RT Trend Sparkline -->
-      <div class="glass-panel" style="padding: var(--space-md); margin-bottom: var(--space-lg); width: 100%; max-width: 700px;">
+      <div class="glass-panel" style="padding: var(--space-md); margin-bottom: var(--space-lg); width: 100%; max-width: 700px; box-sizing: border-box;">
         <div style="font-size: 10px; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; text-align: center;">
-          Intra-Session Fatigue Trend (RT)
+          ${t('results.trend')}
         </div>
         <canvas id="rt-trend-sparkline" style="width: 100%; height: 60px;"></canvas>
       </div>
@@ -385,7 +385,7 @@ function _render_results_screen(results: TrialResults, fsrs: FsrsDisplayData | n
       </p>
   
       ${fsrs ? `
-      <div class="glass-panel" style="padding: var(--space-md) var(--space-lg); margin-bottom: var(--space-lg); display: flex; gap: var(--space-xl); align-items: center; justify-content: center; width: 100%; max-width: 700px;">
+      <div class="glass-panel" style="padding: var(--space-md) var(--space-lg); margin-bottom: var(--space-lg); display: flex; gap: var(--space-xl); align-items: center; justify-content: center; width: 100%; max-width: 700px; box-sizing: border-box;">
         <div style="text-align: center;">
           <div style="font-size: var(--font-size-xs); color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px;">${t('results.fsrs.memory')}</div>
           <div style="font-size: var(--font-size-lg); font-weight: 600; color: hsl(${Math.round(fsrs.retrievability * 120)}, 65%, 55%)">
@@ -415,7 +415,14 @@ function _render_results_screen(results: TrialResults, fsrs: FsrsDisplayData | n
 
   document.body.appendChild(screen);
 
-  screen.querySelector('#btn-continue-baseline')?.addEventListener('click', async () => {
+  let isTransitioning = false;
+
+  screen.querySelector('#btn-continue-baseline')?.addEventListener('pointerdown', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isTransitioning) return;
+    isTransitioning = true;
+    
     screen.remove();
     const { get_next_baseline_step, render_baseline } = await import('./baseline.ts');
     const nextStep = get_next_baseline_step(results.exerciseType);
@@ -430,14 +437,28 @@ function _render_results_screen(results: TrialResults, fsrs: FsrsDisplayData | n
     }
   });
 
-  screen.querySelector('#btn-back-dashboard')?.addEventListener('click', () => {
+  screen.querySelector('#btn-back-dashboard')?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isTransitioning) return;
+    isTransitioning = true;
+    
     screen.remove();
-    router.navigate('/dashboard');
+    setTimeout(() => {
+      router.navigate('/dashboard');
+    }, 50); // slight delay to allow pointer events to clear
   });
 
-  screen.querySelector('#btn-train-again')?.addEventListener('click', () => {
+  screen.querySelector('#btn-train-again')?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isTransitioning) return;
+    isTransitioning = true;
+    
     screen.remove();
-    start_exercise_session(results.exerciseType);
+    setTimeout(() => {
+      start_exercise_session(results.exerciseType);
+    }, 50);
   });
 
   // Render Sparkline

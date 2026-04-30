@@ -240,7 +240,7 @@ export class HanoiEngine extends BaseEngine {
   }
 
   protected on_cleanup(): void {
-    this.canvas.onclick = null;
+    this.canvas.onpointerdown = null;
   }
 
   // ── Logic ───────────────────────────────────────────────
@@ -256,7 +256,7 @@ export class HanoiEngine extends BaseEngine {
     this._discMaxW = third * 0.85;
     this._discH = Math.min(32, (this._pegBaseY - this._pegTopY) / 8);
 
-    this.canvas.onclick = (e: MouseEvent) => {
+    this.canvas.onpointerdown = (e: MouseEvent) => {
       if (this._phase !== 'playing') return;
       const rect = this.canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;

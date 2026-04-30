@@ -15,7 +15,7 @@
 // the context hasn't been unlocked yet.
 // ============================================================
 
-import { NBACK_AUDIO } from './nback-letters.ts';
+// ============================================================
 
 class AudioEngine {
   private _ctx: AudioContext | null = null;
@@ -24,7 +24,7 @@ class AudioEngine {
   private _ambienceLfo: OscillatorNode | null = null;
   private _ambienceSource: AudioBufferSourceNode | null = null;
   private _ambienceActive: boolean = false;
-  private _nbackBuffers: AudioBuffer[] = [];
+  private _preloadedBuffers: Map<string, AudioBuffer> = new Map();
   private _activeNodes: Set<AudioBufferSourceNode | OscillatorNode> = new Set();
 
   // ── Lazy Initialization ──────────────────────────────────
@@ -50,16 +50,127 @@ class AudioEngine {
     }
   }
 
-  // ── Core Synthesizer ─────────────────────────────────────
+  // ── Offline Buffer Pre-rendering (Zero Allocation) ───────
+
+  private async _prerender_tone(
+    name: string,
+    frequency: number | number[],
+    waveform: OscillatorType,
+    duration: number,
+    gain: number | number[],
+    sweep?: number
+  ): Promise<void> {
+    const sampleRate = 44100;
+    const offlineCtx = new OfflineAudioContext(1, sampleRate * duration, sampleRate);
+    
+    const freqs = Array.isArray(frequency) ? frequency : [frequency];
+    const gains = Array.isArray(gain) ? gain : [gain];
+
+    freqs.forEach((f, i) => {
+      const g = gains[i] ?? gains[0]!;
+      const osc = offlineCtx.createOscillator();
+      const gainNode = offlineCtx.createGain();
+
+      osc.type = waveform;
+      osc.frequency.setValueAtTime(f, 0);
+
+      if (sweep !== undefined) {
+        osc.frequency.exponentialRampToValueAtTime(sweep, duration);
+      }
+
+      gainNode.gain.setValueAtTime(g, 0);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, duration);
+
+      osc.connect(gainNode);
+      gainNode.connect(offlineCtx.destination);
+
+      osc.start(0);
+      osc.stop(duration);
+    });
+
+    const buffer = await offlineCtx.startRendering();
+    this._preloadedBuffers.set(name, buffer);
+  }
+
+  private async _prerender_tick(name: string, isGo: boolean): Promise<void> {
+    const duration = 0.5;
+    const sampleRate = 44100;
+    const offlineCtx = new OfflineAudioContext(1, sampleRate * duration, sampleRate);
+    
+    const frequency = isGo ? 880 : 440;
+    const osc = offlineCtx.createOscillator();
+    const gainNode = offlineCtx.createGain();
+    const filter = offlineCtx.createBiquadFilter();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(frequency, 0);
+
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(frequency * 2, 0);
+    filter.frequency.exponentialRampToValueAtTime(100, 0.4);
+
+    gainNode.gain.setValueAtTime(isGo ? 0.25 : 0.15, 0);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, 0.4);
+
+    osc.connect(filter);
+    filter.connect(gainNode);
+    gainNode.connect(offlineCtx.destination);
+
+    osc.start(0);
+    osc.stop(duration);
+
+    const buffer = await offlineCtx.startRendering();
+    this._preloadedBuffers.set(name, buffer);
+  }
+
+  private _play_buffer(name: string): void {
+    if (!this._enabled) return;
+    const ctx = this._ensure_context();
+    if (!ctx) return;
+    const buffer = this._preloadedBuffers.get(name);
+    if (!buffer) return;
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+    source.start(0);
+  }
+
+  // ── Public Sound Triggers ────────────────────────────────
+
+  /** Correct answer feedback */
+  play_correct(): void {
+    this._play_buffer('correct');
+  }
+
+  /** Error feedback */
+  play_error(): void {
+    this._play_buffer('error');
+  }
+
+  /** Context transition alert */
+  play_transition(): void {
+    this._play_buffer('transition');
+  }
+
+  /** UI tick (countdown) */
+  play_tick(isGo: boolean = false): void {
+    this._play_buffer(isGo ? 'tick_go' : 'tick_wait');
+  }
+
+  /** Tactile UI click */
+  play_ui_click(): void {
+    this._play_buffer('ui_click');
+  }
+
+  /** Dynamic simple tone */
+  play_tone(frequency: number, durationMs: number = 300): void {
+    // Kept dynamic for arbitrary frequencies
+    this._play_tone(frequency, 'sine', durationMs / 1000, 0.2);
+  }
 
   /**
-   * Play a single tone with configurable envelope.
-   *
-   * @param frequency  - Hz
-   * @param waveform   - OscillatorType
-   * @param duration   - Seconds
-   * @param gain       - Volume (0-1)
-   * @param sweep      - Optional target frequency for a sweep effect
+   * Play a single tone with configurable envelope (Dynamic Allocation)
    */
   private _play_tone(
     frequency: number,
@@ -79,18 +190,11 @@ class AudioEngine {
     oscillator.frequency.setValueAtTime(frequency, ctx.currentTime);
 
     if (sweep !== undefined) {
-      oscillator.frequency.exponentialRampToValueAtTime(
-        sweep,
-        ctx.currentTime + duration
-      );
+      oscillator.frequency.exponentialRampToValueAtTime(sweep, ctx.currentTime + duration);
     }
 
-    // Envelope: instant attack, exponential decay
     gainNode.gain.setValueAtTime(gain, ctx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(
-      0.001,
-      ctx.currentTime + duration
-    );
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
 
     oscillator.connect(gainNode);
     gainNode.connect(ctx.destination);
@@ -99,95 +203,11 @@ class AudioEngine {
     oscillator.start(ctx.currentTime);
     oscillator.stop(ctx.currentTime + duration + 0.01);
 
-    // Cleanup after playback
     oscillator.onended = () => {
       oscillator.disconnect();
       gainNode.disconnect();
       this._activeNodes.delete(oscillator);
     };
-  }
-
-  // ── Public Sound Triggers ────────────────────────────────
-
-  /**
-   * Correct answer feedback.
-   * Perfect Fifth chord (C5 + G5) sine pulse with clean 0.5s decay.
-   */
-  play_correct(): void {
-    this._play_tone(523.25, 'sine', 0.5, 0.1); // C5
-    this._play_tone(783.99, 'sine', 0.5, 0.08); // G5
-  }
-
-  /**
-   * Error feedback.
-   * Dull 150Hz sine thud with fast 0.1s decay — informative, not punishing.
-   */
-  play_error(): void {
-    this._play_tone(150, 'sine', 0.1, 0.15);
-  }
-
-  /**
-   * Context transition alert (Neural Storm mode, subtrahend change).
-   * 220→880Hz ascending sweep over 0.3s.
-   */
-  play_transition(): void {
-    this._play_tone(220, 'sine', 0.3, 0.12, 880);
-  }
-
-  /**
-   * UI tick (countdown).
-   * Low-pass filtered "Sonar Ping" (440Hz sine with filter sweep).
-   */
-  play_tick(isGo: boolean = false): void {
-    if (!this._enabled) return;
-    const ctx = this._ensure_context();
-    if (!ctx) return;
-
-    const frequency = isGo ? 880 : 440;
-    const osc = ctx.createOscillator();
-    const gainNode = ctx.createGain();
-    const filter = ctx.createBiquadFilter();
-
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(frequency, ctx.currentTime);
-
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(frequency * 2, ctx.currentTime);
-    filter.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.4);
-
-    gainNode.gain.setValueAtTime(isGo ? 0.25 : 0.15, ctx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-
-    osc.connect(filter);
-    filter.connect(gainNode);
-    gainNode.connect(ctx.destination);
-
-    this._activeNodes.add(osc);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.5);
-    osc.onended = () => {
-      osc.disconnect();
-      filter.disconnect();
-      gainNode.disconnect();
-      this._activeNodes.delete(osc);
-    };
-  }
-
-  /**
-   * Tactile UI click for buttons and interactions.
-   * Micro-second high-frequency sine click.
-   */
-  play_ui_click(): void {
-    this._play_tone(2400, 'sine', 0.005, 0.05);
-  }
-
-  /**
-   * Play a distinct, clean tone at a given frequency.
-   * Used by N-Back for auditory stimuli (pentatonic scale).
-   * Sine wave with smooth attack/decay for encoding clarity.
-   */
-  play_tone(frequency: number, durationMs: number = 300): void {
-    this._play_tone(frequency, 'sine', durationMs / 1000, 0.2);
   }
 
   /**
@@ -249,59 +269,26 @@ class AudioEngine {
     }, durationMs + 200);
   }
 
-  private async _init_nback_audio(): Promise<void> {
-    if (this._nbackBuffers.length > 0) return;
-    const ctx = this._ensure_context();
-    if (!ctx) return;
-    
-    const letters = ['C', 'H', 'K', 'L', 'Q', 'R', 'S', 'T'];
-    for (const l of letters) {
-      const b64 = (NBACK_AUDIO as any)[l];
-      if (!b64) continue;
-      
-      const base64Data = b64.split(',')[1];
-      if (!base64Data) continue;
-      
-      const binaryStr = atob(base64Data);
-      const len = binaryStr.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) {
-        bytes[i] = binaryStr.charCodeAt(i);
-      }
-      try {
-        const buffer = await ctx.decodeAudioData(bytes.buffer);
-        this._nbackBuffers.push(buffer);
-      } catch (e) {
-        console.error('Failed to decode nback audio for', l, e);
-      }
-    }
-  }
-
+  /**
+   * N-Back auditory stimuli.
+   * Maps 8 indices to a C Major scale for a pleasant, non-mechanical piano sound.
+   */
   play_nback_letter(index: number): void {
     if (!this._enabled) return;
-    const ctx = this._ensure_context();
-    if (!ctx) return;
     
-    if (this._nbackBuffers.length === 0) {
-      this._init_nback_audio();
-      this.play_musical_tone(300 + index * 100, 150);
-      return;
-    }
+    const C_MAJOR_SCALE = [
+      261.63, // C4
+      293.66, // D4
+      329.63, // E4
+      349.23, // F4
+      392.00, // G4
+      440.00, // A4
+      493.88, // B4
+      523.25  // C5
+    ];
     
-    const buffer = this._nbackBuffers[index % this._nbackBuffers.length];
-    if (!buffer) return;
-    
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.connect(ctx.destination);
-    
-    this._activeNodes.add(source);
-    source.start(ctx.currentTime);
-    
-    source.onended = () => {
-      source.disconnect();
-      this._activeNodes.delete(source);
-    };
+    const frequency = C_MAJOR_SCALE[index % C_MAJOR_SCALE.length]!;
+    this.play_musical_tone(frequency, 250); // Slightly longer for clarity
   }
 
   // ── Focus Ambience ───────────────────────────────────────
@@ -395,6 +382,20 @@ class AudioEngine {
     }, 1100);
   }
 
+  /** Fade ambience volume down for menus/results */
+  duckAmbience(): void {
+    if (this._ambienceGain && this._ctx) {
+      this._ambienceGain.gain.setTargetAtTime(0.005, this._ctx.currentTime, 0.5);
+    }
+  }
+
+  /** Restore ambience volume for active focus */
+  focusAmbience(): void {
+    if (this._ambienceGain && this._ctx) {
+      this._ambienceGain.gain.setTargetAtTime(0.03, this._ctx.currentTime, 1.5);
+    }
+  }
+
   // ── Control ──────────────────────────────────────────────
 
   /** Enable or disable all audio output */
@@ -410,13 +411,24 @@ class AudioEngine {
     return this._enabled;
   }
 
-  /** Unlock the AudioContext (call from a user gesture handler) */
+  /** Unlock the AudioContext and pre-render standard buffers */
   async unlock(): Promise<void> {
     const ctx = this._ensure_context();
     if (ctx && ctx.state === 'suspended') {
       await ctx.resume();
     }
-    await this._init_nback_audio(); // Pre-decode N-Back buffers on first gesture
+    
+    // Pre-render core synthesis sounds on first gesture to ensure zero-allocation during gameplay
+    if (this._preloadedBuffers.size === 0) {
+      await Promise.all([
+        this._prerender_tone('correct', [523.25, 783.99], 'sine', 0.5, [0.1, 0.08]),
+        this._prerender_tone('error', 150, 'sine', 0.1, 0.15),
+        this._prerender_tone('transition', 220, 'sine', 0.3, 0.12, 880),
+        this._prerender_tone('ui_click', 2400, 'sine', 0.005, 0.05),
+        this._prerender_tick('tick_wait', false),
+        this._prerender_tick('tick_go', true)
+      ]);
+    }
   }
 
   /** Force stop all active oscillators and buffer sources */

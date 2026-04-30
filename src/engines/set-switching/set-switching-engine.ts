@@ -129,7 +129,7 @@ export class SetSwitchingEngine extends BaseEngine {
     if (this._currentDifficulty > 1) {
       ctx.font = '500 11px Inter, sans-serif';
       ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
+      ctx.fillText(t('session.difficulty', { level: this._currentDifficulty }), w - 32, 58);
     }
 
     switch (this._phase) {
@@ -313,7 +313,7 @@ export class SetSwitchingEngine extends BaseEngine {
   }
 
   protected on_cleanup(): void {
-    this.canvas.onclick = null;
+    this.canvas.onpointerdown = null;
   }
 
   // ── Logic ───────────────────────────────────────────────
@@ -330,7 +330,7 @@ export class SetSwitchingEngine extends BaseEngine {
     } else if (diff <= 5) {
       this._activeColors = 3;
       this._activeShapes = 3;
-      this._activeCounts = 3; // Allow 1, 2, 3 shapes
+      this._activeCounts = 3;
       this._switchEvery = 3;
       this._timeLimitMs = 4000;
       this._useSize = false;
@@ -344,8 +344,8 @@ export class SetSwitchingEngine extends BaseEngine {
     } else {
       this._activeColors = 4;
       this._activeShapes = 4;
-      this._activeCounts = 4; // Allow up to 4 shapes
-      this._switchEvery = 1 + Math.floor(Math.random() * 2); // 1-2
+      this._activeCounts = 4;
+      this._switchEvery = 1 + Math.floor(Math.random() * 2);
       this._timeLimitMs = 3000;
       this._useSize = true;
     }
@@ -358,6 +358,9 @@ export class SetSwitchingEngine extends BaseEngine {
   }
 
   private _next_trial(): void {
+    // 1. MUST re-evaluate difficulty before doing any logic to catch dynamic shifts
+    this._configure_difficulty();
+
     // Check if rule should switch
     this._trialsSinceSwitch++;
     if (this._trialsSinceSwitch > this._switchEvery) {
@@ -382,8 +385,9 @@ export class SetSwitchingEngine extends BaseEngine {
     const shape = SHAPES[shapeIdx]!;
     const count = countIdx + 1;
  
+    // Data-safe object (Machine-readable key for analytics)
     this._currentStimulus = {
-      name: `${count} ${color.name} ${shape}${count > 1 ? 's' : ''}`,
+      name: `${count}_${color.name}_${shape}_${size}`,
       color: color.hsl,
       colorName: color.name,
       shapeName: shape,
@@ -403,12 +407,14 @@ export class SetSwitchingEngine extends BaseEngine {
       this._options = ['1', '2', '3', '4'].slice(0, this._activeCounts);
     }
 
-    // Register click handler
-    this.canvas.onclick = (e: MouseEvent) => {
+    // Register click handler with corrected coordinate scaling
+    this.canvas.onpointerdown = (e: MouseEvent) => {
       if (this._phase !== 'presenting') return;
       const rect = this.canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+      const scaleX = this.width / rect.width;
+      const scaleY = this.height / rect.height;
+      const x = (e.clientX - rect.left) * scaleX;
+      const y = (e.clientY - rect.top) * scaleY;
 
       for (const btn of this._btnRects) {
         if (x >= btn.x && x <= btn.x + btn.w && y >= btn.y && y <= btn.y + btn.h) {
@@ -467,7 +473,7 @@ export class SetSwitchingEngine extends BaseEngine {
       }
     });
 
-    this.canvas.onclick = null;
+    this.canvas.onpointerdown = null;
     this._phase = 'feedback';
     this._phaseStart = precise_now();
   }

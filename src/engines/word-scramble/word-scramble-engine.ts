@@ -295,7 +295,7 @@ export class WordScrambleEngine extends BaseEngine {
   }
 
   protected on_cleanup(): void {
-    this.canvas.onclick = null;
+    this.canvas.onpointerdown = null;
   }
 
   // ── Logic ───────────────────────────────────────────────
@@ -338,7 +338,7 @@ export class WordScrambleEngine extends BaseEngine {
     this._phaseStart = precise_now();
 
     // Register click handler for touch interaction
-    this.canvas.onclick = (e: MouseEvent) => {
+    this.canvas.onpointerdown = (e: MouseEvent) => {
       if (this._phase !== 'playing') return;
       const rect = this.canvas.getBoundingClientRect();
       const scaleX = this.width / rect.width;

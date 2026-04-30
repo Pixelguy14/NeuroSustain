@@ -12,7 +12,6 @@ import { syncManager } from '@core/sync/sync-manager.ts';
 import { export_clinical_report } from '@core/analytics/pdf-export.ts';
 import { show_calibration_screen } from '@ui/components/calibration-screen.ts';
 import { grade_description } from '@core/calibration/hardware-calibration.ts';
-import { notificationManager } from '@core/notifications/notification-manager.ts';
 import { GLICKO2_DEFAULTS, PILLAR_META, ALL_PILLARS } from '@shared/constants.ts';
 import type { Locale } from '@shared/types.ts';
 
@@ -65,19 +64,6 @@ export function render_profile(): HTMLElement {
           <!-- Dynamic pillar ratings go here -->
         </div>
       </div>
-      <div class="profile-field" style="border-bottom: none; flex-direction: column; align-items: flex-start; gap: var(--space-sm);">
-        <span class="profile-field__label">${t('profile.smartNotifications', { defaultValue: 'Cognitive Reminders' })}</span>
-        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; background: hsla(225, 30%, 12%, 0.4); border: 1px solid var(--glass-border); border-radius: 8px; padding: var(--space-md);">
-          <div style="display: flex; flex-direction: column; gap: 2px;">
-             <span style="font-size: 13px; font-weight: 600;">Neural Rhythm Reminders</span>
-             <span id="peak-hour-label" style="font-size: 11px; color: var(--color-text-dim);">Analyzing your heatmap...</span>
-          </div>
-          <button class="btn btn--ghost btn--small" id="btn-toggle-notifications">
-            ${Notification.permission === 'granted' ? 'Enabled' : 'Enable'}
-          </button>
-        </div>
-      </div>
-
       <div class="profile-field" style="border-bottom: none; flex-direction: column; align-items: flex-start; gap: var(--space-sm);">
         <span class="profile-field__label">${t('profile.dataSovereignty')}</span>
         <p style="font-size: 12px; color: var(--color-text-dim); line-height: 1.5; margin-bottom: var(--space-xs);">
@@ -163,17 +149,6 @@ export function render_profile(): HTMLElement {
       }
     }
   });
-  // Notification Toggle
-  page.querySelector('#btn-toggle-notifications')?.addEventListener('click', async () => {
-    const granted = await notificationManager.request_permission();
-    if (granted) {
-      const btn = page.querySelector('#btn-toggle-notifications') as HTMLButtonElement;
-      btn.textContent = 'Enabled';
-      btn.style.color = 'var(--color-success)';
-      await notificationManager.schedule_test_notification();
-    }
-  });
-
   // Debug Difficulty
   const debugInput = page.querySelector('#debug-difficulty-input') as HTMLInputElement;
   if (debugInput) {
@@ -310,14 +285,6 @@ async function _populate_profile(page: HTMLElement): Promise<void> {
   if (audioToggle) {
     audioToggle.checked = profile.audioFocusAmbience ?? false;
   }
-
-  // Populate Peak Hour
-  const peakLabel = page.querySelector('#peak-hour-label');
-  if (peakLabel) {
-    const peak = await notificationManager.get_peak_hour();
-    peakLabel.textContent = `Optimal Training Hour: ${peak}:00 (based on your focus heatmap)`;
-  }
-
   // Populate Pillar Ratings
   const ratingsRaw = await db.ratings.toArray();
   const ratingsContainer = page.querySelector('#profile-pillar-ratings');

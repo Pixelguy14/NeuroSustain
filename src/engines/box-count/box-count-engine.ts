@@ -135,7 +135,7 @@ export class BoxCountEngine extends BaseEngine {
 
   private _register_input_handlers(): void {
     try {
-      this.canvas.onclick = (e: MouseEvent) => {
+      this.canvas.onpointerdown = (e: MouseEvent) => {
         if (this._phase !== 'playing') return;
         const rect = this.canvas.getBoundingClientRect();
         const scaleX = this.width / rect.width;

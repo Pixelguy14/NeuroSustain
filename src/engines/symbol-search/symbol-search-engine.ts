@@ -240,7 +240,7 @@ export class SymbolSearchEngine extends BaseEngine {
     this.start_countdown(() => this._next_trial());
 
     // Register click handler
-    this.canvas.onclick = (e: MouseEvent) => {
+    this.canvas.onpointerdown = (e: MouseEvent) => {
       if (this._phase !== 'scanning') return;
       const rect = this.canvas.getBoundingClientRect();
       const scaleX = this.width / rect.width;
@@ -428,7 +428,7 @@ export class SymbolSearchEngine extends BaseEngine {
   }
 
   protected on_cleanup(): void {
-    this.canvas.onclick = null;
+    this.canvas.onpointerdown = null;
   }
 
   // ── Logic ───────────────────────────────────────────────

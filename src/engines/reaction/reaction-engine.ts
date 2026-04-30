@@ -31,6 +31,7 @@ export class ReactionTimeEngine extends BaseEngine {
   private _lastReactionMs: number = 0;
   private _isFakeout: boolean = false;
   private _isFakeoutError: boolean = false;
+  private _cachedInstruction: string = '';
   private _targetColor: string = 'hsl(145, 70%, 58%)';
   private _targetDarkColor: string = 'hsl(145, 65%, 40%)';
   private _targetKey: string = 'Space';
@@ -81,6 +82,23 @@ export class ReactionTimeEngine extends BaseEngine {
     ];
 
     this.start_countdown(() => this._start_waiting());
+  }
+
+  private _update_instruction(): void {
+    const isMobile = this.width < 600;
+    
+    let instruction = isMobile ? t('exercise.reaction.instructionMobile', { defaultValue: 'Tap anywhere when Green' }) : t('exercise.reaction.instruction');
+    
+    if (this._currentDifficulty >= 4) {
+      let actionsStr = '';
+      for (let i = 0; i < this._activeTargets.length; i++) {
+        const tObj = this._activeTargets[i]!;
+        const input = isMobile ? tObj.name : (tObj.name === 'GREEN' ? 'SPACE' : tObj.key.replace('Key', ''));
+        actionsStr += `${input} for ${tObj.name}${i < this._activeTargets.length - 1 ? ', ' : ''}`;
+      }
+      instruction = isMobile ? `Tap ${actionsStr}. IGNORE RED.` : `Press ${actionsStr}. IGNORE RED.`;
+    }
+    this._cachedInstruction = instruction;
   }
 
   protected on_update(dt: number): void {
@@ -212,15 +230,10 @@ export class ReactionTimeEngine extends BaseEngine {
     // Instruction text (Responsive positioning)
     const isMobile = this.width < 600;
     
-    let instruction = isMobile ? t('exercise.reaction.instructionMobile', { defaultValue: 'Tap anywhere when Green' }) : t('exercise.reaction.instruction');
-    
-    if (this._currentDifficulty >= 4) {
-      const actions = this._activeTargets.map(t => {
-        const input = isMobile ? t.name : (t.name === 'GREEN' ? 'SPACE' : t.key.replace('Key', ''));
-        return `${input} for ${t.name}`;
-      }).join(', ');
-      instruction = isMobile ? `Tap ${actions}. IGNORE RED.` : `Press ${actions}. IGNORE RED.`;
+    if (!this._cachedInstruction) {
+      this._update_instruction();
     }
+    const instruction = this._cachedInstruction;
 
     ctx.font = (isMobile && instruction.length > 30) ? '500 11px Inter, sans-serif' : '500 13px Inter, sans-serif';
     ctx.fillStyle = 'hsla(175, 70%, 50%, 0.7)';
@@ -270,7 +283,7 @@ export class ReactionTimeEngine extends BaseEngine {
   }
 
   protected on_cleanup(): void {
-    this.canvas.onclick = null;
+    // Canvas pointerdown handled by BaseEngine, specific cleanup if needed
   }
 
   // ── Private helpers ──
@@ -311,6 +324,7 @@ export class ReactionTimeEngine extends BaseEngine {
   private _start_waiting(): void {
     this._phase = 'waiting';
     this._phaseStartTime = precise_now();
+    this._update_instruction();
     this._delayMs = random_float(SESSION.STIMULUS_DELAY_MIN_MS, SESSION.STIMULUS_DELAY_MAX_MS);
     this._circleRadius = 0;
     this._circleTargetRadius = 0;
@@ -320,7 +334,7 @@ export class ReactionTimeEngine extends BaseEngine {
     this._movementTime = 0;
 
     // Register click handler
-    this.canvas.onclick = (e: MouseEvent) => {
+    this.canvas.onpointerdown = (e: MouseEvent) => {
       const rect = this.canvas.getBoundingClientRect();
       const scaleX = this.width / rect.width;
       const scaleY = this.height / rect.height;

@@ -57,11 +57,19 @@ export class NBackEngine extends BaseEngine {
   private _audioMatch: boolean = false;
   private _userPressedL: boolean = false; // Position match key
   private _userPressedA: boolean = false; // Audio match key
-  private _firstReactionMs: number | null = null;
 
   // Feedback
   private _feedbackMsg: string = '';
   private _feedbackColor: string = '';
+
+  // Dynamic Shift Tracking
+  private _previousN: number = 1;
+  private _previousIsDual: boolean = false;
+  private _warmupTrialsRemaining: number = 0;
+
+  // Split Reaction Times
+  private _posReactionMs: number | null = null;
+  private _audioReactionMs: number | null = null;
 
   // Grid geometry (computed once)
   private _gridX: number = 0;
@@ -79,10 +87,13 @@ export class NBackEngine extends BaseEngine {
     this._configure_difficulty();
     this._compute_grid_geometry();
 
-    // Initialize buffer with empty stimuli (Zero-Allocation)
-    this._buffer = Array.from({ length: this._n }, () => ({ position: -1, soundIndex: -1 }));
+    // Always allocate for maximum possible N (3) to prevent dynamic resizing crashes
+    this._buffer = Array.from({ length: 3 }, () => ({ position: -1, soundIndex: -1 }));
     this._bufferIndex = 0;
     this._trialNumber = 0;
+    this._previousN = this._n;
+    this._previousIsDual = this._isDual;
+    this._warmupTrialsRemaining = 0;
   }
 
   protected on_update(_dt: number): void {
@@ -153,20 +164,22 @@ export class NBackEngine extends BaseEngine {
     // N-Back level indicator
     ctx.textAlign = 'left';
     ctx.fillStyle = 'hsla(175, 70%, 50%, 0.7)';
-    ctx.fillText(`${this._n}-Back${this._isDual ? ' Dual' : ''}`, 32, 40);
+    const modeName = this._isDual ? t('exercise.nback.modeDual', { defaultValue: 'Dual' }) : t('exercise.nback.modeSingle', { defaultValue: 'Single' });
+    const backLabel = t('exercise.nback.backLabel', { n: this._n, defaultValue: `${this._n}-Back` });
+    ctx.fillText(`${backLabel} ${modeName}`, 32, 40);
 
     if (this._currentDifficulty > 1) {
       ctx.font = '500 11px Inter, sans-serif';
       ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
       ctx.textAlign = 'right';
-      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
+      ctx.fillText(t('session.difficulty', { level: this._currentDifficulty }), w - 32, 58);
     }
 
     switch (this._phase) {
       case 'tutorial': {
         ctx.fillStyle = 'hsla(225, 45%, 12%, 0.9)';
         ctx.fillRect(cx - 240, cy - 140, 480, 280);
-        
+
         ctx.font = 'bold 24px Inter, sans-serif';
         ctx.fillStyle = 'hsl(220, 20%, 90%)';
         ctx.textAlign = 'center';
@@ -176,7 +189,7 @@ export class NBackEngine extends BaseEngine {
         ctx.fillStyle = 'hsla(220, 15%, 70%, 0.9)';
         const textY = cy - 30;
         const nText = this._n === 1 ? t('exercise.nback.oneStep', { defaultValue: '1 step' }) : t('exercise.nback.nSteps', { n: this._n, defaultValue: `${this._n} steps` });
-        
+
         if (this._isDual) {
           ctx.fillText(t('exercise.nback.dualPos', { n: nText, defaultValue: `Match POSITION ${nText} back` }), cx, textY);
           ctx.fillText(t('exercise.nback.dualAudio', { n: nText, defaultValue: `Match SOUND ${nText} back` }), cx, textY + 30);
@@ -232,11 +245,14 @@ export class NBackEngine extends BaseEngine {
     ctx.textAlign = 'center';
     ctx.fillStyle = 'hsla(220, 15%, 55%, 0.8)';
     ctx.font = '400 13px Inter, sans-serif';
-    const nText = this._n === 1 ? '1 step' : `${this._n} steps`;
+    const nText = this._n === 1
+      ? t('exercise.nback.oneStep', { defaultValue: '1 step' })
+      : t('exercise.nback.nSteps', { n: this._n, defaultValue: `${this._n} steps` });
+
     if (this._isDual) {
-      ctx.fillText(`Match Position & Sound ${nText} back`, cx, this._gridY - 20);
+      ctx.fillText(t('exercise.nback.matchBoth', { n: nText, defaultValue: `Match Position & Sound ${nText} back` }), cx, this._gridY - 20);
     } else {
-      ctx.fillText(`Match Position ${nText} back`, cx, this._gridY - 20);
+      ctx.fillText(t('exercise.nback.matchPosOnly', { n: nText, defaultValue: `Match Position ${nText} back` }), cx, this._gridY - 20);
     }
 
     for (let row = 0; row < GRID_SIZE; row++) {
@@ -282,9 +298,9 @@ export class NBackEngine extends BaseEngine {
     const gap = isMobile ? 20 : 60;
 
     // Position match key
-    const lx = cx - gap/2 - btnW/2;
+    const lx = cx - gap / 2 - btnW / 2;
     ctx.beginPath();
-    ctx.roundRect(lx - btnW/2, btnY, btnW, btnH, 12);
+    ctx.roundRect(lx - btnW / 2, btnY, btnW, btnH, 12);
     ctx.fillStyle = this._userPressedL
       ? 'hsla(175, 60%, 30%, 0.8)'
       : 'hsla(225, 25%, 15%, 0.5)';
@@ -295,13 +311,14 @@ export class NBackEngine extends BaseEngine {
     ctx.lineWidth = 2;
     ctx.stroke();
     ctx.fillStyle = 'hsl(175, 70%, 55%)';
-    ctx.fillText(isMobile ? 'POSITION' : '[L] Position', lx, btnY + btnH/2);
+    const posLabel = isMobile ? t('exercise.nback.posLabelMobile') : t('exercise.nback.posLabel', { defaultValue: '[L] Position' });
+    ctx.fillText(posLabel, lx, btnY + btnH / 2);
 
     if (this._isDual) {
       // Audio match key
-      const ax = cx + gap/2 + btnW/2;
+      const ax = cx + gap / 2 + btnW / 2;
       ctx.beginPath();
-      ctx.roundRect(ax - btnW/2, btnY, btnW, btnH, 12);
+      ctx.roundRect(ax - btnW / 2, btnY, btnW, btnH, 12);
       ctx.fillStyle = this._userPressedA
         ? 'hsla(280, 60%, 30%, 0.8)'
         : 'hsla(225, 25%, 15%, 0.5)';
@@ -312,7 +329,8 @@ export class NBackEngine extends BaseEngine {
       ctx.lineWidth = 2;
       ctx.stroke();
       ctx.fillStyle = 'hsl(280, 60%, 60%)';
-      ctx.fillText(isMobile ? 'SOUND' : '[A] Audio', ax, btnY + btnH/2);
+      const audioLabel = isMobile ? t('exercise.nback.audioLabelMobile') : t('exercise.nback.audioLabel', { defaultValue: '[A] Audio' });
+      ctx.fillText(audioLabel, ax, btnY + btnH / 2);
     }
   }
 
@@ -328,18 +346,18 @@ export class NBackEngine extends BaseEngine {
     if (code === 'KeyL') {
       if (!this._userPressedL) {
         this._userPressedL = true;
-        if (!this._firstReactionMs) this._firstReactionMs = precise_now() - this._phaseStart;
+        if (!this._posReactionMs) this._posReactionMs = precise_now() - this._phaseStart;
       }
     } else if (code === 'KeyA' && this._isDual) {
       if (!this._userPressedA) {
         this._userPressedA = true;
-        if (!this._firstReactionMs) this._firstReactionMs = precise_now() - this._phaseStart;
+        if (!this._audioReactionMs) this._audioReactionMs = precise_now() - this._phaseStart;
       }
     }
   }
 
   protected on_cleanup(): void {
-    this.canvas.onclick = null;
+    this.canvas.onpointerdown = null;
   }
 
   // ── Logic ───────────────────────────────────────────────
@@ -376,17 +394,17 @@ export class NBackEngine extends BaseEngine {
     const h = this.height || window.innerHeight;
 
     const isMobile = w < 600;
-    const availSize = isMobile 
+    const availSize = isMobile
       ? Math.min(w * 0.85, h * 0.4) // Slightly larger on mobile for visibility
       : Math.min(w, h) * 0.45;
-      
+
     this._cellSize = (availSize - CELL_GAP * (GRID_SIZE - 1)) / GRID_SIZE;
     const totalGrid = GRID_SIZE * this._cellSize + (GRID_SIZE - 1) * CELL_GAP;
     this._gridX = (w - totalGrid) / 2;
     this._gridY = isMobile ? 130 : (h - totalGrid) / 2 - 20;
 
     // Register click handlers for the two buttons
-    this.canvas.onclick = (e: MouseEvent) => {
+    this.canvas.onpointerdown = (e: MouseEvent) => {
       if (this._phase === 'tutorial') {
         this._phase = 'countdown';
         this.start_countdown(() => this._present_stimulus());
@@ -402,21 +420,21 @@ export class NBackEngine extends BaseEngine {
 
       const btnH = isMobile ? 60 : 40;
       const btnY = this._gridY + GRID_SIZE * (this._cellSize + CELL_GAP) + (isMobile ? 40 : 30);
-      
+
       if (y >= btnY && y <= btnY + btnH) {
         const cx = this.width / 2;
         const btnW = isMobile ? 140 : 100;
         const gap = isMobile ? 20 : 60;
-        
-        if (x >= cx - gap/2 - btnW && x <= cx - gap/2) {
+
+        if (x >= cx - gap / 2 - btnW && x <= cx - gap / 2) {
           if (!this._userPressedL) {
             this._userPressedL = true;
-            if (!this._firstReactionMs) this._firstReactionMs = precise_now() - this._phaseStart;
+            if (!this._posReactionMs) this._posReactionMs = precise_now() - this._phaseStart;
           }
-        } else if (this._isDual && x >= cx + gap/2 && x <= cx + gap/2 + btnW) {
+        } else if (this._isDual && x >= cx + gap / 2 && x <= cx + gap / 2 + btnW) {
           if (!this._userPressedA) {
             this._userPressedA = true;
-            if (!this._firstReactionMs) this._firstReactionMs = precise_now() - this._phaseStart;
+            if (!this._audioReactionMs) this._audioReactionMs = precise_now() - this._phaseStart;
           }
         }
       }
@@ -427,9 +445,22 @@ export class NBackEngine extends BaseEngine {
     this._configure_difficulty();
     this._trialNumber++;
 
+    // Detect dynamic difficulty shift (N change or Dual change)
+    if (this._n !== this._previousN || this._isDual !== this._previousIsDual) {
+      this._warmupTrialsRemaining = this._n; // Reset evaluation window to fill buffer
+      this._previousN = this._n;
+      this._previousIsDual = this._isDual;
+    }
+
+    if (this._warmupTrialsRemaining > 0) {
+      this._warmupTrialsRemaining--;
+    }
+
     // Generate stimulus (ensure some matches occur ~30% of the time)
-    const nBackStim = this._trialNumber > this._n ? this._buffer[this._bufferIndex % this._n] : null;
-    
+    // To find N-back in a circular buffer of size 3: (current - N + 3) % 3
+    const lookbackIndex = (this._bufferIndex - this._n + 3) % 3;
+    const nBackStim = this._trialNumber > this._n ? this._buffer[lookbackIndex] : null;
+
     // VALIDATION: Only allow match if the buffered stimulus was valid (not -1)
     const canPositionMatch = nBackStim && nBackStim.position !== -1;
     const canAudioMatch = this._isDual && nBackStim && nBackStim.soundIndex !== -1;
@@ -461,14 +492,15 @@ export class NBackEngine extends BaseEngine {
     this._positionMatch = !!(canPositionMatch && position === nBackStim!.position);
     this._audioMatch = !!(canAudioMatch && soundIndex === nBackStim!.soundIndex);
 
-    // Write to circular buffer (Zero-Allocation)
-    this._buffer[this._bufferIndex % this._n] = { position, soundIndex };
+    // Write to circular buffer (Zero-Allocation: Static length 3)
+    this._buffer[this._bufferIndex % 3] = { position, soundIndex };
     this._bufferIndex++;
 
     // Reset user input
     this._userPressedL = false;
     this._userPressedA = false;
-    this._firstReactionMs = null;
+    this._posReactionMs = null;
+    this._audioReactionMs = null;
     this._feedbackMsg = '';
 
     // Play tone (audio-visual sync: same frame)
@@ -481,10 +513,10 @@ export class NBackEngine extends BaseEngine {
   }
 
   private _evaluate_response(): void {
-    const finalRT = this._firstReactionMs || 0;
+    const finalRT = Math.max(this._posReactionMs || 0, this._audioReactionMs || 0);
 
-    // Only score trials after the first N warm-up trials
-    if (this._trialNumber <= this._n) {
+    // Reject scoring if we are in initial warmup OR a dynamic shift warmup window
+    if (this._trialNumber <= this._n || this._warmupTrialsRemaining > 0) {
       this._feedbackMsg = '';
       this._phase = 'response';
       this._phaseStart = precise_now();
@@ -514,10 +546,8 @@ export class NBackEngine extends BaseEngine {
     } else {
       audioEngine.play_error();
       const parts: string[] = [];
-      if (posMiss) parts.push('Position ✗');
-      if (posFalseAlarm) parts.push('Position ✗');
-      if (audioMiss) parts.push('Audio ✗');
-      if (audioFalseAlarm) parts.push('Audio ✗');
+      if (posMiss || posFalseAlarm) parts.push(t('exercise.nback.posError', { defaultValue: 'Position ✗' }));
+      if (audioMiss || audioFalseAlarm) parts.push(t('exercise.nback.audioError', { defaultValue: 'Audio ✗' }));
       this._feedbackMsg = parts.length > 0 ? parts.join('  ') : '✗';
       this._feedbackColor = 'hsl(0, 75%, 55%)';
     }
@@ -537,6 +567,8 @@ export class NBackEngine extends BaseEngine {
         audioMatch: this._audioMatch,
         userPressedL: this._userPressedL,
         userPressedA: this._userPressedA,
+        posRT: this._posReactionMs,
+        audioRT: this._audioReactionMs,
         posHit, posMiss, posFalseAlarm, posCorrectRejection,
         audioHit, audioMiss, audioFalseAlarm,
       }

@@ -68,7 +68,7 @@ export class StroopEngine extends BaseEngine {
     this._setup_color_pool();
 
     // Register click handler ONCE (Zero-Allocation)
-    this.canvas.onclick = (e: MouseEvent) => {
+    this.canvas.onpointerdown = (e: MouseEvent) => {
       if (this._phase !== 'stimulus') return;
       const canvasRect = this.canvas.getBoundingClientRect();
       const scaleX = this.width / canvasRect.width;
@@ -261,7 +261,7 @@ export class StroopEngine extends BaseEngine {
   }
 
   protected on_cleanup(): void {
-    this.canvas.onclick = null;
+    this.canvas.onpointerdown = null;
   }
 
   // ── Logic ───────────────────────────────────────────────

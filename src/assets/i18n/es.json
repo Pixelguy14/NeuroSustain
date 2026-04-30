@@ -38,6 +38,7 @@
   "dashboard.historyDesc": "Tendencias de rendimiento cognitivo a través de todas las sesiones.",
   "dashboard.heatmapTitle": "Ritmo Neuronal (Cronotipo)",
   "dashboard.heatmapDesc": "Concentración promedio según la hora y el día. Los bloques brillantes indican picos de rendimiento.",
+  "dashboard.consistencyTitle": "Consistencia de Entrenamiento",
   "dashboard.metricFocus": "Puntaje de Enfoque",
   "dashboard.metricAccuracy": "Precisión",
   "dashboard.metricRT": "Tiempo de Reacción",
@@ -141,6 +142,7 @@
   "calibration.warning.poor": "Alta latencia de hardware detectada. Los valores absolutos de tiempo de reacción pueden estar desfasados hasta por un frame de pantalla (≈16ms). Las comparaciones de tendencias siguen siendo válidas.",
   "fatigue.toast.title": "Fatiga Cognitiva Detectada",
   "fatigue.toast.desc": "EMA +{rise}% sobre la línea base ({base}ms → {curr}ms). Considera terminar esta sesión y descansar.",
+  "results.trend": "Tendencia de Fatiga Intra-Sesión (RT)",
   "results.fsrs.memory": "Fuerza de Memoria",
   "results.fsrs.nextReview": "Próximo Repaso",
   "results.fsrs.tomorrow": "Mañana",
@@ -224,5 +226,16 @@
   "pillar.CognitiveFlexibility": "Flexibilidad Cognitiva",
   "pillar.SustainedAttention": "Atención Sostenida",
   "pillar.InhibitoryControl": "Control Inhibitorio",
-  "pillar.ProcessingSpeed": "Velocidad de Procesamiento"
+  "pillar.ProcessingSpeed": "Velocidad de Procesamiento",
+  "exercise.nback.modeDual": "Dual",
+  "exercise.nback.modeSingle": "Simple",
+  "exercise.nback.backLabel": "{n}-Atrás",
+  "exercise.nback.matchBoth": "Coincidir Posición y Sonido {n} atrás",
+  "exercise.nback.matchPosOnly": "Coincidir Posición {n} atrás",
+  "exercise.nback.posLabel": "[L] Posición",
+  "exercise.nback.posLabelMobile": "POSICIÓN",
+  "exercise.nback.audioLabel": "[A] Sonido",
+  "exercise.nback.audioLabelMobile": "SONIDO",
+  "exercise.nback.posError": "Posición ✗",
+  "exercise.nback.audioError": "Sonido ✗"
 }

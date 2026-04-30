@@ -79,6 +79,10 @@ function build_base_shape(type: number, size: number): Path2D {
       p.lineTo(hs, size * 0.92);
       p.lineTo(size * 0.08, hs);
       p.closePath();
+      // Add center dot so it has a feature to lose/miss
+      const dotR = size * 0.08;
+      p.moveTo(hs + dotR, hs);
+      p.arc(hs, hs, dotR, 0, Math.PI * 2);
       break;
     default: // Hexagon
       {
@@ -144,7 +148,7 @@ export class PatternBreakerEngine extends BaseEngine {
     this._phaseStart = precise_now();
     this.start_countdown(() => this._next_trial());
 
-    this.canvas.onclick = (e: MouseEvent) => {
+    this.canvas.onpointerdown = (e: MouseEvent) => {
       if (this._phase !== 'scanning') return;
       const rect = this.canvas.getBoundingClientRect();
       const scaleX = this.width / rect.width;
@@ -204,7 +208,7 @@ export class PatternBreakerEngine extends BaseEngine {
     if (this._currentDifficulty > 1) {
       ctx.font = '500 11px Inter, sans-serif';
       ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
+      ctx.fillText(t('session.difficulty', { level: this._currentDifficulty }), w - 32, 58);
     }
 
     switch (this._phase) {
@@ -244,7 +248,7 @@ export class PatternBreakerEngine extends BaseEngine {
     ctx.font = '400 12px Inter, sans-serif';
     ctx.fillStyle = 'hsla(220, 15%, 55%, 0.6)';
     ctx.textAlign = 'center';
-    ctx.fillText(t('exercise.setSwitch.findAnomaly'), w / 2, 90);
+    ctx.fillText(t('exercise.patternBreaker.instruction', { defaultValue: 'Find the different one' }), w / 2, 90);
 
     // Draw each cell
     const cs = this._cellSize;
@@ -274,12 +278,12 @@ export class PatternBreakerEngine extends BaseEngine {
 
         ctx.translate(-shapeSize / 2, -shapeSize / 2);
         ctx.fillStyle = this._anomalyColor;
-        // Non-zero winding to ensure solid fills unless explicitly subtracted
-        ctx.fill(this._anomalyPath || this._basePath!, 'nonzero');
+        // Use evenodd to ensure internal holes (like Arrow missingElement) render correctly
+        ctx.fill(this._anomalyPath || this._basePath!, 'evenodd');
       } else {
         ctx.translate(-shapeSize / 2, -shapeSize / 2);
         ctx.fillStyle = this._baseColor;
-        ctx.fill(this._basePath!, 'nonzero');
+        ctx.fill(this._basePath!, 'evenodd');
       }
 
       ctx.restore();
@@ -325,7 +329,7 @@ export class PatternBreakerEngine extends BaseEngine {
   }
 
   protected on_cleanup(): void {
-    this.canvas.onclick = null;
+    this.canvas.onpointerdown = null;
   }
 
   // ── Logic ───────────────────────────────────────────────
@@ -498,32 +502,37 @@ export class PatternBreakerEngine extends BaseEngine {
       case 2: // Cross + dots
         {
           const corners = [[0.2, 0.2], [0.8, 0.2], [0.2, 0.8], [0.8, 0.8]];
+          const baseDotR = size * 0.05; // Locked to base scale to prevent confounding variables
+          
           if (mode === 'missing') {
-            const dotR = size * 0.06;
             for (let i = 0; i < 3; i++) {
               const [cx, cy] = corners[i]!;
-              p.moveTo(size * cx! + dotR, size * cy!);
-              p.arc(size * cx!, size * cy!, dotR, 0, Math.PI * 2);
+              p.moveTo(size * cx! + baseDotR, size * cy!);
+              p.arc(size * cx!, size * cy!, baseDotR, 0, Math.PI * 2);
             }
-          } else {
-            const dotR = size * 0.1;
+          } else { // count mode
             for (const [cx, cy] of corners) {
-              p.moveTo(size * cx! + dotR, size * cy!);
-              p.arc(size * cx!, size * cy!, dotR, 0, Math.PI * 2);
+              p.moveTo(size * cx! + baseDotR, size * cy!);
+              p.arc(size * cx!, size * cy!, baseDotR, 0, Math.PI * 2);
             }
+            // ADD a 5th dot in the center to change the count without changing scale
+            p.moveTo(hs + baseDotR, hs);
+            p.arc(hs, hs, baseDotR, 0, Math.PI * 2);
           }
         }
         break;
 
       default: // Diamond or Hexagon
-        const largeDotR = size * 0.12;
-        const smallDotR = size * 0.06;
+        const standardDotR = size * 0.08;
         if (mode === 'count') {
-          p.moveTo(hs + largeDotR, hs);
-          p.arc(hs, hs, largeDotR, 0, Math.PI * 2);
+          // Draw TWO dots to change count
+          p.moveTo(hs - standardDotR, hs);
+          p.arc(hs - standardDotR * 1.5, hs, standardDotR, 0, Math.PI * 2);
+          p.moveTo(hs + standardDotR, hs);
+          p.arc(hs + standardDotR * 1.5, hs, standardDotR, 0, Math.PI * 2);
         } else {
-          p.moveTo(hs + smallDotR, hs);
-          p.arc(hs, hs, smallDotR, 0, Math.PI * 2);
+          // 'missing' mode: do not draw the center dot at all.
+          // The base shape is already drawn in the calling block, we just don't add the dot.
         }
         break;
     }

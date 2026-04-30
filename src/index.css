@@ -141,7 +141,7 @@ body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background: 
+  background:
     radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), hsla(175, 70%, 50%, 0.08), transparent 25%),
     var(--color-bg-primary);
   background-attachment: fixed;
@@ -154,7 +154,7 @@ body::after {
   content: '';
   position: fixed;
   inset: 0;
-  background-image: 
+  background-image:
     radial-gradient(circle at 2px 2px, hsla(220, 20%, 30%, 0.15) 1px, transparent 0);
   background-size: 40px 40px;
   mask-image: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), black, transparent 80%);
@@ -224,6 +224,7 @@ button {
     opacity: 0;
     transform: translateY(12px) scale(0.98);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -258,11 +259,6 @@ button {
   border-color: hsla(175, 70%, 50%, 0.3);
   transform: translateY(-2px);
   box-shadow: 0 12px 32px hsla(0, 0%, 0%, 0.4), 0 0 0 1px hsla(175, 70%, 50%, 0.1);
-}
-
-.btn:active, .glass-panel:active {
-  transform: scale(0.97);
-  transition-duration: 100ms;
 }
 
 .glass-panel--glow:hover {
@@ -332,12 +328,10 @@ button {
   position: absolute;
   inset: 0;
   transform: translateX(-100%);
-  background: linear-gradient(
-    90deg,
-    transparent,
-    hsla(220, 20%, 40%, 0.1),
-    transparent
-  );
+  background: linear-gradient(90deg,
+      transparent,
+      hsla(220, 20%, 40%, 0.1),
+      transparent);
   animation: shimmer 1.5s infinite;
 }
 
@@ -758,16 +752,25 @@ button {
 
 .results-screen__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: var(--space-md);
   width: 100%;
   max-width: 700px;
+  box-sizing: border-box;
   margin-bottom: var(--space-xl);
 }
 
 .results-screen__actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: var(--space-md);
+  width: 100%;
+}
+
+.results-screen__actions button {
+  flex: 1 1 auto;
+  min-width: 160px;
 }
 
 .results-screen__insight {
@@ -990,10 +993,13 @@ button {
 }
 
 @keyframes breathe {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 0.8;
     transform: scale(1);
   }
+
   50% {
     opacity: 1;
     transform: scale(1.02);
@@ -1069,7 +1075,8 @@ button {
   }
 
   ns-sidebar {
-    order: 2; /* Move to bottom in flex flow if needed, but absolute nav handles it */
+    order: 2;
+    /* Move to bottom in flex flow if needed, but absolute nav handles it */
   }
 
   .sidebar {
@@ -1102,7 +1109,7 @@ button {
     display: flex !important;
     flex-direction: column !important;
   }
-  
+
   .pillar-card {
     grid-column: span 6 !important;
     margin-bottom: var(--space-sm);
@@ -1264,7 +1271,8 @@ button {
   gap: var(--space-xl);
 }
 
-.pillar-info-card, .pillar-history-card {
+.pillar-info-card,
+.pillar-history-card {
   padding: var(--space-xl);
 }
 
@@ -1416,7 +1424,7 @@ button {
     color: var(--color-text-tertiary) !important;
     pointer-events: auto !important;
   }
-  
+
   .exercise-item {
     flex-direction: column;
     align-items: flex-start;
@@ -1446,6 +1454,7 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
 /* ── Baseline Onboarding ── */
 .baseline-page {
   display: flex;

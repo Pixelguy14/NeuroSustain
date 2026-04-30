@@ -106,8 +106,10 @@ export abstract class BaseEngine {
 
     this._resize_canvas();
 
-    // Unlock audio on first user interaction
+    // Unlock audio on first user interaction and start ambience
     audioEngine.unlock();
+    audioEngine.start_ambience();
+    audioEngine.duckAmbience(); // Duck during countdown
 
     // Input handlers
     this._keyHandler = (e: KeyboardEvent) => this._on_key(e);
@@ -131,6 +133,7 @@ export abstract class BaseEngine {
     if (this._resizeHandler) window.removeEventListener('resize', this._resizeHandler);
     if (this._clickHandler) this.canvas.removeEventListener('pointerdown', this._clickHandler);
     
+    audioEngine.duckAmbience();
     audioEngine.stop_all_session_audio();
     this.on_cleanup();
   }
@@ -218,10 +221,18 @@ export abstract class BaseEngine {
     this.state = 'complete';
     cancelAnimationFrame(this._animFrameId);
 
-    const validRTs = this.trials
-      .filter(t => t.isCorrect && t.reactionTimeMs >= TIMING.MIN_REACTION_MS && t.reactionTimeMs <= this.validReactionTimeMax)
-      .map(t => t.reactionTimeMs);
-    const correctCount = this.trials.filter(t => t.isCorrect).length;
+    let validRTs: number[] = [];
+    let correctCount = 0;
+    
+    for (let i = 0; i < this.trials.length; i++) {
+      const t = this.trials[i]!;
+      if (t.isCorrect) {
+        correctCount++;
+        if (t.reactionTimeMs >= TIMING.MIN_REACTION_MS && t.reactionTimeMs <= this.validReactionTimeMax) {
+          validRTs.push(t.reactionTimeMs);
+        }
+      }
+    }
 
     const accuracy = compute_accuracy(correctCount, this.trials.length);
     const meanRT = compute_mean(validRTs);
@@ -229,7 +240,10 @@ export abstract class BaseEngine {
     const cv = compute_cv(validRTs);
     const focusScore = compute_focus_score(accuracy, cv);
 
-    const difficultyHistory = this.trials.map(t => t.difficulty);
+    const difficultyHistory: number[] = [];
+    for (let i = 0; i < this.trials.length; i++) {
+      difficultyHistory.push(this.trials[i]!.difficulty);
+    }
     const meanDifficulty = compute_mean(difficultyHistory);
 
     const results: TrialResults = {

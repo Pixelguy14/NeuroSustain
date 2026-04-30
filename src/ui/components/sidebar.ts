@@ -51,11 +51,7 @@ export class SidebarNav extends HTMLElement {
           `).join('')}
         </nav>
         <div class="sidebar__footer">
-          <div class="privacy-badge" style="display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--color-success); opacity: 0.8; margin-bottom: 8px;">
-            <span class="icon" style="font-size: 14px;">verified_user</span>
-            Local-First Encryption
-          </div>
-          <span class="sidebar__version">v4.2.0 · Production Hardened</span>
+          <span class="sidebar__version">v0.2.3 · Production v3</span>
         </div>
       </aside>
 
