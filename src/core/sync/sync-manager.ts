@@ -52,6 +52,8 @@ export class SyncManager {
   }
 
   private async _sync_profile(userId: string): Promise<string> {
+    if (!userId) throw new Error('Cannot sync profile without user ID');
+
     const profile = await db.profile.toCollection().first();
     if (!profile) throw new Error('Local profile not found');
 
@@ -69,10 +71,13 @@ export class SyncManager {
       .single();
 
     if (error) throw error;
+    if (!data?.id) throw new Error('Failed to retrieve profile ID after upsert');
     return data.id;
   }
 
   private async _sync_ratings(profileId: string): Promise<void> {
+    if (!profileId) return;
+
     const ratings = await db.ratings.toArray();
     if (ratings.length === 0) return;
 
@@ -82,12 +87,12 @@ export class SyncManager {
       rating: r.rating,
       rd: r.rd,
       volatility: r.volatility,
-      last_updated: new Date(r.lastUpdated).toISOString(),
+      last_updated: r.lastUpdated, // Matches BIGINT in DB
     }));
 
     const { error } = await supabase!
       .from('ratings')
-      .upsert(payload, { onConflict: 'profile_id, pillar' });
+      .upsert(payload, { onConflict: 'profile_id,pillar' }); // No space in onConflict
 
     if (error) throw error;
   }
@@ -110,7 +115,7 @@ export class SyncManager {
           accuracy: s.accuracy,
           mean_rt: s.meanReactionTimeMs,
           focus_score: s.focusScore,
-          started_at: new Date(s.startedAt).toISOString(),
+          started_at: s.startedAt, // Matches BIGINT in DB
         });
 
       if (!error) {
