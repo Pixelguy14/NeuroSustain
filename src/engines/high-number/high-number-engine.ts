@@ -129,35 +129,33 @@ export class HighNumberEngine extends BaseEngine {
     const w = this.width;
     const h = this.height;
     const cx = w / 2;
+    const cy = h / 2;
 
     ctx.fillStyle = 'hsl(225, 45%, 6%)';
     ctx.fillRect(0, 0, w, h);
 
-    // HUD
-    ctx.font = '500 14px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.8)';
-    ctx.textAlign = 'right';
-    ctx.fillText(`${this.currentTrial} / ${this.totalTrials}`, w - 32, 40);
+    // Background texture
+    this.draw_background_mesh(ctx, w, h);
 
-    if (this._currentDifficulty > 1) {
-      ctx.font = '500 11px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
-    }
+    // HUD
+    this.draw_hud(ctx, w);
 
     switch (this._phase) {
       case 'countdown':
         break;
 
       case 'presenting':
+        this._render_numbers(ctx);
+        ctx.font = '800 10px Outfit, sans-serif';
+        ctx.fillStyle = 'hsla(220, 15%, 50%, 0.6)';
+        ctx.textAlign = 'center';
+        ctx.fillText(t('exercise.highNumber.instruction').toUpperCase(), cx, h - 60);
+        break;
+
       case 'feedback':
         this._render_numbers(ctx);
-        if (this._phase === 'presenting') {
-          ctx.font = '400 14px Inter, sans-serif';
-          ctx.fillStyle = 'hsla(220, 15%, 50%, 0.6)';
-          ctx.textAlign = 'center';
-          ctx.fillText(t('exercise.highNumber.instruction'), cx, h - 40);
-        }
+        const progress = (precise_now() - this._phaseStart) / 1200;
+        this.draw_feedback_orb(ctx, cx, cy, this._selectedValue === this._correctValue, progress);
         break;
 
       case 'between':
@@ -340,10 +338,19 @@ export class HighNumberEngine extends BaseEngine {
         ctx.rotate(opt.rotation);
       }
 
-      // Glow behind number
-      const glowR = opt.fontSize * 0.8;
+      // Premium Glass Orb effect
+      const glowR = opt.fontSize * 0.9;
+      
+      // Outer subtle ring
+      ctx.beginPath();
+      ctx.arc(0, 0, glowR, 0, Math.PI * 2);
+      ctx.strokeStyle = 'hsla(220, 20%, 50%, 0.1)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Inner radial glow
       const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, glowR);
-      glow.addColorStop(0, 'hsla(220, 30%, 20%, 0.3)');
+      glow.addColorStop(0, 'hsla(220, 30%, 20%, 0.4)');
       glow.addColorStop(1, 'transparent');
       ctx.fillStyle = glow;
       ctx.beginPath();
@@ -351,25 +358,32 @@ export class HighNumberEngine extends BaseEngine {
       ctx.fill();
 
       // Number text
-      ctx.font = `bold ${opt.fontSize}px Inter, sans-serif`;
+      ctx.font = `bold ${opt.fontSize}px Outfit, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
       // Color: during feedback, highlight correct/incorrect
       if (this._phase === 'feedback') {
         if (opt.value === this._correctValue) {
-          ctx.fillStyle = 'hsl(145, 65%, 55%)'; // Green = correct answer
+          ctx.fillStyle = 'hsl(145, 65%, 55%)'; 
+          ctx.shadowColor = 'hsl(145, 65%, 55%)';
+          ctx.shadowBlur = 15;
         } else if (opt.value === this._selectedValue) {
-          ctx.fillStyle = 'hsl(0, 75%, 55%)'; // Red = wrong selection
+          ctx.fillStyle = 'hsl(0, 75%, 55%)';
+          ctx.shadowColor = 'hsl(0, 75%, 55%)';
+          ctx.shadowBlur = 15;
         } else {
-          ctx.fillStyle = 'hsla(220, 15%, 55%, 0.3)';
+          ctx.fillStyle = 'hsla(220, 15%, 55%, 0.2)';
         }
       } else {
-        ctx.fillStyle = 'hsl(220, 20%, 88%)';
+        ctx.fillStyle = 'white';
+        // Subtle depth
+        ctx.shadowColor = 'rgba(0,0,0,0.3)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetY = 2;
       }
 
       ctx.fillText(String(opt.value), 0, 0);
-
       ctx.restore();
     }
   }

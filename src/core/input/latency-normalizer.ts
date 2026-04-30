@@ -5,6 +5,7 @@
 // ============================================================
 
 import { get_hardware_profile } from '@shared/db.ts';
+import type { HardwareProfile } from '@shared/types.ts';
 
 /**
  * Strips the measured hardware jitter from the raw reaction time.
@@ -22,6 +23,14 @@ export async function clean_reaction_time(rawRT: number): Promise<number> {
   
   // Floor to 100ms to prevent impossible values if hardware noise was artificially high
   return Math.max(100, cleanRT);
+}
+
+/** Synchronous variant for hot-path usage (profile pre-cached at session start) */
+export function clean_reaction_time_sync(rawRT: number, profile: HardwareProfile | null): number {
+  if (!profile) return rawRT;
+  const timerRes = profile.timerResolutionMs || 0;
+  const jitterPenalty = (profile.jitterSdMs || 0) * 0.5;
+  return Math.max(100, rawRT - timerRes - jitterPenalty);
 }
 
 /**

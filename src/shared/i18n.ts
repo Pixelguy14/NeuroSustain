@@ -56,9 +56,10 @@ export function on_locale_change(fn: () => void): () => void {
  * Variables use {name} syntax: t('insight.hydration', { delta: '12' })
  */
 export function t(key: string, vars?: Record<string, string | number>): string {
-  let text = _translations[key] ?? key;
+  let text = _translations[key] ?? (vars?.defaultValue as string) ?? key;
   if (vars) {
     for (const [k, v] of Object.entries(vars)) {
+      if (k === 'defaultValue') continue;
       text = text.replaceAll(`{${k}}`, String(v));
     }
   }

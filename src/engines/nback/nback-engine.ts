@@ -21,7 +21,7 @@ import { precise_now } from '@shared/utils.ts';
 import { audioEngine } from '@core/audio/audio-engine.ts';
 import { t } from '@shared/i18n.ts';
 
-type Phase = 'tutorial' | 'countdown' | 'stimulus' | 'response' | 'feedback' | 'done';
+type Phase = 'tutorial' | 'countdown' | 'stimulus' | 'response' | 'feedback' | 'message' | 'done';
 
 interface Stimulus {
   position: number; // 0-8 on a 3x3 grid
@@ -40,6 +40,9 @@ export class NBackEngine extends BaseEngine {
   private _phase: Phase = 'countdown';
   private _phaseStart: number = 0;
   private _isDual: boolean = false;
+  private _lastN: number = 0;
+  private _lastDual: boolean = false;
+  private _alertMsg: string = '';
   private _stimulusDurationMs: number = 2000;
   private _interStimulusMs: number = 500;
 
@@ -66,6 +69,7 @@ export class NBackEngine extends BaseEngine {
   private _previousN: number = 1;
   private _previousIsDual: boolean = false;
   private _warmupTrialsRemaining: number = 0;
+  private _correctPos: number | null = null; // Position to highlight on miss
 
   // Split Reaction Times
   private _posReactionMs: number | null = null;
@@ -75,6 +79,8 @@ export class NBackEngine extends BaseEngine {
   private _gridX: number = 0;
   private _gridY: number = 0;
   private _cellSize: number = 0;
+  private _btnPressL: number = 0;
+  private _btnPressA: number = 0;
 
   constructor(canvas: HTMLCanvasElement, callbacks: EngineCallbacks) {
     super(canvas, callbacks);
@@ -87,8 +93,8 @@ export class NBackEngine extends BaseEngine {
     this._configure_difficulty();
     this._compute_grid_geometry();
 
-    // Always allocate for maximum possible N (3) to prevent dynamic resizing crashes
-    this._buffer = Array.from({ length: 3 }, () => ({ position: -1, soundIndex: -1 }));
+    // Always allocate for maximum possible N (up to 9) to prevent dynamic resizing crashes
+    this._buffer = Array.from({ length: 10 }, () => ({ position: -1, soundIndex: -1 }));
     this._bufferIndex = 0;
     this._trialNumber = 0;
     this._previousN = this._n;
@@ -151,41 +157,31 @@ export class NBackEngine extends BaseEngine {
     const h = this.height;
     const cx = w / 2;
     const cy = h / 2;
+    const isMobile = w < 600;
 
     ctx.fillStyle = 'hsl(225, 45%, 6%)';
     ctx.fillRect(0, 0, w, h);
 
-    // HUD
-    ctx.font = '500 14px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.8)';
-    ctx.textAlign = 'right';
-    ctx.fillText(`${this.currentTrial} / ${this.totalTrials}`, w - 32, 40);
+    // Background texture
+    this.draw_background_mesh(ctx, w, h);
 
-    // N-Back level indicator
-    ctx.textAlign = 'left';
-    ctx.fillStyle = 'hsla(175, 70%, 50%, 0.7)';
+    // HUD
+    this.draw_hud(ctx, w);
+
     const modeName = this._isDual ? t('exercise.nback.modeDual', { defaultValue: 'Dual' }) : t('exercise.nback.modeSingle', { defaultValue: 'Single' });
     const backLabel = t('exercise.nback.backLabel', { n: this._n, defaultValue: `${this._n}-Back` });
-    ctx.fillText(`${backLabel} ${modeName}`, 32, 40);
-
-    if (this._currentDifficulty > 1) {
-      ctx.font = '500 11px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.textAlign = 'right';
-      ctx.fillText(t('session.difficulty', { level: this._currentDifficulty }), w - 32, 58);
-    }
+    this.draw_status_badge(ctx, 32, 52, `${backLabel} ${modeName}`, 'hsla(175, 70%, 50%, 0.7)', 'left');
 
     switch (this._phase) {
       case 'tutorial': {
-        ctx.fillStyle = 'hsla(225, 45%, 12%, 0.9)';
-        ctx.fillRect(cx - 240, cy - 140, 480, 280);
+        this.draw_glass_panel(ctx, cx - 240, cy - 140, 480, 280, 20);
 
-        ctx.font = 'bold 24px Inter, sans-serif';
-        ctx.fillStyle = 'hsl(220, 20%, 90%)';
+        ctx.font = '800 24px Outfit, sans-serif';
+        ctx.fillStyle = 'white';
         ctx.textAlign = 'center';
         ctx.fillText(t('exercise.nback.tutorialTitle', { defaultValue: 'N-Back Tutorial' }), cx, cy - 80);
 
-        ctx.font = '400 15px Inter, sans-serif';
+        ctx.font = '500 15px Outfit, sans-serif';
         ctx.fillStyle = 'hsla(220, 15%, 70%, 0.9)';
         const textY = cy - 30;
         const nText = this._n === 1 ? t('exercise.nback.oneStep', { defaultValue: '1 step' }) : t('exercise.nback.nSteps', { n: this._n, defaultValue: `${this._n} steps` });
@@ -198,9 +194,9 @@ export class NBackEngine extends BaseEngine {
           ctx.fillText(t('exercise.nback.singlePos', { n: nText, defaultValue: `Match POSITION ${nText} back` }), cx, textY);
         }
 
-        ctx.font = '500 13px Inter, sans-serif';
+        ctx.font = '800 11px Outfit, sans-serif';
         ctx.fillStyle = 'hsla(175, 70%, 50%, 0.8)';
-        ctx.fillText(this.width < 600 ? t('exercise.nback.tapStart', { defaultValue: 'TAP TO START' }) : t('exercise.nback.keyStart', { defaultValue: 'Press ANY KEY to start...' }), cx, cy + 100);
+        ctx.fillText(this.width < 600 ? t('exercise.nback.tapStart', { defaultValue: 'TAP TO START' }) : t('exercise.nback.keyStart', { defaultValue: 'PRESS ANY KEY TO START' }), cx, cy + 100);
         break;
       }
 
@@ -216,22 +212,51 @@ export class NBackEngine extends BaseEngine {
         this._render_grid(ctx, false);
         // Show brief feedback inline
         if (this._feedbackMsg) {
-          ctx.font = 'bold 16px Inter, sans-serif';
+          ctx.font = 'bold 16px Outfit, sans-serif';
           ctx.fillStyle = this._feedbackColor;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(this._feedbackMsg, cx, this._gridY - 30);
+          ctx.fillText(this._feedbackMsg, cx, this._gridY - 35);
         }
         this._render_controls(ctx);
         break;
 
       case 'feedback':
         this._render_grid(ctx, false);
-        ctx.font = 'bold 18px Inter, sans-serif';
-        ctx.fillStyle = this._feedbackColor;
+        // "Clearer Feedback on Misses": Highlight correct position if it was missed
+        if (this._correctPos !== null) {
+          const row = Math.floor(this._correctPos / GRID_SIZE);
+          const col = this._correctPos % GRID_SIZE;
+          const x = this._gridX + col * (this._cellSize + CELL_GAP);
+          const y = this._gridY + row * (this._cellSize + CELL_GAP);
+
+          ctx.beginPath();
+          ctx.roundRect(x, y, this._cellSize, this._cellSize, 6);
+          ctx.fillStyle = 'hsla(45, 80%, 60%, 0.4)'; // Soft yellow
+          ctx.fill();
+          ctx.strokeStyle = 'hsla(45, 80%, 60%, 0.8)';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+        const progress = (precise_now() - this._phaseStart) / 600;
+        this.draw_feedback_orb(ctx, cx, cy - 20, this._feedbackMsg === '✓', progress);
+        break;
+
+      case 'message':
+        this._render_grid(ctx, false);
+        this.draw_glass_panel(ctx, cx - 180, cy - 80, 360, 160, 20);
+        ctx.font = '800 18px Outfit, sans-serif';
+        ctx.fillStyle = 'white';
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(this._feedbackMsg, cx, this._gridY - 30);
+        ctx.fillText(t('exercise.nback.taskChanged', { defaultValue: 'TASK CHANGED' }), cx, cy - 30);
+
+        ctx.font = '500 14px Outfit, sans-serif';
+        ctx.fillStyle = 'hsla(220, 15%, 70%, 0.9)';
+        ctx.fillText(this._alertMsg, cx, cy + 10);
+
+        ctx.font = '800 11px Outfit, sans-serif';
+        ctx.fillStyle = 'hsla(175, 70%, 50%, 0.8)';
+        ctx.fillText(isMobile ? t('exercise.nback.tapToContinue', { defaultValue: 'TAP TO CONTINUE' }) : t('exercise.nback.keyToContinue', { defaultValue: 'PRESS ANY KEY TO CONTINUE' }), cx, cy + 50);
         break;
 
       case 'done':
@@ -243,16 +268,16 @@ export class NBackEngine extends BaseEngine {
     // Permanent HUD instruction
     const cx = this.width / 2;
     ctx.textAlign = 'center';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.8)';
-    ctx.font = '400 13px Inter, sans-serif';
+    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.6)';
+    ctx.font = '800 10px Outfit, sans-serif';
     const nText = this._n === 1
       ? t('exercise.nback.oneStep', { defaultValue: '1 step' })
       : t('exercise.nback.nSteps', { n: this._n, defaultValue: `${this._n} steps` });
 
     if (this._isDual) {
-      ctx.fillText(t('exercise.nback.matchBoth', { n: nText, defaultValue: `Match Position & Sound ${nText} back` }), cx, this._gridY - 20);
+      ctx.fillText(t('exercise.nback.matchBoth', { n: nText, defaultValue: `MATCH POSITION & SOUND ${nText} BACK` }).toUpperCase(), cx, this._gridY - 20);
     } else {
-      ctx.fillText(t('exercise.nback.matchPosOnly', { n: nText, defaultValue: `Match Position ${nText} back` }), cx, this._gridY - 20);
+      ctx.fillText(t('exercise.nback.matchPosOnly', { n: nText, defaultValue: `MATCH POSITION ${nText} BACK` }).toUpperCase(), cx, this._gridY - 20);
     }
 
     for (let row = 0; row < GRID_SIZE; row++) {
@@ -269,13 +294,16 @@ export class NBackEngine extends BaseEngine {
           ctx.fillStyle = 'hsl(175, 70%, 50%)';
           ctx.fill();
           ctx.shadowColor = 'hsl(175, 70%, 50%)';
-          ctx.shadowBlur = 20;
+          ctx.shadowBlur = 24;
           ctx.fill();
           ctx.shadowBlur = 0;
+
+          ctx.strokeStyle = 'white';
+          ctx.lineWidth = 2;
+          ctx.stroke();
         } else {
           // Inactive cell
-          ctx.fillStyle = 'hsla(225, 25%, 15%, 0.5)';
-          ctx.fill();
+          this.draw_glass_panel(ctx, x, y, this._cellSize, this._cellSize, 8);
           ctx.strokeStyle = 'hsla(220, 20%, 30%, 0.4)';
           ctx.lineWidth = 1;
           ctx.stroke();
@@ -290,51 +318,67 @@ export class NBackEngine extends BaseEngine {
     const btnY = this._gridY + GRID_SIZE * (this._cellSize + CELL_GAP) + (isMobile ? 40 : 30);
     const cx = this.width / 2;
 
-    ctx.font = `600 ${isMobile ? 16 : 13}px Inter, sans-serif`;
+    ctx.font = `800 ${isMobile ? 12 : 10}px Outfit, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    const btnW = isMobile ? 140 : 100;
-    const gap = isMobile ? 20 : 60;
+    const btnW = isMobile ? 130 : 110;
+    const gap = isMobile ? 20 : 40;
+    const now = precise_now();
 
-    // Position match key
-    const lx = cx - gap / 2 - btnW / 2;
-    ctx.beginPath();
-    ctx.roundRect(lx - btnW / 2, btnY, btnW, btnH, 12);
-    ctx.fillStyle = this._userPressedL
-      ? 'hsla(175, 60%, 30%, 0.8)'
-      : 'hsla(225, 25%, 15%, 0.5)';
-    ctx.fill();
-    ctx.strokeStyle = this._userPressedL
-      ? 'hsl(175, 70%, 50%)'
-      : 'hsla(220, 20%, 30%, 0.4)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.fillStyle = 'hsl(175, 70%, 55%)';
-    const posLabel = isMobile ? t('exercise.nback.posLabelMobile') : t('exercise.nback.posLabel', { defaultValue: '[L] Position' });
-    ctx.fillText(posLabel, lx, btnY + btnH / 2);
+    // Position match button
+    const lx = cx - gap / 2 - btnW;
+    const posLabel = isMobile ? t('exercise.nback.posLabelMobile') : t('exercise.nback.posLabel', { defaultValue: 'Position' });
+    const isLActive = now - this._btnPressL < 100;
+
+    this.draw_tactile_button(
+      ctx, lx, btnY, btnW, btnH,
+      posLabel,
+      {
+        bg: isLActive ? 'hsla(175, 60%, 30%, 0.8)' : 'hsla(225, 25%, 15%, 0.6)',
+        stroke: isLActive ? 'hsl(175, 70%, 50%)' : 'hsla(220, 20%, 35%, 0.3)',
+        text: isLActive ? 'white' : 'hsl(175, 70%, 55%)'
+      },
+      isLActive
+    );
+    if (!isMobile) {
+      ctx.font = '800 9px Outfit, sans-serif';
+      ctx.fillStyle = 'hsla(220, 15%, 50%, 0.5)';
+      ctx.fillText('[L]', lx + btnW / 2, btnY + btnH + 12);
+    }
 
     if (this._isDual) {
-      // Audio match key
-      const ax = cx + gap / 2 + btnW / 2;
-      ctx.beginPath();
-      ctx.roundRect(ax - btnW / 2, btnY, btnW, btnH, 12);
-      ctx.fillStyle = this._userPressedA
-        ? 'hsla(280, 60%, 30%, 0.8)'
-        : 'hsla(225, 25%, 15%, 0.5)';
-      ctx.fill();
-      ctx.strokeStyle = this._userPressedA
-        ? 'hsl(280, 60%, 55%)'
-        : 'hsla(220, 20%, 30%, 0.4)';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.fillStyle = 'hsl(280, 60%, 60%)';
-      const audioLabel = isMobile ? t('exercise.nback.audioLabelMobile') : t('exercise.nback.audioLabel', { defaultValue: '[A] Audio' });
-      ctx.fillText(audioLabel, ax, btnY + btnH / 2);
+      // Audio match button
+      const ax = cx + gap / 2;
+      const audioLabel = isMobile ? t('exercise.nback.audioLabelMobile') : t('exercise.nback.audioLabel', { defaultValue: 'Audio' });
+      const isAActive = now - this._btnPressA < 100;
+
+      this.draw_tactile_button(
+        ctx, ax, btnY, btnW, btnH,
+        audioLabel,
+        {
+          bg: isAActive ? 'hsla(280, 60%, 30%, 0.8)' : 'hsla(225, 25%, 15%, 0.6)',
+          stroke: isAActive ? 'hsl(280, 60%, 55%)' : 'hsla(220, 20%, 35%, 0.3)',
+          text: isAActive ? 'white' : 'hsl(280, 60%, 60%)'
+        },
+        isAActive
+      );
+      if (!isMobile) {
+        ctx.font = '800 9px Outfit, sans-serif';
+        ctx.fillStyle = 'hsla(220, 15%, 50%, 0.5)';
+        ctx.fillText('[A]', ax + btnW / 2, btnY + btnH + 12);
+      }
     }
   }
 
   protected on_key_down(code: string, _timestamp: number): void {
+    if (this._phase === 'message') {
+      this._phase = 'countdown';
+      this._phaseStart = precise_now();
+      this.start_countdown(() => this._present_stimulus());
+      return;
+    }
+
     if (this._phase === 'tutorial') {
       this._phase = 'countdown';
       this._phaseStart = precise_now();
@@ -346,11 +390,13 @@ export class NBackEngine extends BaseEngine {
     if (code === 'KeyL') {
       if (!this._userPressedL) {
         this._userPressedL = true;
+        this._btnPressL = precise_now();
         if (!this._posReactionMs) this._posReactionMs = precise_now() - this._phaseStart;
       }
     } else if (code === 'KeyA' && this._isDual) {
       if (!this._userPressedA) {
         this._userPressedA = true;
+        this._btnPressA = precise_now();
         if (!this._audioReactionMs) this._audioReactionMs = precise_now() - this._phaseStart;
       }
     }
@@ -362,30 +408,59 @@ export class NBackEngine extends BaseEngine {
 
   // ── Logic ───────────────────────────────────────────────
 
-  private _configure_difficulty(): void {
+  private _configure_difficulty(): boolean {
     const diff = this._currentDifficulty;
 
+    // 1. Calculate future state without mutating current state yet
+    let nextN = 1;
+    let nextDual = false;
+    let nextStimulusDurationMs = 2500;
+    let nextInterStimulusMs = 500;
+
     if (diff <= 3) {
-      this._n = 1;
-      this._isDual = false; // Single N-Back (position only)
-      this._stimulusDurationMs = 2500;
-      this._interStimulusMs = 500;
+      nextN = 1; nextDual = false;
     } else if (diff <= 5) {
-      this._n = 1;
-      this._isDual = true; // Dual 1-Back
-      this._stimulusDurationMs = 2500;
-      this._interStimulusMs = 500;
+      nextN = 1; nextDual = true;
     } else if (diff <= 7) {
-      this._n = 2;
-      this._isDual = true; // Dual 2-Back
-      this._stimulusDurationMs = 2000;
-      this._interStimulusMs = 500;
+      nextN = 2; nextDual = true;
+      nextStimulusDurationMs = 2000;
     } else {
-      this._n = 3;
-      this._isDual = true; // Dual 3-Back
-      this._stimulusDurationMs = 2000;
-      this._interStimulusMs = 400;
+      nextN = 3; nextDual = true;
+      nextStimulusDurationMs = 2000;
+      nextInterStimulusMs = 400;
     }
+
+    // 2. THE INTERRUPT: Check for major rule transitions
+    if (this._lastN > 0 && (nextN !== this._lastN || nextDual !== this._lastDual)) {
+      if (nextN !== this._lastN) {
+        this._alertMsg = nextN > this._lastN
+          ? t('exercise.nback.alertNIncrease', { n: nextN, defaultValue: `NOW MATCHING ${nextN} STEPS BACK` })
+          : t('exercise.nback.alertNDecrease', { n: nextN, defaultValue: `NOW MATCHING ${nextN} STEPS BACK` });
+      } else {
+        this._alertMsg = nextDual
+          ? t('exercise.nback.alertDualEnabled', { defaultValue: 'NOW MATCHING BOTH POSITION & SOUND' })
+          : t('exercise.nback.alertDualDisabled', { defaultValue: 'NOW MATCHING POSITION ONLY' });
+      }
+
+      // Update tracking state so it bypasses on the next pass
+      this._lastN = nextN;
+      this._lastDual = nextDual;
+
+      this._phase = 'message';
+      this._phaseStart = precise_now();
+
+      return true; // Signal that an interrupt occurred
+    }
+
+    // 3. Apply the new difficulty settings if no interrupt occurred
+    this._n = nextN;
+    this._isDual = nextDual;
+    this._stimulusDurationMs = nextStimulusDurationMs;
+    this._interStimulusMs = nextInterStimulusMs;
+    this._lastN = nextN;
+    this._lastDual = nextDual;
+
+    return false; // No interrupt
   }
 
   private _compute_grid_geometry(): void {
@@ -405,6 +480,12 @@ export class NBackEngine extends BaseEngine {
 
     // Register click handlers for the two buttons
     this.canvas.onpointerdown = (e: MouseEvent) => {
+      if (this._phase === 'message') {
+        this._phase = 'countdown';
+        this.start_countdown(() => this._present_stimulus());
+        return;
+      }
+
       if (this._phase === 'tutorial') {
         this._phase = 'countdown';
         this.start_countdown(() => this._present_stimulus());
@@ -423,17 +504,19 @@ export class NBackEngine extends BaseEngine {
 
       if (y >= btnY && y <= btnY + btnH) {
         const cx = this.width / 2;
-        const btnW = isMobile ? 140 : 100;
-        const gap = isMobile ? 20 : 60;
+        const btnW = isMobile ? 130 : 110;
+        const gap = isMobile ? 20 : 40;
 
         if (x >= cx - gap / 2 - btnW && x <= cx - gap / 2) {
           if (!this._userPressedL) {
             this._userPressedL = true;
+            this._btnPressL = precise_now();
             if (!this._posReactionMs) this._posReactionMs = precise_now() - this._phaseStart;
           }
         } else if (this._isDual && x >= cx + gap / 2 && x <= cx + gap / 2 + btnW) {
           if (!this._userPressedA) {
             this._userPressedA = true;
+            this._btnPressA = precise_now();
             if (!this._audioReactionMs) this._audioReactionMs = precise_now() - this._phaseStart;
           }
         }
@@ -442,7 +525,12 @@ export class NBackEngine extends BaseEngine {
   }
 
   private _present_stimulus(): void {
-    this._configure_difficulty();
+    // 1. Check for rule changes and interrupt if necessary
+    const wasInterrupted = this._configure_difficulty();
+    if (wasInterrupted) {
+      return; // CRITICAL ABORT: Stop executing and wait for user to dismiss the message
+    }
+
     this._trialNumber++;
 
     // Detect dynamic difficulty shift (N change or Dual change)
@@ -451,19 +539,19 @@ export class NBackEngine extends BaseEngine {
       this._previousN = this._n;
       this._previousIsDual = this._isDual;
     }
-
-    if (this._warmupTrialsRemaining > 0) {
-      this._warmupTrialsRemaining--;
-    }
+    // Decrement happens in _evaluate_response to ensure the FULL trial window is skipped
 
     // Generate stimulus (ensure some matches occur ~30% of the time)
-    // To find N-back in a circular buffer of size 3: (current - N + 3) % 3
-    const lookbackIndex = (this._bufferIndex - this._n + 3) % 3;
+    // To find N-back in a circular buffer of size 10: (current - N + 10) % 10
+    const BUFFER_SIZE = 10;
+    const lookbackIndex = (this._bufferIndex - this._n + BUFFER_SIZE) % BUFFER_SIZE;
     const nBackStim = this._trialNumber > this._n ? this._buffer[lookbackIndex] : null;
 
     // VALIDATION: Only allow match if the buffered stimulus was valid (not -1)
-    const canPositionMatch = nBackStim && nBackStim.position !== -1;
-    const canAudioMatch = this._isDual && nBackStim && nBackStim.soundIndex !== -1;
+    // AND we are not in a warmup window (meaning the buffer contains stimuli from the PREVIOUS level)
+    const isWarmup = this._trialNumber <= this._n || this._warmupTrialsRemaining > 0;
+    const canPositionMatch = nBackStim && nBackStim.position !== -1 && !isWarmup;
+    const canAudioMatch = this._isDual && nBackStim && nBackStim.soundIndex !== -1 && !isWarmup;
 
     const shouldPositionMatch = canPositionMatch && Math.random() < 0.3;
     const shouldAudioMatch = canAudioMatch && Math.random() < 0.3;
@@ -492,8 +580,8 @@ export class NBackEngine extends BaseEngine {
     this._positionMatch = !!(canPositionMatch && position === nBackStim!.position);
     this._audioMatch = !!(canAudioMatch && soundIndex === nBackStim!.soundIndex);
 
-    // Write to circular buffer (Zero-Allocation: Static length 3)
-    this._buffer[this._bufferIndex % 3] = { position, soundIndex };
+    // Write to circular buffer (Zero-Allocation: Static length 10)
+    this._buffer[this._bufferIndex % 10] = { position, soundIndex };
     this._bufferIndex++;
 
     // Reset user input
@@ -502,6 +590,7 @@ export class NBackEngine extends BaseEngine {
     this._posReactionMs = null;
     this._audioReactionMs = null;
     this._feedbackMsg = '';
+    this._correctPos = null;
 
     // Play tone (audio-visual sync: same frame)
     if (this._isDual) {
@@ -517,6 +606,8 @@ export class NBackEngine extends BaseEngine {
 
     // Reject scoring if we are in initial warmup OR a dynamic shift warmup window
     if (this._trialNumber <= this._n || this._warmupTrialsRemaining > 0) {
+      if (this._warmupTrialsRemaining > 0) this._warmupTrialsRemaining--;
+
       this._feedbackMsg = '';
       this._phase = 'response';
       this._phaseStart = precise_now();
@@ -545,6 +636,15 @@ export class NBackEngine extends BaseEngine {
       this._feedbackColor = 'hsl(145, 65%, 55%)';
     } else {
       audioEngine.play_error();
+      if (posMiss) {
+        // Find lookback position for visual hint
+        const lookbackIndex = (this._bufferIndex - 1 - this._n + 10) % 10;
+        const nBackStim = this._buffer[lookbackIndex];
+        if (nBackStim && nBackStim.position !== -1) {
+          this._correctPos = nBackStim.position;
+        }
+      }
+
       const parts: string[] = [];
       if (posMiss || posFalseAlarm) parts.push(t('exercise.nback.posError', { defaultValue: 'Position ✗' }));
       if (audioMiss || audioFalseAlarm) parts.push(t('exercise.nback.audioError', { defaultValue: 'Audio ✗' }));

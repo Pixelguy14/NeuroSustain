@@ -14,6 +14,7 @@ import { BaseEngine } from '../base-engine.ts';
 import type { ExerciseType, CognitivePillar, EngineCallbacks } from '@shared/types.ts';
 import { precise_now } from '@shared/utils.ts';
 import { audioEngine } from '@core/audio/audio-engine.ts';
+import { t } from '@shared/i18n.ts';
 
 type Phase = 'countdown' | 'playing' | 'feedback';
 
@@ -69,6 +70,8 @@ export class BoxCountEngine extends BaseEngine {
   private _btnW: number = 0;
   private _btnH: number = 0;
   private _numpadGap: number = 8;
+  private _btnPressMs: Map<string, number> = new Map();
+  private _btnGradients: Map<string, CanvasGradient> = new Map();
 
   // We mount the WebGL canvas over the 2D canvas
   private _glCanvas: HTMLCanvasElement;
@@ -87,12 +90,14 @@ export class BoxCountEngine extends BaseEngine {
     this._glCanvas.style.height = '100%';
     this._glCanvas.style.pointerEvents = 'none'; // Let clicks pass to the 2D canvas if needed
     this._glCanvas.style.zIndex = '1';
+    this._glCanvas.style.touchAction = 'none'; // Prevent scroll interference
     
     // Explicitly position the 2D canvas on top
     this.canvas.style.position = 'absolute';
     this.canvas.style.top = '0';
     this.canvas.style.left = '0';
     this.canvas.style.zIndex = '2';
+    this.canvas.style.touchAction = 'none'; // Prevent scroll interference
     
     // Ensure the parent wrapper has relative positioning
     if (this.canvas.parentElement) {
@@ -135,7 +140,7 @@ export class BoxCountEngine extends BaseEngine {
 
   private _register_input_handlers(): void {
     try {
-      this.canvas.onpointerdown = (e: MouseEvent) => {
+      this.canvas.onpointerdown = (e: PointerEvent) => {
         if (this._phase !== 'playing') return;
         const rect = this.canvas.getBoundingClientRect();
         const scaleX = this.width / rect.width;
@@ -143,6 +148,7 @@ export class BoxCountEngine extends BaseEngine {
         const x = (e.clientX - rect.left) * scaleX;
         const y = (e.clientY - rect.top) * scaleY;
   
+        // 1. Check Numpad Buttons first
         for (const btn of NUMPAD_LAYOUT) {
           const bx = this._numpadX + btn.col * (this._btnW + this._numpadGap);
           const by = this._numpadY + btn.row * (this._btnH + this._numpadGap);
@@ -151,16 +157,9 @@ export class BoxCountEngine extends BaseEngine {
             return;
           }
         }
-      };
 
-      // Register drag handler for 3D rotation
-      this.canvas.onpointerdown = (e: PointerEvent) => {
-        if (this._phase !== 'playing') return;
-        const rect = this.canvas.getBoundingClientRect();
-        const scaleY = this.height / rect.height;
-        const y = (e.clientY - rect.top) * scaleY;
-        
-        // Ignore if clicking on the numpad area
+        // 2. If not on numpad, handle 3D Rotation (Drag)
+        // Ignore if clicking on the numpad area (the whole bottom block)
         const padAreaH = Math.min(220, this.height * 0.4);
         const numpadY = this.height - padAreaH - 10;
         if (y >= numpadY) return;
@@ -313,16 +312,7 @@ export class BoxCountEngine extends BaseEngine {
     }
 
     // HUD
-    ctx.font = '500 14px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.8)';
-    ctx.textAlign = 'right';
-    ctx.fillText(`${this.currentTrial} / ${this.totalTrials}`, w - 32, 40);
-
-    if (this._currentDifficulty > 1) {
-      ctx.font = '500 11px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
-    }
+    this.draw_hud(ctx, w);
 
     // Bring 2D canvas drawing to the front conceptually (by z-index config in constructor)
     // Wait, the constructor placed glCanvas with zIndex 1. 
@@ -338,16 +328,16 @@ export class BoxCountEngine extends BaseEngine {
     switch (this._phase) {
       case 'countdown':
         if (!this._isThreeLoaded && !this._loadError) {
-          ctx.font = '400 14px Inter, sans-serif';
+          ctx.font = '800 10px Outfit, sans-serif';
           ctx.fillStyle = 'hsla(220, 15%, 55%, 0.8)';
-          ctx.fillText('Loading 3D Engine...', cx, cy + 60);
+          ctx.fillText('LOADING 3D ENGINE...', cx, cy + 60);
         } else if (this._loadError) {
-          ctx.font = '500 14px Inter, sans-serif';
+          ctx.font = '800 11px Outfit, sans-serif';
           ctx.fillStyle = 'hsl(0, 70%, 60%)';
-          ctx.fillText(this._loadError, cx, cy + 60);
-          ctx.font = '400 12px Inter, sans-serif';
+          ctx.fillText(this._loadError.toUpperCase(), cx, cy + 60);
+          ctx.font = '800 9px Outfit, sans-serif';
           ctx.fillStyle = 'hsla(0, 0%, 100%, 0.5)';
-          ctx.fillText('Tap Abort to exit.', cx, cy + 85);
+          ctx.fillText('TAP ABORT TO EXIT', cx, cy + 85);
         }
         break;
 
@@ -357,7 +347,15 @@ export class BoxCountEngine extends BaseEngine {
 
       case 'feedback':
         this._render_ui(ctx, cx, w, h);
-        this._render_feedback(ctx, cx, cy);
+        const progress = (precise_now() - this._phaseStart) / 2000;
+        this.draw_feedback_orb(ctx, cx, cy - 60, this._isCorrect, progress);
+        if (!this._isCorrect) {
+          ctx.font = '800 12px Outfit, sans-serif';
+          ctx.fillStyle = 'hsla(0, 0%, 100%, 0.6)';
+          ctx.textAlign = 'center';
+          const feedbackY = h < 600 ? cy - 100 : cy - 60;
+          ctx.fillText(`ACTUAL COUNT: ${this._correctCount}`, cx, feedbackY + this.lastOrbRadius + 20);
+        }
         break;
     }
   }
@@ -391,74 +389,46 @@ export class BoxCountEngine extends BaseEngine {
     // Input area
     const inputY = this._numpadY - 45;
     
-    ctx.font = '400 13px Inter, sans-serif';
+    ctx.font = '800 10px Outfit, sans-serif';
     ctx.fillStyle = 'hsla(220, 15%, 60%, 0.9)';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('How many blocks total?', cx, inputY - 30);
-
+    ctx.fillText(t('exercise.blockCount3d.question'), cx, inputY - 30);
+ 
     const inputW = 140;
     const inputH = 44;
-    ctx.beginPath();
-    ctx.roundRect(cx - inputW / 2, inputY - inputH / 2, inputW, inputH, 8);
-    ctx.fillStyle = 'hsla(225, 30%, 12%, 0.8)';
-    ctx.fill();
+    this.draw_glass_panel(ctx, cx - inputW / 2, inputY - inputH / 2, inputW, inputH, 12);
     ctx.strokeStyle = this._userInput.length > 0
       ? 'hsla(175, 60%, 45%, 0.8)'
       : 'hsla(220, 20%, 30%, 0.5)';
     ctx.lineWidth = 2;
     ctx.stroke();
-
-    ctx.font = 'bold 24px Inter, sans-serif';
-    ctx.fillStyle = 'hsl(220, 20%, 90%)';
-    ctx.fillText(this._userInput || '…', cx, inputY);
+ 
+    ctx.font = 'bold 24px Outfit, sans-serif';
+    ctx.fillStyle = 'white';
+    ctx.fillText(this._userInput || '...', cx, inputY);
 
     // Render Numpad
+    const now = precise_now();
     for (const btn of NUMPAD_LAYOUT) {
       const bx = this._numpadX + btn.col * (this._btnW + this._numpadGap);
       const by = this._numpadY + btn.row * (this._btnH + this._numpadGap);
+      const isPressed = now - (this._btnPressMs.get(btn.value) || 0) < 100;
 
-      ctx.beginPath();
-      ctx.roundRect(bx, by, this._btnW, this._btnH, 8);
-      ctx.fillStyle = 'hsla(225, 30%, 15%, 0.8)';
-      ctx.fill();
-      ctx.strokeStyle = 'hsla(220, 20%, 35%, 0.5)';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-
-      ctx.font = `600 ${Math.min(this._btnH * 0.4, 20)}px Inter, sans-serif`;
-      ctx.fillStyle = 'hsl(220, 15%, 85%)';
-      
-      // Highlight special keys
-      if (btn.value === 'Enter') {
-        ctx.fillStyle = 'hsl(175, 70%, 55%)';
-      } else if (btn.value === 'Backspace') {
-        ctx.fillStyle = 'hsl(0, 65%, 65%)';
-      }
-
-      ctx.fillText(btn.label, bx + this._btnW / 2, by + this._btnH / 2);
+      this.draw_tactile_button(
+          ctx, bx, by, this._btnW, this._btnH,
+          btn.label,
+          {
+              bg: (this._btnGradients.get(btn.value) || 'hsla(225, 30%, 15%, 0.8)') as any,
+              stroke: isPressed ? 'white' : 'hsla(220, 20%, 35%, 0.5)',
+              text: btn.value === 'Enter' ? 'hsl(175, 70%, 55%)' : btn.value === 'Backspace' ? 'hsl(0, 65%, 65%)' : 'white'
+          },
+          isPressed
+      );
     }
   }
 
-  private _render_feedback(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
-    ctx.fillStyle = 'hsla(225, 45%, 6%, 0.8)';
-    ctx.fillRect(0, 0, this.width, this.height);
 
-    ctx.font = 'bold 48px Inter, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    if (this._isCorrect) {
-      ctx.fillStyle = 'hsl(145, 65%, 55%)';
-      ctx.fillText('✓', cx, cy - 20);
-    } else {
-      ctx.fillStyle = 'hsl(0, 75%, 55%)';
-      ctx.fillText('✗', cx, cy - 20);
-      ctx.font = '500 20px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(220, 15%, 60%, 0.9)';
-      ctx.fillText(`Actual count: ${this._correctCount}`, cx, cy + 30);
-    }
-  }
 
   protected on_key_down(code: string, _timestamp: number): void {
     if (this._phase !== 'playing') return;
@@ -484,19 +454,22 @@ export class BoxCountEngine extends BaseEngine {
 
     audioEngine.play_tick();
 
+    if (val === 'Backspace') {
+      this._btnPressMs.set('Backspace', precise_now());
+      this._userInput = this._userInput.slice(0, -1);
+      return;
+    }
+
     if (val === 'Enter') {
+      this._btnPressMs.set('Enter', precise_now());
       if (this._userInput.length > 0) {
         this._submit(parseInt(this._userInput, 10) === this._correctCount);
       }
       return;
     }
 
-    if (val === 'Backspace') {
-      this._userInput = this._userInput.slice(0, -1);
-      return;
-    }
-
     if (this._userInput.length < 3) {
+      this._btnPressMs.set(val, precise_now());
       this._userInput += val;
       if (!this._firstKeystrokeMs) this._firstKeystrokeMs = precise_now() - this._phaseStart;
     }
@@ -551,6 +524,18 @@ export class BoxCountEngine extends BaseEngine {
 
     this._userInput = '';
     this._firstKeystrokeMs = null;
+
+    // Pre-compute gradients
+    this._btnGradients.clear();
+    for (const btn of NUMPAD_LAYOUT) {
+        const bx = this._numpadX + btn.col * (this._btnW + this._numpadGap);
+        const by = this._numpadY + btn.row * (this._btnH + this._numpadGap);
+        const grad = this.ctx.createLinearGradient(bx, by, bx, by + this._btnH);
+        grad.addColorStop(0, 'hsla(225, 30%, 20%, 0.8)');
+        grad.addColorStop(1, 'hsla(225, 30%, 10%, 0.9)');
+        this._btnGradients.set(btn.value, grad);
+    }
+
     this._phase = 'playing';
     this._phaseStart = precise_now();
   }

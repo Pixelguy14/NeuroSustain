@@ -95,29 +95,25 @@ export class FreeDrawEngine extends BaseEngine {
     ctx.fillStyle = 'hsla(225, 45%, 6%, 0.85)';
     ctx.fillRect(0, 0, this.width, hudY);
     
-    ctx.font = '500 14px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 70%, 0.8)';
+    // Header (Move down to avoid exit button)
+    ctx.font = '800 10px Outfit, sans-serif';
+    ctx.fillStyle = 'hsla(175, 70%, 50%, 0.6)';
     ctx.textAlign = 'center';
-    ctx.fillText('REFRACTORY SESSION — FREE FLOW', this.width / 2, 25);
+    ctx.textBaseline = 'middle';
+    ctx.fillText('REFRACTORY SESSION — FREE FLOW', this.width / 2, 45);
 
     // "C — Clear" pill
     const pillW = 90;
     const pillH = 24;
     const pillX = this.width / 2 - pillW / 2;
-    const pillY = 38;
-    ctx.beginPath();
-    ctx.roundRect(pillX, pillY, pillW, pillH, pillH / 2);
-    ctx.fillStyle = 'hsla(225, 30%, 15%, 0.6)';
-    ctx.fill();
-    ctx.strokeStyle = 'hsla(220, 20%, 40%, 0.3)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    const pillY = 60;
+    this.draw_glass_panel(ctx, pillX, pillY, pillW, pillH, pillH / 2);
 
-    ctx.font = '500 11px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 60%, 0.8)';
+    ctx.font = '800 9px Outfit, sans-serif';
+    ctx.fillStyle = 'hsla(220, 15%, 85%, 0.9)';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('C  Clear', this.width / 2, pillY + pillH / 2);
+    ctx.fillText('C  CLEAR', this.width / 2, pillY + pillH / 2);
 
     ctx.restore();
   }

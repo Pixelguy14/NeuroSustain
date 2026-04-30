@@ -20,7 +20,7 @@ import { InputBridge, type InputEvent } from '@core/input/input-bridge.ts';
 import { audioEngine } from '@core/audio/audio-engine.ts';
 import { t } from '@shared/i18n.ts';
 
-type Phase = 'countdown' | 'encoding' | 'retention' | 'recall' | 'feedback';
+type Phase = 'countdown' | 'encoding' | 'retention' | 'recall' | 'feedback' | 'message';
 
 interface Pad {
   id: number;
@@ -94,9 +94,12 @@ export class PianoPlayerEngine extends BaseEngine {
   private _recallStartTime: number = 0;
   private _firstTapTime: number = 0; // Cognitive RT
   private _lastClickTime: number = 0;
+  private _btnGradients: CanvasGradient[] = [];
 
   private _inputBridge: InputBridge | null = null;
   private _isCorrect: boolean = false;
+  private _lastReverse: boolean = false;
+  private _alertMsg: string = '';
 
   constructor(canvas: HTMLCanvasElement, callbacks: EngineCallbacks) {
     super(canvas, callbacks);
@@ -110,6 +113,13 @@ export class PianoPlayerEngine extends BaseEngine {
 
     // Map canvas coordinates to pad IDs
     this._inputBridge = new InputBridge(this.canvas, (x, y) => {
+      if (this._phase === 'message') {
+        this._phase = 'countdown';
+        this._phaseStart = precise_now();
+        this.start_countdown(() => this._start_trial());
+        return null;
+      }
+      
       if (this._phase !== 'recall') return null;
       for (const pad of this._pads) {
         if (x >= pad.x && x <= pad.x + pad.w && y >= pad.y && y <= pad.y + pad.h) {
@@ -188,17 +198,11 @@ export class PianoPlayerEngine extends BaseEngine {
     ctx.fillStyle = 'hsl(225, 45%, 6%)';
     ctx.fillRect(0, 0, w, h);
 
-    // HUD
-    ctx.font = '500 14px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.8)';
-    ctx.textAlign = 'right';
-    ctx.fillText(`${this.currentTrial} / ${this.totalTrials}`, w - 32, 40);
+    // Background texture
+    this.draw_background_mesh(ctx, w, h);
 
-    if (this._currentDifficulty > 1) {
-      ctx.font = '500 11px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
-    }
+    // HUD
+    this.draw_hud(ctx, w);
 
     switch (this._phase) {
       case 'countdown':
@@ -206,14 +210,17 @@ export class PianoPlayerEngine extends BaseEngine {
 
       case 'encoding':
         this._render_pads(ctx);
-        ctx.font = '500 18px Inter, sans-serif';
+        const listenPillW = 120;
+        this.draw_glass_panel(ctx, cx - listenPillW / 2, 70, listenPillW, 30, 15);
+        ctx.font = 'bold 11px Outfit, sans-serif';
         ctx.fillStyle = 'hsla(220, 15%, 55%, 0.8)';
         ctx.textAlign = 'center';
-        ctx.fillText(t('exercise.pianoPlayer.listen'), cx, 60);
+        ctx.textBaseline = 'middle';
+        ctx.fillText(t('exercise.pianoPlayer.listen').toUpperCase(), cx, 85);
         break;
 
       case 'retention':
-        ctx.font = '500 18px Inter, sans-serif';
+        ctx.font = '800 14px Outfit, sans-serif';
         ctx.fillStyle = 'hsla(220, 15%, 55%, 0.5)';
         ctx.textAlign = 'center';
         ctx.fillText('...', cx, cy);
@@ -221,42 +228,59 @@ export class PianoPlayerEngine extends BaseEngine {
 
       case 'recall':
         this._render_pads(ctx);
-        this._render_visual_slots(ctx, cx, 75);
-        ctx.font = '600 16px Inter, sans-serif';
+        this._render_visual_slots(ctx, cx, 110);
         
         if (this._isReverse) {
           const pulse = Math.sin(precise_now() / 200) * 0.2 + 0.8;
-          ctx.font = 'bold 20px Inter, sans-serif';
+          ctx.font = '800 11px Outfit, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
           ctx.fillStyle = `hsla(30, 90%, 60%, ${pulse})`;
-          ctx.fillText('INPUT IN REVERSE ORDER', cx, 50);
+          ctx.fillText('REVERSE ORDER', cx, 85);
         } else {
-          ctx.font = '600 16px Inter, sans-serif';
+          const turnPillW = 120;
+          this.draw_glass_panel(ctx, cx - turnPillW / 2, 70, turnPillW, 30, 15);
+          ctx.font = 'bold 11px Outfit, sans-serif';
           ctx.fillStyle = 'hsl(145, 70%, 58%)';
-          ctx.fillText('Your Turn', cx, 50);
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('YOUR TURN', cx, 85);
         }
         break;
 
       case 'feedback':
         this._render_pads(ctx);
-        ctx.font = 'bold 32px Inter, sans-serif';
+        const progress = (precise_now() - this._phaseStart) / 1500;
+        this.draw_feedback_orb(ctx, cx, cy, this._isCorrect, progress);
+        break;
+
+      case 'message':
+        this._render_pads(ctx);
+        this.draw_glass_panel(ctx, cx - 180, cy - 80, 360, 160, 20);
+        ctx.font = '800 18px Outfit, sans-serif';
+        ctx.fillStyle = 'white';
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        if (this._isCorrect) {
-          ctx.fillStyle = 'hsl(145, 65%, 55%)';
-          ctx.fillText('✓', cx, 60);
-        } else {
-          ctx.fillStyle = 'hsl(0, 75%, 55%)';
-          ctx.fillText('✗', cx, 60);
-        }
+        ctx.fillText(t('exercise.piano.taskChanged', { defaultValue: 'TASK CHANGED' }), cx, cy - 30);
+        
+        ctx.font = '500 14px Outfit, sans-serif';
+        ctx.fillStyle = 'hsla(220, 15%, 70%, 0.9)';
+        ctx.fillText(this._alertMsg, cx, cy + 10);
+        
+        ctx.font = '800 11px Outfit, sans-serif';
+        ctx.fillStyle = 'hsla(175, 70%, 50%, 0.8)';
+        const isMobile = this.width < 600;
+        ctx.fillText(isMobile ? t('exercise.piano.tapToContinue', { defaultValue: 'TAP TO CONTINUE' }) : t('exercise.piano.keyToContinue', { defaultValue: 'PRESS ANY KEY TO CONTINUE' }), cx, cy + 50);
         break;
     }
   }
 
   private _render_pads(ctx: CanvasRenderingContext2D): void {
-    for (const pad of this._pads) {
+    const now = precise_now();
+    for (let i = 0; i < this._pads.length; i++) {
+      const pad = this._pads[i]!;
       let isActive = false;
       if (this._phase === 'encoding') {
-        const timeSinceNote = precise_now() - this._encodingNoteStart;
+        const timeSinceNote = now - this._encodingNoteStart;
         if (this._sequence[this._encodingIndex] === pad.id && timeSinceNote < this._noteDurationMs) {
           isActive = true;
         }
@@ -264,30 +288,40 @@ export class PianoPlayerEngine extends BaseEngine {
         isActive = true;
       }
 
+      const scale = isActive ? 1.05 : 1.0;
+      ctx.save();
+      ctx.translate(pad.x + pad.w / 2, pad.y + pad.h / 2);
+      ctx.scale(scale, scale);
+
       ctx.beginPath();
-      ctx.roundRect(pad.x, pad.y, pad.w, pad.h, 12);
+      ctx.roundRect(-pad.w / 2, -pad.h / 2, pad.w, pad.h, 12);
 
       if (isActive) {
-        ctx.fillStyle = pad.colorHsl;
+        ctx.fillStyle = this._btnGradients[i] || pad.colorHsl;
         ctx.fill();
         ctx.shadowColor = pad.colorHsl;
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 24;
         ctx.fill();
         ctx.shadowBlur = 0;
-      } else {
-        ctx.fillStyle = 'hsla(225, 30%, 15%, 0.6)';
-        ctx.fill();
-        ctx.strokeStyle = pad.idleStrokeStyle; // Cached — Zero-Allocation
+        
+        ctx.strokeStyle = 'white';
         ctx.lineWidth = 2;
+        ctx.stroke();
+      } else {
+        this.draw_glass_panel(ctx, -pad.w / 2, -pad.h / 2, pad.w, pad.h, 12);
+        ctx.strokeStyle = pad.idleStrokeStyle;
+        ctx.lineWidth = 1.5;
         ctx.stroke();
       }
 
-      // Key label pill (bottom-right of pad)
-      ctx.font = 'bold 11px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(220, 15%, 70%, 0.7)';
+      // Key label pill
+      ctx.font = '800 10px Outfit, sans-serif';
+      ctx.fillStyle = isActive ? 'white' : 'hsla(220, 15%, 70%, 0.4)';
       ctx.textAlign = 'right';
       ctx.textBaseline = 'bottom';
-      ctx.fillText(pad.keyLabel, pad.x + pad.w - 8, pad.y + pad.h - 6);
+      ctx.fillText(pad.keyLabel, pad.w / 2 - 10, pad.h / 2 - 8);
+      
+      ctx.restore();
     }
   }
 
@@ -336,6 +370,13 @@ export class PianoPlayerEngine extends BaseEngine {
   }
 
   protected on_key_down(code: string, _timestamp: number): void {
+    if (this._phase === 'message') {
+      this._phase = 'countdown';
+      this._phaseStart = precise_now();
+      this.start_countdown(() => this._start_trial());
+      return;
+    }
+    
     if (this._phase !== 'recall') return;
     
     // Map keyboard code to pad ID
@@ -409,6 +450,15 @@ export class PianoPlayerEngine extends BaseEngine {
       pad.x = startX + pad.col * (padW + gap);
       pad.y = startY + pad.row * (padH + gap);
     }
+
+    // Pre-compute gradients
+    this._btnGradients = [];
+    for (const pad of this._pads) {
+        const grad = this.ctx.createLinearGradient(pad.x, pad.y, pad.x, pad.y + pad.h);
+        grad.addColorStop(0, pad.colorHsl);
+        grad.addColorStop(1, pad.colorHsl.replace('60%)', '40%)'));
+        this._btnGradients.push(grad);
+    }
   }
 
   // Removed shuffle logic to preserve spatial mapping integrity
@@ -416,14 +466,37 @@ export class PianoPlayerEngine extends BaseEngine {
 
   private _start_trial(): void {
     const diff = this._currentDifficulty;
-    
+    const willBeReverse = diff >= 8;
+
+    // 1. THE INTERRUPT: Check for Mode Transition (Normal <-> Reverse)
+    // We only check if currentTrial > 0 to prevent pausing on the very first trial of a session.
+    if (this.currentTrial > 0 && willBeReverse !== this._lastReverse) {
+      this._alertMsg = willBeReverse
+        ? t('exercise.piano.alertReverse', { defaultValue: 'REVERSE ORDER: RECALL IN REVERSE' })
+        : t('exercise.piano.alertNormal', { defaultValue: 'NORMAL ORDER: RECALL IN ORDER' });
+
+      // Update state so the next pass bypasses this block
+      this._lastReverse = willBeReverse; 
+      
+      this._phase = 'message';
+      this._phaseStart = precise_now();
+      
+      // CRITICAL: Abort execution here. 
+      // The user's click will restart the countdown and call _start_trial() again cleanly.
+      return; 
+    }
+
+    // Set state for the first trial (or subsequent normal passes)
+    this._lastReverse = willBeReverse;
+
+    // 2. INITIALIZE GRID
     // Reset grid FIRST to ensure this._pads is correctly sized for current difficulty
     this._init_grid();
 
     let seqLength: number;
     if (diff <= 3) seqLength = 3;
     else if (diff <= 7) seqLength = 4 + Math.floor(Math.random() * 2); // 4-5
-    else seqLength = 5 + Math.floor(Math.random() * 2); // 5-6 (Reduced as per clinical polish manifesto)
+    else seqLength = 5 + Math.floor(Math.random() * 2); // 5-6
 
     this._sequence = [];
     for (let i = 0; i < seqLength; i++) {
@@ -434,8 +507,8 @@ export class PianoPlayerEngine extends BaseEngine {
       this._sequence.push(nextPad);
     }
 
-    // Level 8+: reverse recall
-    this._isReverse = diff >= 8;
+    // Determine Reverse Mode
+    this._isReverse = willBeReverse;
     this._recallSequence = this._isReverse ? [...this._sequence].reverse() : [...this._sequence];
 
     // Tempo: generous floors so each note can be encoded
@@ -448,13 +521,18 @@ export class PianoPlayerEngine extends BaseEngine {
     this._encodingNoteStart = precise_now();
     this._firstTapTime = 0;
     
-    // Grid already reset at start of function
-
     this._phase = 'encoding';
     this._phaseStart = precise_now();
   }
 
   private _on_input(event: InputEvent): void {
+    if (this._phase === 'message') {
+      this._phase = 'countdown';
+      this._phaseStart = precise_now();
+      this.start_countdown(() => this._start_trial());
+      return;
+    }
+
     if (this._phase !== 'recall') return;
     
     const padId = parseInt(event.value, 10);

@@ -38,13 +38,15 @@ export class ReactionTimeEngine extends BaseEngine {
   private _targetLabel: string = 'SPACE';
 
   // Session-specific active targets (max 3 valid colors)
-  private _activeTargets: { color: string; dark: string; key: string; label: string; name: string }[] = [];
+  private _activeTargets: { color: string; dark: string; key: string; label: string; nameKey: string }[] = [];
 
   // Visual animation state
   private _circleRadius: number = 0;
   private _circleTargetRadius: number = 0;
   private _pulsePhase: number = 0;
   private _feedbackOpacity: number = 0;
+  private _btnPressMs: Map<string, number> = new Map();
+  private _btnGradients: Map<string, CanvasGradient> = new Map();
 
   // Dynamic position (for level 3+ random placement, level 8+ movement)
   private _stimulusX: number = 0;
@@ -64,9 +66,9 @@ export class ReactionTimeEngine extends BaseEngine {
     // Select max 3 colors per session to avoid overwhelming the user
     // Green (Space) is always included as the baseline
     const allTargets = [
-      { color: 'hsl(210, 80%, 55%)', dark: 'hsl(210, 70%, 40%)', key: 'KeyW', label: 'PRESS W', name: 'BLUE' },
-      { color: 'hsl(45, 95%, 55%)', dark: 'hsl(45, 80%, 40%)', key: 'KeyS', label: 'PRESS S', name: 'YELLOW' },
-      { color: 'hsl(280, 70%, 60%)', dark: 'hsl(280, 60%, 45%)', key: 'KeyD', label: 'PRESS D', name: 'PURPLE' }
+      { color: 'hsl(210, 80%, 55%)', dark: 'hsl(210, 70%, 40%)', key: 'KeyW', label: 'PRESS W', nameKey: 'exercise.reaction.color.blue' },
+      { color: 'hsl(45, 95%, 55%)', dark: 'hsl(45, 80%, 40%)', key: 'KeyS', label: 'PRESS S', nameKey: 'exercise.reaction.color.yellow' },
+      { color: 'hsl(280, 70%, 60%)', dark: 'hsl(280, 60%, 45%)', key: 'KeyD', label: 'PRESS D', nameKey: 'exercise.reaction.color.purple' }
     ];
     
     // Shuffle and pick 2 distractors
@@ -76,7 +78,7 @@ export class ReactionTimeEngine extends BaseEngine {
     }
     
     this._activeTargets = [
-      { color: 'hsl(145, 70%, 58%)', dark: 'hsl(145, 65%, 40%)', key: 'Space', label: 'SPACE', name: 'GREEN' },
+      { color: 'hsl(145, 70%, 58%)', dark: 'hsl(145, 65%, 40%)', key: 'Space', label: 'SPACE', nameKey: 'exercise.reaction.color.green' },
       allTargets[0]!,
       allTargets[1]!
     ];
@@ -90,13 +92,18 @@ export class ReactionTimeEngine extends BaseEngine {
     let instruction = isMobile ? t('exercise.reaction.instructionMobile', { defaultValue: 'Tap anywhere when Green' }) : t('exercise.reaction.instruction');
     
     if (this._currentDifficulty >= 4) {
-      let actionsStr = '';
-      for (let i = 0; i < this._activeTargets.length; i++) {
-        const tObj = this._activeTargets[i]!;
-        const input = isMobile ? tObj.name : (tObj.name === 'GREEN' ? 'SPACE' : tObj.key.replace('Key', ''));
-        actionsStr += `${input} for ${tObj.name}${i < this._activeTargets.length - 1 ? ', ' : ''}`;
+      if (isMobile) {
+        instruction = t('exercise.reaction.instructionMobileOnlyRed');
+      } else {
+        let actionsStr = '';
+        for (let i = 0; i < this._activeTargets.length; i++) {
+          const tObj = this._activeTargets[i]!;
+          const name = t(tObj.nameKey);
+          const input = tObj.key === 'Space' ? 'SPACE' : tObj.key.replace('Key', '');
+          actionsStr += `${input} for ${name}${i < this._activeTargets.length - 1 ? ', ' : ''}`;
+        }
+        instruction = t('exercise.reaction.choiceInstruction', { actions: actionsStr });
       }
-      instruction = isMobile ? `Tap ${actionsStr}. IGNORE RED.` : `Press ${actionsStr}. IGNORE RED.`;
     }
     this._cachedInstruction = instruction;
   }
@@ -190,17 +197,11 @@ export class ReactionTimeEngine extends BaseEngine {
     ctx.fillStyle = 'hsl(225, 45%, 6%)';
     ctx.fillRect(0, 0, w, h);
 
-    // HUD: trial counter + difficulty badge
-    ctx.font = '500 14px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.8)';
-    ctx.textAlign = 'right';
-    ctx.fillText(`${this.currentTrial} / ${this.totalTrials}`, w - 32, 40);
+    // Background texture
+    this.draw_background_mesh(ctx, w, h);
 
-    if (this._currentDifficulty > 1) {
-      ctx.font = '500 11px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
-    }
+    // HUD
+    this.draw_hud(ctx, w);
 
     switch (this._phase) {
       case 'countdown':
@@ -228,20 +229,19 @@ export class ReactionTimeEngine extends BaseEngine {
     this._render_touch_pads(ctx);
 
     // Instruction text (Responsive positioning)
-    const isMobile = this.width < 600;
-    
     if (!this._cachedInstruction) {
       this._update_instruction();
     }
     const instruction = this._cachedInstruction;
 
-    ctx.font = (isMobile && instruction.length > 30) ? '500 11px Inter, sans-serif' : '500 13px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(175, 70%, 50%, 0.7)';
+    ctx.font = '800 10px Outfit, sans-serif';
+    ctx.fillStyle = 'hsla(175, 70%, 50%, 0.6)';
     ctx.textAlign = 'center';
 
     // Move instruction higher if touch pads are visible to avoid overlap
-    const textY = this._currentDifficulty >= 4 ? h - 110 : h - 40;
-    ctx.fillText(instruction, cx, textY);
+    // Also avoid the centered exit button at the top
+    const textY = this._currentDifficulty >= 4 ? h - 130 : h - 60;
+    ctx.fillText(instruction.toUpperCase(), cx, textY);
   }
 
   protected on_key_down(code: string, timestamp: number): void {
@@ -305,19 +305,22 @@ export class ReactionTimeEngine extends BaseEngine {
     this._activeTargets.forEach((target, i) => {
       const px = startX + i * (padW + gap);
       this._padRects.push({ x: px, y: padY, w: padW, h: padH, target });
+    });
 
-      ctx.beginPath();
-      ctx.roundRect(px, padY, padW, padH, 12);
-      ctx.fillStyle = target.dark.replace('hsl', 'hsla').replace(')', ', 0.3)');
-      ctx.fill();
-      ctx.strokeStyle = target.color.replace('hsl', 'hsla').replace(')', ', 0.4)');
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
+    const now = precise_now();
+    this._padRects.forEach((pad) => {
+      const isPressed = now - (this._btnPressMs.get(pad.target.key) || 0) < 100;
 
-      ctx.font = 'bold 12px Inter, sans-serif';
-      ctx.fillStyle = target.color;
-      ctx.textAlign = 'center';
-      ctx.fillText(target.name, px + padW / 2, padY + padH / 2 + 5);
+      this.draw_tactile_button(
+          ctx, pad.x, pad.y, pad.w, pad.h,
+          t(pad.target.nameKey),
+          {
+              bg: (this._btnGradients.get(pad.target.key) || pad.target.dark.replace('hsl', 'hsla').replace(')', ', 0.3)')) as any,
+              stroke: isPressed ? 'white' : pad.target.color.replace('hsl', 'hsla').replace(')', ', 0.4)'),
+              text: isPressed ? 'white' : pad.target.color
+          },
+          isPressed
+      );
     });
   }
 
@@ -350,6 +353,7 @@ export class ReactionTimeEngine extends BaseEngine {
       // Choice RT: Must hit a pad
       for (const pad of this._padRects) {
         if (x >= pad.x && x <= pad.x + pad.w && y >= pad.y && y <= pad.y + pad.h) {
+          this._btnPressMs.set(pad.target.key, precise_now());
           this.on_key_event({ key: pad.target.label, code: pad.target.key, timeStamp: precise_now() } as KeyboardEvent, precise_now());
           return;
         }
@@ -362,12 +366,19 @@ export class ReactionTimeEngine extends BaseEngine {
       }
     };
 
-    // Calculate position early so the waiting pulse spawns there
+    // Calculate Safe Zone bounds to prevent UI overlap
     const diff = this._currentDifficulty;
     if (diff >= 2) {
-      const margin = Math.min(this.width, this.height) * 0.2;
-      this._stimulusX = margin + Math.random() * (this.width - margin * 2);
-      this._stimulusY = margin + Math.random() * (this.height - margin * 2);
+      const marginX = this.width * 0.15;
+      const marginYTop = this.height * 0.15;
+      // If Choice RT is active, reserve the bottom 140px for buttons. Otherwise, standard margin.
+      const marginYBottom = diff >= 4 ? 140 : this.height * 0.15; 
+      
+      const safeWidth = this.width - (marginX * 2);
+      const safeHeight = this.height - marginYTop - marginYBottom;
+
+      this._stimulusX = marginX + Math.random() * safeWidth;
+      this._stimulusY = marginYTop + Math.random() * safeHeight;
     } else {
       this._stimulusX = this.width / 2;
       this._stimulusY = this.height / 2;
@@ -386,7 +397,7 @@ export class ReactionTimeEngine extends BaseEngine {
     // Determine if fakeout
     const fakeoutChance = diff >= 6
       ? DIFFICULTY.FAKEOUT_CHANCE_HARD
-      : diff >= 2
+      : diff >= 5
         ? DIFFICULTY.FAKEOUT_CHANCE_BASE
         : 0;
 
@@ -414,6 +425,20 @@ export class ReactionTimeEngine extends BaseEngine {
         this._targetKey = 'Space';
         this._targetLabel = t('exercise.reaction.go');
       }
+
+      // Pre-compute pad gradients if choice RT
+      if (diff >= 4) {
+          this._btnGradients.clear();
+          const padH = 80;
+          const padY = this.height - padH - 20;
+          this._activeTargets.forEach(target => {
+              const grad = this.ctx.createLinearGradient(0, padY, 0, padY + padH);
+              grad.addColorStop(0, target.dark.replace('hsl', 'hsla').replace(')', ', 0.4)'));
+              grad.addColorStop(1, target.dark.replace('hsl', 'hsla').replace(')', ', 0.2)'));
+              this._btnGradients.set(target.key, grad);
+          });
+      }
+
       this._phase = 'ready';
     }
   }
@@ -459,12 +484,19 @@ export class ReactionTimeEngine extends BaseEngine {
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.fillStyle = `hsla(220, 20%, 25%, ${pulse})`;
     ctx.fill();
+    
+    // Glass ring
+    ctx.beginPath();
+    ctx.arc(cx, cy, r + 5, 0, Math.PI * 2);
+    ctx.strokeStyle = 'hsla(220, 20%, 50%, 0.1)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
 
-    ctx.font = '500 18px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.6)';
+    ctx.font = '800 10px Outfit, sans-serif';
+    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.4)';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(t('exercise.reaction.wait'), cx, cy + r + 40);
+    ctx.fillText(t('exercise.reaction.wait').toUpperCase(), cx, cy + r + 40);
   }
 
   /** Render stimulus (green for real, red for fakeout — colors passed as params) */
@@ -501,11 +533,14 @@ export class ReactionTimeEngine extends BaseEngine {
 
     // Action label
     if (this._phase === 'ready') {
-      ctx.font = 'bold 24px Inter, sans-serif';
+      ctx.font = '800 14px Outfit, sans-serif';
       ctx.fillStyle = colorBright;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(this._targetLabel, sx, sy + drawR + 40);
+      const label = (this.width < 600 && this._currentDifficulty >= 4) 
+        ? t('exercise.reaction.instructionMobileOnlyRed') 
+        : this._targetLabel.toUpperCase();
+      ctx.fillText(label, sx, sy + drawR + 30);
     } else if (this._phase === 'countdown') {
         return;
     }
@@ -514,11 +549,11 @@ export class ReactionTimeEngine extends BaseEngine {
   /** Render "DON'T CLICK" warning under fakeout circle */
   private _render_fakeout_warning(ctx: CanvasRenderingContext2D, sx: number, sy: number): void {
     const r = this._circleRadius;
-    ctx.font = '600 16px Inter, sans-serif';
+    ctx.font = '800 14px Outfit, sans-serif';
     ctx.fillStyle = 'hsla(0, 75%, 60%, 0.8)';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('✕ WAIT', sx, sy + r + 40);
+    ctx.fillText(t('exercise.fakeout.wait', { defaultValue: '✕ WAIT' }).toUpperCase(), sx, sy + r + 30);
   }
 
   private _render_too_early(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
@@ -530,11 +565,11 @@ export class ReactionTimeEngine extends BaseEngine {
     ctx.fillStyle = 'hsla(0, 75%, 55%, 0.6)';
     ctx.fill();
 
-    ctx.font = '500 18px Inter, sans-serif';
-    ctx.fillStyle = 'hsl(0, 75%, 65%)';
+    ctx.font = '800 11px Outfit, sans-serif';
+    ctx.fillStyle = 'hsla(0, 0%, 100%, 0.6)';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(t('exercise.reaction.tooEarly'), cx, cy + r + 40);
+    ctx.fillText(t('exercise.reaction.tooEarly').toUpperCase(), cx, cy + r + 20);
 
     ctx.globalAlpha = 1;
   }
@@ -542,20 +577,24 @@ export class ReactionTimeEngine extends BaseEngine {
   private _render_result(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
     ctx.globalAlpha = this._feedbackOpacity;
 
-    if (this._lastReactionMs < 0) {
-      ctx.font = '500 18px Inter, sans-serif';
+    const progress = (precise_now() - this._phaseStartTime) / 1200;
+    const isCorrect = this._lastReactionMs >= 0;
+    this.draw_feedback_orb(ctx, cx, cy, isCorrect, progress);
+
+    if (!isCorrect) {
+      ctx.font = '800 12px Outfit, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       
       if (this._isFakeoutError) {
         ctx.fillStyle = 'hsl(0, 75%, 65%)';
-        ctx.fillText('Wrong Input / Ignored Rule!', cx, cy);
+        ctx.fillText(t('exercise.reaction.wrongInput', { defaultValue: 'WRONG INPUT!' }).toUpperCase(), cx, cy + 40);
       } else {
         ctx.fillStyle = 'hsl(38, 90%, 55%)';
-        ctx.fillText(t('exercise.reaction.missed'), cx, cy);
+        ctx.fillText(t('exercise.reaction.missed').toUpperCase(), cx, cy + 40);
       }
     } else {
-      ctx.font = 'bold 56px Inter, sans-serif';
+      ctx.font = '800 32px Outfit, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
@@ -569,10 +608,10 @@ export class ReactionTimeEngine extends BaseEngine {
 
       ctx.fillText(format_ms(this._lastReactionMs), cx, cy);
 
-      ctx.font = '400 14px Inter, sans-serif';
+      ctx.font = '800 10px Outfit, sans-serif';
       ctx.fillStyle = 'hsla(220, 15%, 55%, 0.7)';
       ctx.fillText(
-        t('exercise.reaction.result', { ms: Math.round(this._lastReactionMs) }),
+        t('exercise.reaction.result', { ms: Math.round(this._lastReactionMs) }).toUpperCase(),
         cx, cy + 40
       );
     }

@@ -370,17 +370,6 @@ async function _populate_dashboard(page: HTMLElement): Promise<void> {
 
       const cardEl = document.createElement('div');
       cardEl.className = 'glass-panel due-exercise-card';
-      cardEl.style.cssText = `
-        min-width: 140px;
-        padding: var(--space-md);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 8px;
-        cursor: pointer;
-        transition: transform 0.2s ease;
-        border: 1px solid hsla(175, 70%, 50%, 0.15);
-      `;
       const currentR = get_current_retrievability(card);
       const rPercent = Math.round(currentR * 100);
       const rColor = currentR > 0.8 ? 'var(--color-success)' : 'var(--color-warning)';
@@ -411,13 +400,7 @@ async function _populate_dashboard(page: HTMLElement): Promise<void> {
 
         const statEl = document.createElement('div');
         statEl.className = 'glass-panel community-stat-card';
-        statEl.style.cssText = `
-          padding: var(--space-md);
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          border-left: 3px solid ${meta.color};
-        `;
+        statEl.style.borderLeft = `3px solid ${meta.color}`;
 
         statEl.innerHTML = `
           <div style="font-size: 10px; color: var(--color-text-tertiary); text-transform: uppercase; font-weight: 600;">

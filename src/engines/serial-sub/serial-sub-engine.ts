@@ -64,6 +64,7 @@ export class SerialSubtractionEngine extends BaseEngine {
   private _ruleCorrectCount: number = 0;
   private _chainLength: number = 0;
   private _ruleChangeEvery: number = DIFFICULTY.SERIAL_SUB_RULE_CHANGE_EVERY;
+  private _showBaseNumber: boolean = true;
 
   // Input state
   private _userInput: string = '';
@@ -87,7 +88,9 @@ export class SerialSubtractionEngine extends BaseEngine {
   private _numpadY: number = 0;
   private _btnW: number = 0;
   private _btnH: number = 0;
-  private _numpadGap: number = 6;
+  private _numpadGap: number = 8;
+  private _btnPressMs: number[] = new Array(12).fill(0);
+  private _btnGradients: CanvasGradient[] = [];
 
   constructor(canvas: HTMLCanvasElement, callbacks: EngineCallbacks) {
     super(canvas, callbacks);
@@ -109,7 +112,7 @@ export class SerialSubtractionEngine extends BaseEngine {
     this._compute_numpad_layout();
 
     // Set up InputBridge
-    this._inputBridge = new InputBridge(this.canvas, (x, y) => this._hit_test_numpad(x, y));
+    this._inputBridge = new InputBridge(this.canvas, (x, y) => this._hit_test_numpad_and_anim(x, y));
     this._inputBridge.on_input((event: InputEvent) => this._on_input(event));
   }
 
@@ -156,17 +159,11 @@ export class SerialSubtractionEngine extends BaseEngine {
     ctx.fillStyle = 'hsl(225, 45%, 6%)';
     ctx.fillRect(0, 0, w, h);
 
-    // HUD
-    ctx.font = '500 14px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.8)';
-    ctx.textAlign = 'right';
-    ctx.fillText(`${this.currentTrial} / ${this.totalTrials}`, w - 32, 40);
+    // Background texture
+    this.draw_background_mesh(ctx, w, h);
 
-    if (this._currentDifficulty > 1) {
-      ctx.font = '500 11px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
-    }
+    // HUD
+    this.draw_hud(ctx, w);
 
     switch (this._phase) {
       case 'countdown':
@@ -182,7 +179,14 @@ export class SerialSubtractionEngine extends BaseEngine {
       case 'feedback':
         this._render_chalkboard(ctx);
         this._render_numpad(ctx);
-        this._render_feedback(ctx);
+        const progress = (precise_now() - this._phaseStart) / 1000;
+        this.draw_feedback_orb(ctx, w / 2, h / 2, this._wasCorrect, progress);
+        if (!this._wasCorrect) {
+            ctx.font = '800 12px Outfit, sans-serif';
+            ctx.fillStyle = 'hsla(0, 0%, 100%, 0.6)';
+            ctx.textAlign = 'center';
+            ctx.fillText(this._feedbackText.toUpperCase(), w / 2, h / 2 + this.lastOrbRadius + 20);
+        }
         break;
 
       case 'scribble':
@@ -208,19 +212,22 @@ export class SerialSubtractionEngine extends BaseEngine {
 
   private _init_arithmetic(): void {
     const diff = this._currentDifficulty;
+    this._showBaseNumber = true; // Always show after a reset or start
 
     if (diff <= 3) {
       this._currentNumber = 50 + Math.floor(Math.random() * 51); // 50-100
       this._subtrahend = [3, 4, 5][Math.floor(Math.random() * 3)]!;
+      this._ruleChangeEvery = Infinity;
     } else if (diff <= 7) {
       this._currentNumber = 100 + Math.floor(Math.random() * 401); // 100-500
       this._subtrahend = [7, 9, 11][Math.floor(Math.random() * 3)]!;
+      this._ruleChangeEvery = 3;
     } else {
       this._currentNumber = 200 + Math.floor(Math.random() * 800); // 200-999
       this._subtrahend = [13, 17, 19][Math.floor(Math.random() * 3)]!;
+      this._ruleChangeEvery = 2;
     }
 
-    this._ruleChangeEvery = 1; // Change subtrahend every hit
     this._isAdding = false;
     this._compute_expected();
   }
@@ -273,6 +280,11 @@ export class SerialSubtractionEngine extends BaseEngine {
     this._currentNumber = this._expectedAnswer;
     this._ruleCorrectCount++;
     this._chainLength++;
+    this._showBaseNumber = false; // Hide number for consecutive hits!
+
+    // Sync ruleChangeEvery with the current dynamic difficulty
+    const diff = this._currentDifficulty;
+    this._ruleChangeEvery = diff <= 3 ? Infinity : diff <= 7 ? 3 : 2;
 
     // Check if subtrahend should change
     if (this._ruleCorrectCount >= this._ruleChangeEvery && this._ruleChangeEvery !== Infinity) {
@@ -355,6 +367,7 @@ export class SerialSubtractionEngine extends BaseEngine {
     if (!isCorrect) {
       this._feedbackText = `${this._expectedAnswer}`;
       this._ruleCorrectCount = 0;
+      this._showBaseNumber = true; // Reset the blind mechanic penalty
     } else {
       this._feedbackText = '✓';
     }
@@ -408,13 +421,26 @@ export class SerialSubtractionEngine extends BaseEngine {
       this._btnW = (padAreaW - this._numpadGap * 2) / 3;
       this._btnH = (padAreaH - this._numpadGap * 3) / 4;
     }
-  }
 
-  private _hit_test_numpad(x: number, y: number): string | null {
+    this._btnGradients = [];
     for (const btn of NUMPAD_LAYOUT) {
       const bx = this._numpadX + btn.col * (this._btnW + this._numpadGap);
       const by = this._numpadY + btn.row * (this._btnH + this._numpadGap);
+      
+      const grad = this.ctx.createLinearGradient(bx, by, bx, by + this._btnH);
+      grad.addColorStop(0, 'hsla(225, 30%, 18%, 0.8)');
+      grad.addColorStop(1, 'hsla(225, 35%, 12%, 0.9)');
+      this._btnGradients.push(grad);
+    }
+  }
+
+  private _hit_test_numpad_and_anim(x: number, y: number): string | null {
+    for (let i = 0; i < NUMPAD_LAYOUT.length; i++) {
+      const btn = NUMPAD_LAYOUT[i]!;
+      const bx = this._numpadX + btn.col * (this._btnW + this._numpadGap);
+      const by = this._numpadY + btn.row * (this._btnH + this._numpadGap);
       if (x >= bx && x <= bx + this._btnW && y >= by && y <= by + this._btnH) {
+        this._btnPressMs[i] = precise_now();
         return btn.value;
       }
     }
@@ -425,13 +451,15 @@ export class SerialSubtractionEngine extends BaseEngine {
 
   private _generate_scribble(): void {
     const lines: typeof this._scribbleLines = [];
-    const chalkX = 32;
-    const chalkW = this.width * 0.6;
+    const isMobile = this.width < 600;
+    const chalkX = isMobile ? 12 : 32;
+    const chalkW = isMobile ? this.width - 24 : this.width * 0.6;
     const chalkY = 80;
-    const chalkH = this.height - 160;
+    const chalkH = isMobile ? this.height * 0.35 : this.height - 160;
+    
     const cx = chalkX + chalkW / 2;
-    const cy = chalkY + chalkH * 0.35;
-    const spread = 70; // Tighter spread
+    const cy = chalkY + chalkH * 0.4;
+    const spread = isMobile ? chalkW * 0.6 : 100;
 
     // Generate lines for a quick "eraser" effect
     for (let i = 0; i < 25; i++) {
@@ -459,13 +487,7 @@ export class SerialSubtractionEngine extends BaseEngine {
     const chalkH = isMobile ? this.height * 0.35 : this.height - 160;
 
     // Chalkboard background
-    ctx.fillStyle = 'hsla(225, 30%, 10%, 0.5)';
-    ctx.beginPath();
-    ctx.roundRect(chalkX, chalkY, chalkW, chalkH, 12);
-    ctx.fill();
-    ctx.strokeStyle = 'hsla(220, 20%, 25%, 0.5)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    this.draw_glass_panel(ctx, chalkX, chalkY, chalkW, chalkH, 12);
 
     const centerX = chalkX + chalkW / 2;
     const elapsed = precise_now() - this._phaseStart;
@@ -476,24 +498,26 @@ export class SerialSubtractionEngine extends BaseEngine {
       alpha = Math.max(0, 1 - (elapsed / 800)); 
     }
 
-    // Current number (large) — uses globalAlpha for Zero-Allocation
-    ctx.font = 'bold 64px Inter, sans-serif';
+    // Current number (large)
+    ctx.font = 'bold 64px Outfit, sans-serif';
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = 'hsl(220, 20%, 90%)';
+    ctx.fillStyle = 'hsl(220, 20%, 95%)';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(this._cachedNumberString, centerX, chalkY + chalkH * 0.35);
+    
+    const displayNum = this._showBaseNumber ? this._cachedNumberString : '?';
+    ctx.fillText(displayNum, centerX, chalkY + chalkH * 0.35);
 
     // Operation indicator
-    ctx.font = 'bold 32px Inter, sans-serif';
-    ctx.fillStyle = 'hsl(175, 70%, 55%)';
+    ctx.font = '800 32px Outfit, sans-serif';
+    ctx.fillStyle = 'hsl(175, 80%, 65%)';
     ctx.fillText(this._cachedOpString, centerX, chalkY + chalkH * 0.55);
     ctx.globalAlpha = 1.0;
 
     // Direction label for level 8+
     if (this._currentDifficulty >= 8) {
-      ctx.font = '400 12px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
+      ctx.font = '800 11px Outfit, sans-serif';
+      ctx.fillStyle = 'hsla(175, 70%, 50%, 0.6)';
       ctx.fillText(
         this._isAdding ? 'ADDITION MODE' : 'SUBTRACTION MODE',
         centerX, chalkY + chalkH * 0.65
@@ -532,25 +556,25 @@ export class SerialSubtractionEngine extends BaseEngine {
   }
 
   private _render_numpad(ctx: CanvasRenderingContext2D): void {
-    for (const btn of NUMPAD_LAYOUT) {
+    const now = precise_now();
+    for (let i = 0; i < NUMPAD_LAYOUT.length; i++) {
+      const btn = NUMPAD_LAYOUT[i]!;
       const bx = this._numpadX + btn.col * (this._btnW + this._numpadGap);
       const by = this._numpadY + btn.row * (this._btnH + this._numpadGap);
 
-      // Button background
-      ctx.beginPath();
-      ctx.roundRect(bx, by, this._btnW, this._btnH, 8);
-      ctx.fillStyle = 'hsla(225, 30%, 15%, 0.6)';
-      ctx.fill();
-      ctx.strokeStyle = 'hsla(220, 20%, 35%, 0.4)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
+      const elapsed = now - this._btnPressMs[i]!;
+      const isPressed = elapsed < 80;
 
-      // Button label
-      ctx.font = `600 ${Math.min(this._btnH * 0.4, 24)}px Inter, sans-serif`;
-      ctx.fillStyle = 'hsl(220, 15%, 75%)';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(btn.label, bx + this._btnW / 2, by + this._btnH / 2);
+      this.draw_tactile_button(
+        ctx, bx, by, this._btnW, this._btnH, 
+        btn.label, 
+        { 
+            bg: this._btnGradients[i] as any, 
+            stroke: isPressed ? 'hsl(175, 70%, 50%)' : 'hsla(220, 20%, 35%, 0.4)', 
+            text: isPressed ? 'white' : 'hsl(220, 15%, 85%)' 
+        },
+        isPressed
+      );
     }
   }
 
@@ -561,22 +585,16 @@ export class SerialSubtractionEngine extends BaseEngine {
     const displayW = (this._btnW + this._numpadGap) * 3 - this._numpadGap;
     const displayH = 40;
 
-    ctx.beginPath();
-    ctx.roundRect(displayX, displayY, displayW, displayH, 8);
-    ctx.fillStyle = 'hsla(225, 35%, 12%, 0.8)';
-    ctx.fill();
-    ctx.strokeStyle = 'hsla(175, 70%, 50%, 0.3)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    this.draw_glass_panel(ctx, displayX, displayY, displayW, displayH, 8);
 
     // User input text
-    ctx.font = 'bold 22px Inter, sans-serif';
-    ctx.fillStyle = this._userInput.length > 0 ? 'hsl(220, 20%, 90%)' : 'hsla(220, 15%, 45%, 0.5)';
+    ctx.font = 'bold 22px Outfit, sans-serif';
+    ctx.fillStyle = this._userInput.length > 0 ? 'hsl(220, 20%, 95%)' : 'hsla(220, 15%, 45%, 0.4)';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     ctx.fillText(
       this._userInput || '?',
-      displayX + displayW - 12,
+      displayX + displayW - 16,
       displayY + displayH / 2
     );
 
@@ -588,22 +606,5 @@ export class SerialSubtractionEngine extends BaseEngine {
     }
   }
 
-  private _render_feedback(ctx: CanvasRenderingContext2D): void {
-    this._render_chalkboard(ctx);
 
-    const cx = this.width * 0.3;
-    const cy = this.height * 0.75;
-
-    ctx.font = 'bold 28px Inter, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    if (this._wasCorrect) {
-      ctx.fillStyle = 'hsl(145, 65%, 55%)';
-      ctx.fillText('✓', cx, cy);
-    } else {
-      ctx.fillStyle = 'hsl(0, 75%, 55%)';
-      ctx.fillText(`Answer: ${this._feedbackText}`, cx, cy);
-    }
-  }
 }

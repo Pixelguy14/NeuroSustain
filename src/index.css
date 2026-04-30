@@ -1234,7 +1234,15 @@ button {
 
 /* ── Dashboard Due Cards ── */
 .due-exercise-card {
-  transition: all var(--transition-normal);
+  min-width: 140px;
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  border: 1px solid hsla(175, 70%, 50%, 0.15);
 }
 
 .due-exercise-card:hover {
@@ -1246,6 +1254,25 @@ button {
 
 .due-exercise-card:active {
   transform: translateY(-2px);
+}
+
+/* ── Community Benchmark Card ── */
+.community-stat-card {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ── Profile Pillar Rating Card ── */
+.pillar-rating-card {
+  background: hsla(225, 30%, 12%, 0.4);
+  border: 1px solid hsla(175, 70%, 50%, 0.15);
+  border-radius: 8px;
+  padding: var(--space-sm) var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 /* ── Pillar Detail Page ── */

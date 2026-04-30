@@ -199,17 +199,11 @@ export class PatternBreakerEngine extends BaseEngine {
     ctx.fillStyle = 'hsl(225, 45%, 6%)';
     ctx.fillRect(0, 0, w, h);
 
-    // HUD
-    ctx.font = '500 14px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.8)';
-    ctx.textAlign = 'right';
-    ctx.fillText(`${this.currentTrial} / ${this.totalTrials}`, w - 32, 40);
+    // Background texture
+    this.draw_background_mesh(ctx, w, h);
 
-    if (this._currentDifficulty > 1) {
-      ctx.font = '500 11px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.fillText(t('session.difficulty', { level: this._currentDifficulty }), w - 32, 58);
-    }
+    // HUD
+    this.draw_hud(ctx, w);
 
     switch (this._phase) {
       case 'countdown':
@@ -221,7 +215,8 @@ export class PatternBreakerEngine extends BaseEngine {
 
       case 'feedback':
         this._render_grid(ctx, w);
-        this._render_feedback(ctx, cx, cy);
+        const progress = (precise_now() - this._phaseStart) / 2000;
+        this.draw_feedback_orb(ctx, cx, cy, this._isCorrect, progress);
         break;
     }
   }
@@ -245,10 +240,17 @@ export class PatternBreakerEngine extends BaseEngine {
     }
 
     // Instruction
-    ctx.font = '400 12px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.6)';
+    ctx.font = '800 11px Outfit, sans-serif';
+    ctx.fillStyle = 'hsla(175, 70%, 50%, 0.6)';
     ctx.textAlign = 'center';
-    ctx.fillText(t('exercise.patternBreaker.instruction', { defaultValue: 'Find the different one' }), w / 2, 90);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(t('exercise.patternBreaker.instruction', { defaultValue: 'FIND THE DIFFERENT ONE' }).toUpperCase(), w / 2, 90);
+
+    // Grid Stage (Glass panel)
+    const stageMargin = 16;
+    const stageW = this._cellSize * this._cols + stageMargin * 2;
+    const stageH = this._cellSize * this._rows + stageMargin * 2;
+    this.draw_glass_panel(ctx, this._gridOffsetX - stageMargin, this._gridOffsetY - stageMargin, stageW, stageH, 12);
 
     // Draw each cell
     const cs = this._cellSize;
@@ -283,7 +285,10 @@ export class PatternBreakerEngine extends BaseEngine {
       } else {
         ctx.translate(-shapeSize / 2, -shapeSize / 2);
         ctx.fillStyle = this._baseColor;
+        ctx.shadowColor = 'rgba(0,0,0,0.3)';
+        ctx.shadowBlur = 4;
         ctx.fill(this._basePath!, 'evenodd');
+        ctx.shadowBlur = 0;
       }
 
       ctx.restore();
@@ -307,22 +312,7 @@ export class PatternBreakerEngine extends BaseEngine {
     }
   }
 
-  private _render_feedback(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
-    ctx.fillStyle = 'hsla(225, 45%, 6%, 0.6)';
-    ctx.fillRect(0, 0, this.width, this.height);
 
-    ctx.font = 'bold 48px Inter, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    if (this._isCorrect) {
-      ctx.fillStyle = 'hsl(145, 65%, 55%)';
-      ctx.fillText('✓', cx, cy);
-    } else {
-      ctx.fillStyle = 'hsl(0, 75%, 55%)';
-      ctx.fillText('✗', cx, cy);
-    }
-  }
 
   protected on_key_down(_code: string, _timestamp: number): void {
     // Click/touch only

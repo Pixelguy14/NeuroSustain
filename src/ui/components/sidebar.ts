@@ -51,7 +51,7 @@ export class SidebarNav extends HTMLElement {
           `).join('')}
         </nav>
         <div class="sidebar__footer">
-          <span class="sidebar__version">v0.2.3 · Production v3</span>
+          <span class="sidebar__version">v0.2.4 · Production v4</span>
         </div>
       </aside>
 

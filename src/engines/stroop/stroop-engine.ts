@@ -56,6 +56,8 @@ export class StroopEngine extends BaseEngine {
 
   // Button geometry (pre-computed per trial — Zero-Allocation)
   private _btnRects: { x: number; y: number; w: number; h: number }[] = [];
+  private _btnPressMs: number[] = [];
+  private _btnGradients: CanvasGradient[] = [];
 
   constructor(canvas: HTMLCanvasElement, callbacks: EngineCallbacks) {
     super(canvas, callbacks);
@@ -79,6 +81,7 @@ export class StroopEngine extends BaseEngine {
       for (let i = 0; i < this._btnRects.length; i++) {
         const r = this._btnRects[i]!;
         if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
+          this._btnPressMs[i] = precise_now();
           this._submit(i);
           return;
         }
@@ -130,17 +133,11 @@ export class StroopEngine extends BaseEngine {
     ctx.fillStyle = 'hsl(225, 45%, 6%)';
     ctx.fillRect(0, 0, w, h);
 
-    // HUD
-    ctx.font = '500 14px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.8)';
-    ctx.textAlign = 'right';
-    ctx.fillText(`${this.currentTrial} / ${this.totalTrials}`, w - 32, 40);
+    // Background texture
+    this.draw_background_mesh(ctx, w, h);
 
-    if (this._currentDifficulty > 1) {
-      ctx.font = '500 11px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
-    }
+    // HUD
+    this.draw_hud(ctx, w);
 
     switch (this._phase) {
       case 'countdown':
@@ -151,7 +148,16 @@ export class StroopEngine extends BaseEngine {
         break;
 
       case 'feedback':
-        this._render_feedback(ctx, cx, cy);
+        const progress = (precise_now() - this._phaseStart) / 1000;
+        this.draw_feedback_orb(ctx, cx, cy, this._isCorrect, progress);
+        if (!this._isCorrect) {
+          const correct = this._activeColors[this._correctColorIndex]!;
+          const label = this._locale === 'es' ? correct.labelEs : correct.labelEn;
+          ctx.font = '800 12px Outfit, sans-serif';
+          ctx.fillStyle = 'hsla(0, 0%, 100%, 0.6)';
+          ctx.textAlign = 'center';
+          ctx.fillText(label.toUpperCase(), cx, cy + this.lastOrbRadius + 20);
+        }
         break;
     }
   }
@@ -173,79 +179,60 @@ export class StroopEngine extends BaseEngine {
     ctx.fillRect(barX, barY, barW * (1 - progress), barH);
 
     // Instruction
-    ctx.font = '400 13px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.7)';
+    ctx.font = '800 11px Outfit, sans-serif';
+    ctx.fillStyle = 'hsla(175, 70%, 50%, 0.6)';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(
-      this._locale === 'es' ? 'Selecciona el COLOR de la tinta' : 'Select the INK COLOR',
+      this._locale === 'es' ? 'SELECCIONA EL COLOR' : 'SELECT THE INK COLOR',
       cx, 100
     );
 
+    // Stimulus Stage (Glass panel)
+    const stageW = Math.min(320, w - 64);
+    const stageH = 140;
+    this.draw_glass_panel(ctx, cx - stageW / 2, cy - 100, stageW, stageH, 16);
+
     // The Stroop word — displayed in the INK color
     const fontSize = Math.min(64, w * 0.12);
-    ctx.font = `bold ${fontSize}px Inter, sans-serif`;
+    ctx.font = `bold ${fontSize}px Outfit, sans-serif`;
     ctx.fillStyle = this._inkColor;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(this._wordText, cx, cy - 40);
-
-    // Congruence indicator (subtle) for debugging — remove in production if desired
-    // ctx.font = '400 11px Inter, sans-serif';
-    // ctx.fillStyle = 'hsla(220, 15%, 40%, 0.4)';
-    // ctx.fillText(this._isCongruent ? 'congruent' : 'incongruent', cx, cy + 10);
+    ctx.fillText(this._wordText, cx, cy - 35);
 
     // Color response buttons
     this._render_buttons(ctx);
   }
 
   private _render_buttons(ctx: CanvasRenderingContext2D): void {
+    const now = precise_now();
     for (let i = 0; i < this._activeColors.length; i++) {
       const color = this._activeColors[i]!;
       const rect = this._btnRects[i]!;
+      const pressElapsed = now - (this._btnPressMs[i] || 0);
+      const isPressed = pressElapsed < 100;
 
-      // Button background
-      ctx.beginPath();
-      ctx.roundRect(rect.x, rect.y, rect.w, rect.h, 10);
-      ctx.fillStyle = 'hsla(225, 30%, 15%, 0.8)';
-      ctx.fill();
-
-      // Label (Monochromatic to prevent color-matching exploit)
-      const label = this._locale === 'es' ? color.labelEs : color.labelEn;
-      ctx.font = `600 ${Math.min(rect.h * 0.35, 16)}px Inter, sans-serif`;
-      ctx.fillStyle = 'hsl(220, 20%, 85%)'; // Neutral text
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(label, rect.x + rect.w / 2, rect.y + rect.h / 2);
+      this.draw_tactile_button(
+          ctx, rect.x, rect.y, rect.w, rect.h,
+          this._locale === 'es' ? color.labelEs : color.labelEn,
+          {
+              bg: (this._btnGradients[i] || 'hsla(225, 30%, 15%, 0.8)') as any,
+              stroke: isPressed ? 'hsl(175, 70%, 50%)' : 'hsla(220, 20%, 35%, 0.3)',
+              text: isPressed ? 'white' : 'hsl(220, 15%, 85%)'
+          },
+          isPressed
+      );
 
       // Key hint
-      ctx.font = '400 11px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(220, 15%, 55%, 0.5)';
-      ctx.textAlign = 'right';
-      ctx.fillText(color.key, rect.x + rect.w - 8, rect.y + rect.h - 8);
+      ctx.textAlign = 'center';
+      ctx.font = '600 10px Outfit, sans-serif';
+      ctx.fillStyle = 'hsla(220, 15%, 50%, 0.4)';
+      ctx.fillText(`${i + 1}`, rect.x + rect.w / 2, rect.y + rect.h + 14);
     }
   }
 
-  private _render_feedback(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
-    ctx.font = 'bold 48px Inter, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
 
-    if (this._isCorrect) {
-      ctx.fillStyle = 'hsl(145, 65%, 55%)';
-      ctx.fillText('✓', cx, cy - 20);
-    } else {
-      ctx.fillStyle = 'hsl(0, 75%, 55%)';
-      ctx.fillText('✗', cx, cy - 20);
-
-      // Show correct answer
-      const correct = this._activeColors[this._correctColorIndex]!;
-      ctx.font = '500 18px Inter, sans-serif';
-      ctx.fillStyle = correct.hsl;
-      const label = this._locale === 'es' ? correct.labelEs : correct.labelEn;
-      ctx.fillText(label, cx, cy + 24);
-    }
-  }
 
   protected on_key_down(code: string, _timestamp: number): void {
     if (this._phase !== 'stimulus') return;
@@ -300,12 +287,7 @@ export class StroopEngine extends BaseEngine {
         : colors[wordIndex]!.labelEn;
     }
 
-    // Time limit
-    if (diff <= 3) this._timeLimitMs = 5000;
-    else if (diff <= 7) this._timeLimitMs = 4000;
-    else this._timeLimitMs = 3000;
-
-    // Pre-compute button geometry (Zero-Allocation)
+    // Pre-compute button geometry and gradients
     this._compute_button_geometry();
 
     this._phase = 'stimulus';
@@ -313,28 +295,34 @@ export class StroopEngine extends BaseEngine {
   }
 
   private _compute_button_geometry(): void {
+    const diff = this._currentDifficulty;
+    if (diff <= 3) this._timeLimitMs = 5000;
+    else if (diff <= 7) this._timeLimitMs = 4000;
+    else this._timeLimitMs = 3000;
+
     const count = this._activeColors.length;
-    const totalW = Math.min(400, this.width - 60);
+    const totalW = Math.min(320, this.width - 64);
     const btnH = 44;
-    const gap = 10;
+    const gap = 12;
     const totalH = count * btnH + (count - 1) * gap;
     const startX = (this.width - totalW) / 2;
-    const startY = this.height - totalH - 40;
+    // Ensure startY doesn't push buttons off the top or overlap HUD (y=100)
+    const startY = Math.max(130, this.height - totalH - 40);
 
-    // Reuse array if already allocated
-    if (this._btnRects.length !== count) {
-      this._btnRects = new Array(count);
-      for (let i = 0; i < count; i++) {
-        this._btnRects[i] = { x: 0, y: 0, w: 0, h: 0 };
-      }
-    }
+    this._btnRects = new Array(count);
+    this._btnPressMs = new Array(count).fill(0);
+    this._btnGradients = [];
+
+    const getBtnY = (idx: number) => startY + idx * (btnH + gap);
 
     for (let i = 0; i < count; i++) {
-      const rect = this._btnRects[i]!;
-      rect.x = startX;
-      rect.y = startY + i * (btnH + gap);
-      rect.w = totalW;
-      rect.h = btnH;
+      const by = getBtnY(i);
+      this._btnRects[i] = { x: startX, y: by, w: totalW, h: btnH };
+      
+      const grad = this.ctx.createLinearGradient(startX, by, startX, by + btnH);
+      grad.addColorStop(0, 'hsla(225, 30%, 18%, 0.8)');
+      grad.addColorStop(1, 'hsla(225, 35%, 12%, 0.9)');
+      this._btnGradients.push(grad);
     }
   }
 

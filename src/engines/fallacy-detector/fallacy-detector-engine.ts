@@ -50,6 +50,10 @@ export class FallacyDetectorEngine extends BaseEngine {
   private _btnFallacyX: number = 0;
   private _btnY: number = 0;
   private _btnW: number = 0;
+  private _btnPressValid: number = 0;
+  private _btnPressFallacy: number = 0;
+  private _btnGradValid: CanvasGradient | null = null;
+  private _btnGradFallacy: CanvasGradient | null = null;
 
   // Cached text lines (Zero-Allocation: computed once per trial)
   private _wrappedLines: string[] = [];
@@ -112,17 +116,11 @@ export class FallacyDetectorEngine extends BaseEngine {
     ctx.fillStyle = 'hsl(225, 45%, 6%)';
     ctx.fillRect(0, 0, w, h);
 
-    // HUD
-    ctx.font = '500 14px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.8)';
-    ctx.textAlign = 'right';
-    ctx.fillText(`${this.currentTrial} / ${this.totalTrials}`, w - 32, 40);
+    // Background texture
+    this.draw_background_mesh(ctx, w, h);
 
-    if (this._currentDifficulty > 1) {
-      ctx.font = '500 11px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
-    }
+    // HUD
+    this.draw_hud(ctx, w);
 
     switch (this._phase) {
       case 'countdown':
@@ -133,7 +131,17 @@ export class FallacyDetectorEngine extends BaseEngine {
         break;
 
       case 'feedback':
-        this._render_feedback(ctx, cx, cy);
+        const progress = (precise_now() - this._phaseStart) / 1200;
+        this.draw_feedback_orb(ctx, cx, cy, this._isCorrect, progress);
+        if (!this._isCorrect && this._currentItem) {
+            ctx.font = '800 11px Outfit, sans-serif';
+            ctx.fillStyle = 'hsla(0, 0%, 100%, 0.6)';
+            ctx.textAlign = 'center';
+            const label = (!this._currentItem.isValid && this._currentItem.fallacyType) 
+              ? this._currentItem.fallacyType 
+              : (this._currentItem.isValid ? t('exercise.fallacyDetector.actualValid') : t('exercise.fallacyDetector.actualFallacy'));
+            ctx.fillText(label.toUpperCase(), cx, cy + this.lastOrbRadius + 20);
+        }
         break;
     }
   }
@@ -155,91 +163,74 @@ export class FallacyDetectorEngine extends BaseEngine {
     ctx.fillStyle = `hsl(${hue}, 70%, 55%)`;
     ctx.fillRect(barX, barY, barW * (1 - progress), barH);
 
+    // Evidence Stage (Glass panel)
+    const stageW = w - 64;
+    const stageH = h * 0.45;
+    this.draw_glass_panel(ctx, cx - stageW / 2, 100, stageW, stageH, 16);
+
     // Argument text — use cached wrapped lines
-    ctx.font = '400 17px Inter, sans-serif';
-    ctx.fillStyle = 'hsl(220, 20%, 85%)';
+    ctx.font = '500 17px Outfit, sans-serif';
+    ctx.fillStyle = 'white';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
 
     const lineHeight = 28;
-    const textStartY = 100;
+    const textStartY = 130;
     for (let i = 0; i < this._wrappedLines.length; i++) {
       ctx.fillText(this._wrappedLines[i]!, cx, textStartY + i * lineHeight);
     }
 
     // Two buttons at bottom
-    this._btnW = Math.min(200, (w - BTN_GAP * 3) / 2);
-    this._btnY = h - BTN_H - 60;
+    this._btnW = Math.min(180, (w - BTN_GAP * 3) / 2);
+    this._btnY = h - BTN_H - 80;
     this._btnValidX = cx - this._btnW - BTN_GAP / 2;
     this._btnFallacyX = cx + BTN_GAP / 2;
 
+    const now = precise_now();
+    const isVPressed = now - this._btnPressValid < 100;
+    const isFPressed = now - this._btnPressFallacy < 100;
+
     // VALID button
-    ctx.beginPath();
-    ctx.roundRect(this._btnValidX, this._btnY, this._btnW, BTN_H, 10);
-    ctx.fillStyle = 'hsla(145, 40%, 15%, 0.6)';
-    ctx.fill();
-    ctx.strokeStyle = 'hsla(145, 60%, 45%, 0.5)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    ctx.font = 'bold 16px Inter, sans-serif';
-    ctx.fillStyle = 'hsl(145, 65%, 55%)';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(t('exercise.fallacy.valid'), this._btnValidX + this._btnW / 2, this._btnY + BTN_H / 2);
-
-    // Keyboard hint
-    ctx.font = '400 10px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(145, 50%, 50%, 0.5)';
-    ctx.fillText('[←]', this._btnValidX + this._btnW / 2, this._btnY + BTN_H + 14);
+    this.draw_tactile_button(
+        ctx, this._btnValidX, this._btnY, this._btnW, BTN_H,
+        t('exercise.fallacy.valid'),
+        {
+            bg: (this._btnGradValid || 'hsla(145, 40%, 15%, 0.6)') as any,
+            stroke: isVPressed ? 'white' : 'hsla(145, 60%, 45%, 0.5)',
+            text: isVPressed ? 'white' : 'hsl(145, 65%, 55%)'
+        },
+        isVPressed
+    );
+    ctx.font = '800 9px Outfit, sans-serif';
+    ctx.fillStyle = 'hsla(145, 50%, 50%, 0.4)';
+    ctx.fillText('[←]', this._btnValidX + this._btnW / 2, this._btnY + BTN_H + 12);
 
     // FALLACY button
-    ctx.beginPath();
-    ctx.roundRect(this._btnFallacyX, this._btnY, this._btnW, BTN_H, 10);
-    ctx.fillStyle = 'hsla(0, 40%, 15%, 0.6)';
-    ctx.fill();
-    ctx.strokeStyle = 'hsla(0, 60%, 45%, 0.5)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    ctx.font = 'bold 16px Inter, sans-serif';
-    ctx.fillStyle = 'hsl(0, 65%, 55%)';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(t('exercise.fallacy.fallacy'), this._btnFallacyX + this._btnW / 2, this._btnY + BTN_H / 2);
-
-    ctx.font = '400 10px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(0, 50%, 50%, 0.5)';
-    ctx.fillText('[→]', this._btnFallacyX + this._btnW / 2, this._btnY + BTN_H + 14);
+    this.draw_tactile_button(
+        ctx, this._btnFallacyX, this._btnY, this._btnW, BTN_H,
+        t('exercise.fallacy.fallacy'),
+        {
+            bg: (this._btnGradFallacy || 'hsla(0, 40%, 15%, 0.6)') as any,
+            stroke: isFPressed ? 'white' : 'hsla(0, 60%, 45%, 0.5)',
+            text: isFPressed ? 'white' : 'hsl(0, 65%, 55%)'
+        },
+        isFPressed
+    );
+    ctx.font = '800 9px Outfit, sans-serif';
+    ctx.fillStyle = 'hsla(0, 50%, 50%, 0.4)';
+    ctx.fillText('[→]', this._btnFallacyX + this._btnW / 2, this._btnY + BTN_H + 12);
   }
 
-  private _render_feedback(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
-    ctx.font = 'bold 36px Inter, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
 
-    if (this._isCorrect) {
-      ctx.fillStyle = 'hsl(145, 65%, 55%)';
-      ctx.fillText('✓', cx, cy - 20);
-    } else {
-      ctx.fillStyle = 'hsl(0, 75%, 55%)';
-      ctx.fillText('✗', cx, cy - 20);
-
-      // Show fallacy type if wrong
-      if (this._currentItem && !this._currentItem.isValid && this._currentItem.fallacyType) {
-        ctx.font = '400 14px Inter, sans-serif';
-        ctx.fillStyle = 'hsla(220, 15%, 60%, 0.8)';
-        ctx.fillText(this._currentItem.fallacyType, cx, cy + 20);
-      }
-    }
-  }
 
   protected on_key_down(code: string, _timestamp: number): void {
     if (this._phase !== 'presenting') return;
 
     if (code === 'ArrowLeft' || code === 'KeyA') {
+      this._btnPressValid = precise_now();
       this._submit_answer(true); // VALID
     } else if (code === 'ArrowRight' || code === 'KeyD') {
+      this._btnPressFallacy = precise_now();
       this._submit_answer(false); // FALLACY
     }
   }
@@ -292,17 +283,30 @@ export class FallacyDetectorEngine extends BaseEngine {
     this.canvas.onpointerdown = (e: MouseEvent) => {
       if (this._phase !== 'presenting') return;
       const rect = this.canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+      const scaleX = this.width / rect.width;
+      const scaleY = this.height / rect.height;
+      const x = (e.clientX - rect.left) * scaleX;
+      const y = (e.clientY - rect.top) * scaleY;
 
       if (y >= this._btnY && y <= this._btnY + BTN_H) {
         if (x >= this._btnValidX && x <= this._btnValidX + this._btnW) {
+          this._btnPressValid = precise_now();
           this._submit_answer(true);
         } else if (x >= this._btnFallacyX && x <= this._btnFallacyX + this._btnW) {
+          this._btnPressFallacy = precise_now();
           this._submit_answer(false);
         }
       }
     };
+
+    // Pre-compute gradients
+    this._btnGradValid = this.ctx.createLinearGradient(0, this._btnY, 0, this._btnY + BTN_H);
+    this._btnGradValid.addColorStop(0, 'hsla(145, 40%, 15%, 0.7)');
+    this._btnGradValid.addColorStop(1, 'hsla(145, 45%, 10%, 0.8)');
+
+    this._btnGradFallacy = this.ctx.createLinearGradient(0, this._btnY, 0, this._btnY + BTN_H);
+    this._btnGradFallacy.addColorStop(0, 'hsla(0, 40%, 15%, 0.7)');
+    this._btnGradFallacy.addColorStop(1, 'hsla(0, 45%, 10%, 0.8)');
   }
 
   private _submit_answer(userSaidValid: boolean | null): void {
@@ -349,7 +353,7 @@ export class FallacyDetectorEngine extends BaseEngine {
   private _wrap_text(text: string, maxWidth: number): string[] {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d')!;
-    ctx.font = '400 17px Inter, sans-serif';
+    ctx.font = '400 17px Outfit, sans-serif';
 
     const words = text.split(' ');
     const lines: string[] = [];

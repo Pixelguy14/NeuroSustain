@@ -230,6 +230,7 @@ export class SymbolSearchEngine extends BaseEngine {
   // Path2D cache (rebuilt when cellSize changes)
   private _cachedPaths: Path2D[] = [];
   private _cachedCellSize: number = 0;
+  private _btnPressMs: Map<number, number> = new Map();
 
   constructor(canvas: HTMLCanvasElement, callbacks: EngineCallbacks) {
     super(canvas, callbacks);
@@ -295,17 +296,11 @@ export class SymbolSearchEngine extends BaseEngine {
     ctx.fillStyle = 'hsl(225, 45%, 6%)';
     ctx.fillRect(0, 0, w, h);
 
-    // HUD
-    ctx.font = '500 14px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.8)';
-    ctx.textAlign = 'right';
-    ctx.fillText(`${this.currentTrial} / ${this.totalTrials}`, w - 32, 40);
+    // Background texture
+    this.draw_background_mesh(ctx, w, h);
 
-    if (this._currentDifficulty > 1) {
-      ctx.font = '500 11px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
-    }
+    // HUD
+    this.draw_hud(ctx, w);
 
     switch (this._phase) {
       case 'countdown':
@@ -317,7 +312,14 @@ export class SymbolSearchEngine extends BaseEngine {
 
       case 'feedback':
         this._render_game(ctx, w, h);
-        this._render_feedback_overlay(ctx, cx, cy);
+        const progress = (precise_now() - this._phaseStart) / 1500;
+        this.draw_feedback_orb(ctx, cx, cy, this._isCorrect, progress);
+        if (!this._isCorrect) {
+          ctx.font = '800 11px Outfit, sans-serif';
+          ctx.fillStyle = 'hsla(0, 0%, 100%, 0.6)';
+          ctx.textAlign = 'center';
+          ctx.fillText(t('exercise.symbolSearch.found', { count: this._correctTaps, total: this._targetCells.size }).toUpperCase(), cx, cy + this.lastOrbRadius + 20);
+        }
         break;
     }
   }
@@ -340,88 +342,90 @@ export class SymbolSearchEngine extends BaseEngine {
       ctx.fillRect(barX, barY, barW * (1 - progress), barH);
     }
 
-    // Target indicator at top
-    const targetSize = 40;
+    // Target indicator at top (Specimen Panel)
+    const targetSize = 44;
+    const panelSize = 80;
+    this.draw_glass_panel(ctx, (w - panelSize) / 2, 80, panelSize, panelSize, 16);
+    
     ctx.save();
-    ctx.translate(w / 2 - targetSize / 2, 85);
-    ctx.fillStyle = 'hsla(175, 70%, 55%, 0.9)';
+    ctx.translate(w / 2 - targetSize / 2, 80 + (panelSize - targetSize) / 2);
+    ctx.fillStyle = 'white';
+    ctx.shadowColor = 'hsla(175, 70%, 55%, 0.8)';
+    ctx.shadowBlur = 15;
     ctx.fill(this._get_cached_path(this._targetShapeIndex, targetSize));
     ctx.restore();
 
-    ctx.font = '400 12px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.7)';
+    ctx.font = '800 10px Outfit, sans-serif';
+    ctx.fillStyle = 'hsla(175, 70%, 50%, 0.6)';
     ctx.textAlign = 'center';
-    ctx.fillText(t('exercise.setSwitch.findAll'), w / 2, 140);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(t('exercise.setSwitch.findAll').toUpperCase(), w / 2, 175);
 
     // Grid
-    const cs = this._cellSize;
-    const gap = 4;
+    // Grid Stage (Glass Panel)
+    const gap = 6;
+    const stageMargin = 12;
+    const gridW = this._cols * this._cellSize;
+    const gridH = this._rows * this._cellSize;
+    this.draw_glass_panel(ctx, this._gridOffsetX - stageMargin, this._gridOffsetY - stageMargin, gridW + stageMargin * 2, gridH + stageMargin * 2, 16);
 
+    const now = precise_now();
     for (let i = 0; i < this._grid.length; i++) {
       const col = i % this._cols;
       const row = Math.floor(i / this._cols);
-      const x = this._gridOffsetX + col * cs;
-      const y = this._gridOffsetY + row * cs;
+      const x = this._gridOffsetX + col * this._cellSize;
+      const y = this._gridOffsetY + row * this._cellSize;
+      const isPressed = now - (this._btnPressMs.get(i) || 0) < 100;
 
       // Cell background
+      ctx.save();
+      if (isPressed) {
+          ctx.scale(0.96, 0.96);
+          ctx.translate(x * 0.04, y * 0.04);
+      }
+
       ctx.beginPath();
-      ctx.roundRect(x + gap / 2, y + gap / 2, cs - gap, cs - gap, 6);
+      ctx.roundRect(x + gap / 2, y + gap / 2, this._cellSize - gap, this._cellSize - gap, 10);
 
       if (this._tappedCells.has(i)) {
         if (this._targetCells.has(i)) {
-          // Correct tap — green
-          ctx.fillStyle = 'hsla(145, 60%, 20%, 0.6)';
+          ctx.fillStyle = 'hsla(145, 60%, 15%, 0.7)';
           ctx.fill();
-          ctx.strokeStyle = 'hsl(145, 65%, 50%)';
+          ctx.strokeStyle = 'hsl(145, 65%, 55%)';
           ctx.lineWidth = 2;
           ctx.stroke();
         } else {
-          // False tap — red
-          ctx.fillStyle = 'hsla(0, 60%, 20%, 0.6)';
+          ctx.fillStyle = 'hsla(0, 60%, 15%, 0.7)';
           ctx.fill();
-          ctx.strokeStyle = 'hsl(0, 65%, 50%)';
+          ctx.strokeStyle = 'hsl(0, 65%, 55%)';
           ctx.lineWidth = 2;
           ctx.stroke();
         }
       } else {
-        ctx.fillStyle = 'hsla(225, 30%, 15%, 0.6)';
+        ctx.fillStyle = 'hsla(225, 20%, 15%, 0.4)';
         ctx.fill();
-        ctx.strokeStyle = 'hsla(220, 20%, 35%, 0.3)';
+        ctx.strokeStyle = 'hsla(220, 20%, 50%, 0.15)';
         ctx.lineWidth = 1;
         ctx.stroke();
       }
 
       // Draw shape
-      const shapeSize = cs - gap - 12;
-      ctx.save();
-      ctx.translate(x + gap / 2 + 6, y + gap / 2 + 6);
+      const shapeSize = this._cellSize - gap - 16;
+      ctx.translate(x + gap / 2 + 8, y + gap / 2 + 8);
       ctx.fillStyle = this._tappedCells.has(i)
         ? (this._targetCells.has(i) ? 'hsl(145, 65%, 55%)' : 'hsl(0, 65%, 55%)')
-        : 'hsla(220, 20%, 75%, 0.8)';
+        : 'white';
+      
+      if (!this._tappedCells.has(i)) {
+          ctx.shadowColor = 'hsla(220, 20%, 50%, 0.2)';
+          ctx.shadowBlur = 4;
+      }
       ctx.fill(this._get_cached_path(this._grid[i]!, shapeSize));
       ctx.restore();
     }
   }
 
-  private _render_feedback_overlay(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
-    ctx.fillStyle = 'hsla(225, 45%, 6%, 0.7)';
-    ctx.fillRect(0, 0, this.width, this.height);
 
-    ctx.font = 'bold 48px Inter, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    if (this._isCorrect) {
-      ctx.fillStyle = 'hsl(145, 65%, 55%)';
-      ctx.fillText('✓', cx, cy - 20);
-    } else {
-      ctx.fillStyle = 'hsl(0, 75%, 55%)';
-      ctx.fillText('✗', cx, cy - 20);
-      ctx.font = '500 16px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(220, 15%, 60%, 0.9)';
-      ctx.fillText(t('exercise.symbolSearch.found', { count: this._correctTaps, total: this._targetCells.size }), cx, cy + 24);
-    }
-  }
 
   protected on_key_down(_code: string, _timestamp: number): void {
     // No keyboard interaction — touch/click only
@@ -496,10 +500,10 @@ export class SymbolSearchEngine extends BaseEngine {
 
     // Geometry
     const maxGridW = this.width - 40;
-    const maxGridH = this.height - 200; // Room for target + time bar
-    this._cellSize = Math.min(maxGridW / this._cols, maxGridH / this._rows, 80);
+    const maxGridH = this.height - 240; // Room for target + time bar
+    this._cellSize = Math.min(maxGridW / this._cols, maxGridH / this._rows, 70);
     this._gridOffsetX = (this.width - this._cellSize * this._cols) / 2;
-    this._gridOffsetY = 155;
+    this._gridOffsetY = 200;
 
     // Time limit
     if (diff <= 3) this._timeLimitMs = 10000;
@@ -522,6 +526,7 @@ export class SymbolSearchEngine extends BaseEngine {
   private _handle_tap(cellIndex: number): void {
     if (this._tappedCells.has(cellIndex)) return; // Already tapped
 
+    this._btnPressMs.set(cellIndex, precise_now());
     this._tappedCells.add(cellIndex);
 
     if (this._firstTapMs === 0) {

@@ -38,9 +38,7 @@ export function render_train(): HTMLElement {
   const grid = page.querySelector('#bento-grid') as HTMLElement;
 
   // Load ratings and populate grid
-  let currentRatings: any[] = [];
   Promise.all([get_ratings(), fsrsBridge.get_due_exercises()]).then(([ratings, dueCards]) => {
-    currentRatings = ratings;
     grid.innerHTML = ''; // Clear skeleton
 
     const dueTypes = dueCards.map(c => c.exerciseType);
@@ -66,10 +64,8 @@ export function render_train(): HTMLElement {
   // Listen for exercise selection from children
   page.addEventListener('select-exercise', (e: any) => {
     const exerciseType = e.detail.type;
-    const ex = EXERCISES.find(e => e.type === exerciseType);
-    const rating = currentRatings.find(r => r.pillar === ex?.primaryPillar)?.rating ?? 1500;
-    const difficulty = Math.min(10, Math.max(1, Math.floor((rating - 1300) / 100) + 1));
-    start_exercise_session(exerciseType, difficulty);
+    // Pass undefined difficulty to let session.ts resolve it from user ratings
+    start_exercise_session(exerciseType);
   });
 
   // Neural Storm handler

@@ -16,15 +16,16 @@ import { BaseEngine } from '../base-engine.ts';
 import type { ExerciseType, CognitivePillar, EngineCallbacks } from '@shared/types.ts';
 import { precise_now } from '@shared/utils.ts';
 import { audioEngine } from '@core/audio/audio-engine.ts';
+import { t } from '@shared/i18n.ts';
 
-type Phase = 'countdown' | 'playing' | 'feedback';
+type Phase = 'tutorial' | 'countdown' | 'playing' | 'feedback';
 
 export class HanoiEngine extends BaseEngine {
   readonly exerciseType: ExerciseType = 'TowerOfHanoi';
   readonly primaryPillar: CognitivePillar = 'SustainedAttention';
   readonly totalTrials: number = 3;
 
-  private _phase: Phase = 'countdown';
+  private _phase: Phase = 'tutorial';
   private _phaseStart: number = 0;
 
   // State
@@ -40,22 +41,22 @@ export class HanoiEngine extends BaseEngine {
   private _sourcePeg: number = 0; // Which peg discs start on
   private _targetPeg: number = 2; // Which peg is the goal
   private _feedbackMessage: string = '';
-
   // Geometry (computed once)
   private _pegX: number[] = [0, 0, 0];
   private _pegBaseY: number = 0;
   private _pegTopY: number = 0;
   private _discMaxW: number = 0;
   private _discH: number = 0;
+  private _discGradients: CanvasGradient[] = [];
 
   constructor(canvas: HTMLCanvasElement, callbacks: EngineCallbacks) {
     super(canvas, callbacks);
   }
 
   protected on_start(): void {
+    this._phase = 'tutorial';
     this._phaseStart = precise_now();
     this._compute_geometry();
-    this.start_countdown(() => this._init_puzzle());
   }
 
   protected on_update(_dt: number): void {
@@ -95,23 +96,18 @@ export class HanoiEngine extends BaseEngine {
     ctx.fillStyle = 'hsl(225, 45%, 6%)';
     ctx.fillRect(0, 0, w, h);
 
+    // Background texture
+    this.draw_background_mesh(ctx, w, h);
+
     // HUD
-    ctx.font = '500 14px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.8)';
-    ctx.textAlign = 'right';
-    ctx.fillText(`${this.currentTrial} / ${this.totalTrials}`, w - 32, 40);
-
-    ctx.textAlign = 'left';
-    ctx.fillText(`Moves: ${this._moveCount} / ${this._moveLimit}`, 32, 40);
-
-    if (this._currentDifficulty > 1) {
-      ctx.font = '500 11px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.textAlign = 'right';
-      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
-    }
+    this.draw_hud(ctx, w);
+    this.draw_status_badge(ctx, 32, 52, `Moves: ${this._moveCount} / ${this._moveLimit}`, 'hsla(175, 70%, 50%, 0.7)', 'left');
 
     switch (this._phase) {
+      case 'tutorial':
+        this._render_tutorial(ctx);
+        break;
+
       case 'countdown':
         break;
 
@@ -123,11 +119,15 @@ export class HanoiEngine extends BaseEngine {
 
       case 'feedback':
         this._render_pegs(ctx);
-        ctx.font = 'bold 28px Inter, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle = this._isCorrect ? 'hsl(145, 65%, 55%)' : 'hsl(0, 75%, 55%)';
-        ctx.fillText(this._feedbackMessage, cx, 60);
+        const progress = (precise_now() - this._phaseStart) / 2200;
+        const cy = h / 2;
+        this.draw_feedback_orb(ctx, cx, cy, this._isCorrect, progress);
+        if (this._feedbackMessage) {
+            ctx.font = 'bold 16px Outfit, sans-serif';
+            ctx.fillStyle = 'hsla(0, 0%, 100%, 0.6)';
+            ctx.textAlign = 'center';
+            ctx.fillText(this._feedbackMessage.toUpperCase(), cx, cy + 40);
+        }
         break;
     }
   }
@@ -142,30 +142,34 @@ export class HanoiEngine extends BaseEngine {
       const isTarget = p === this._targetPeg;
       const isSelected = p === this._selectedPeg;
 
-      // Peg pole
+      // Peg pole (Glass style)
       ctx.fillStyle = isSelected
-        ? 'hsla(175, 60%, 45%, 0.6)'
+        ? 'hsla(175, 60%, 45%, 0.4)'
         : isTarget
-          ? 'hsla(145, 40%, 30%, 0.5)'
-          : 'hsla(220, 20%, 30%, 0.5)';
-      ctx.fillRect(px - 3, this._pegTopY, 6, this._pegBaseY - this._pegTopY);
+          ? 'hsla(145, 40%, 30%, 0.3)'
+          : 'hsla(220, 20%, 30%, 0.2)';
+      ctx.beginPath();
+      ctx.roundRect(px - 3, this._pegTopY, 6, this._pegBaseY - this._pegTopY, 3);
+      ctx.fill();
 
-      // Peg label
-      ctx.font = 'bold 14px Inter, sans-serif';
+      // Peg label pill
+      const labelY = this._pegBaseY + 12;
+      this.draw_glass_panel(ctx, px - 15, labelY, 30, 22, 6);
+      ctx.font = '800 11px Outfit, sans-serif';
       ctx.fillStyle = isSelected
         ? 'hsl(175, 70%, 55%)'
         : isTarget
           ? 'hsl(145, 60%, 50%)'
           : 'hsla(220, 15%, 50%, 0.6)';
       ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      ctx.fillText(String(p + 1), px, this._pegBaseY + 12);
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(p + 1), px, labelY + 11);
 
-      // Target marker (star below the peg number)
+      // Target marker
       if (isTarget) {
-        ctx.font = '400 11px Inter, sans-serif';
+        ctx.font = '800 9px Outfit, sans-serif';
         ctx.fillStyle = 'hsl(145, 60%, 50%)';
-        ctx.fillText('★ GOAL', px, this._pegBaseY + 28);
+        ctx.fillText(`★ ${t('exercise.hanoi.goal')}`, px, labelY + 34);
       }
 
       // Draw discs on this peg
@@ -175,17 +179,25 @@ export class HanoiEngine extends BaseEngine {
         const dw = this._disc_width(discSize);
         const dy = this._pegBaseY - (d + 1) * this._discH;
         const dx = px - dw / 2;
-        const hue = (discSize - 1) * (360 / this._numDiscs);
-
+        
+        ctx.save();
         ctx.beginPath();
-        ctx.roundRect(dx, dy, dw, this._discH - 2, 6);
-        ctx.fillStyle = `hsl(${hue}, 65%, 55%)`;
+        ctx.roundRect(dx, dy + 1, dw, this._discH - 3, 6);
+        ctx.fillStyle = this._discGradients[discSize - 1] || 'white';
         ctx.fill();
 
+        // High-end depth shadow
+        ctx.shadowColor = 'rgba(0,0,0,0.3)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetY = 2;
+        ctx.stroke();
+        ctx.restore();
+
         if (isSelected && d === stack.length - 1 && this._heldDisc > 0) {
-          ctx.shadowColor = `hsl(${hue}, 65%, 55%)`;
-          ctx.shadowBlur = 12;
-          ctx.fill();
+          ctx.shadowColor = 'white';
+          ctx.shadowBlur = 10;
+          ctx.strokeStyle = 'white';
+          ctx.stroke();
           ctx.shadowBlur = 0;
         }
       }
@@ -193,40 +205,80 @@ export class HanoiEngine extends BaseEngine {
       // Draw held disc floating above the selected peg
       if (isSelected && this._heldDisc > 0) {
         const dw = this._disc_width(this._heldDisc);
-        const floatY = this._pegTopY - this._discH - 8;
-        const hue = (this._heldDisc - 1) * (360 / this._numDiscs);
-
+        const floatY = this._pegTopY - this._discH - 12;
+        
+        ctx.save();
+        ctx.translate(px, floatY + this._discH / 2);
+        const hoverPulse = Math.sin(precise_now() / 200) * 5;
+        ctx.translate(0, hoverPulse);
+        
         ctx.beginPath();
-        ctx.roundRect(px - dw / 2, floatY, dw, this._discH - 2, 6);
-        ctx.fillStyle = `hsl(${hue}, 65%, 55%)`;
+        ctx.roundRect(-dw / 2, -this._discH / 2, dw, this._discH - 3, 6);
+        ctx.fillStyle = this._discGradients[this._heldDisc - 1] || 'white';
         ctx.fill();
-        ctx.shadowColor = `hsl(${hue}, 65%, 55%)`;
-        ctx.shadowBlur = 16;
-        ctx.fill();
-        ctx.shadowBlur = 0;
+        
+        ctx.shadowColor = 'white';
+        ctx.shadowBlur = 15;
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
       }
     }
   }
 
   /** In-game goal instruction */
   private _render_goal_instruction(ctx: CanvasRenderingContext2D): void {
-    ctx.font = '500 13px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(175, 70%, 55%, 0.7)';
+    const pillW = 280;
+    this.draw_glass_panel(ctx, (this.width - pillW) / 2, 60, pillW, 26, 13);
+    ctx.font = '800 10px Outfit, sans-serif';
+    ctx.fillStyle = 'hsla(175, 70%, 55%, 0.8)';
     ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
     ctx.fillText(
-      `Move all discs from Peg ${this._sourcePeg + 1} → Peg ${this._targetPeg + 1}`,
-      this.width / 2, 65
+      t('exercise.hanoi.moveAll', { src: this._sourcePeg + 1, dst: this._targetPeg + 1 }),
+      this.width / 2, 74
     );
   }
 
   private _render_keyboard_hint(ctx: CanvasRenderingContext2D): void {
-    ctx.font = '400 12px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 50%, 0.5)';
+    ctx.font = '800 9px Outfit, sans-serif';
+    ctx.fillStyle = 'hsla(220, 15%, 50%, 0.4)';
     ctx.textAlign = 'center';
-    ctx.fillText('Press 1, 2, or 3 to select a peg', this.width / 2, this.height - 30);
+    ctx.fillText(t('exercise.hanoi.keyboardHint'), this.width / 2, this.height - 30);
+  }
+
+  private _render_tutorial(ctx: CanvasRenderingContext2D): void {
+    const cx = this.width / 2;
+    const cy = this.height / 2;
+    const isMobile = this.width < 600;
+
+    this.draw_glass_panel(ctx, cx - 160, cy - 100, 320, 200, 20);
+
+    ctx.font = '800 20px Outfit, sans-serif';
+    ctx.fillStyle = 'white';
+    ctx.textAlign = 'center';
+    ctx.fillText(t('exercise.hanoi.name').toUpperCase(), cx, cy - 60);
+
+    ctx.font = '500 13px Outfit, sans-serif';
+    ctx.fillStyle = 'hsla(220, 15%, 80%, 0.9)';
+    const instr = isMobile ? t('exercise.hanoi.instructionMobile') : t('exercise.hanoi.instruction');
+    const lines = instr.split('. ');
+    lines.forEach((line, i) => {
+        ctx.fillText(line.trim(), cx, cy - 20 + i * 20);
+    });
+
+    ctx.font = '800 11px Outfit, sans-serif';
+    ctx.fillStyle = 'hsl(175, 70%, 50%)';
+    ctx.fillText(isMobile ? t('exercise.nback.tapStart') : t('exercise.nback.keyStart'), cx, cy + 60);
   }
 
   protected on_key_down(code: string, _timestamp: number): void {
+    if (this._phase === 'tutorial') {
+      this._phase = 'countdown';
+      this.start_countdown(() => this._init_puzzle());
+      return;
+    }
     if (this._phase !== 'playing') return;
 
     let pegIndex = -1;
@@ -257,6 +309,11 @@ export class HanoiEngine extends BaseEngine {
     this._discH = Math.min(32, (this._pegBaseY - this._pegTopY) / 8);
 
     this.canvas.onpointerdown = (e: MouseEvent) => {
+      if (this._phase === 'tutorial') {
+        this._phase = 'countdown';
+        this.start_countdown(() => this._init_puzzle());
+        return;
+      }
       if (this._phase !== 'playing') return;
       const rect = this.canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
@@ -299,6 +356,17 @@ export class HanoiEngine extends BaseEngine {
     }
 
     this._trialStartTime = precise_now();
+
+    // Pre-compute disc gradients
+    this._discGradients = [];
+    for (let i = 1; i <= this._numDiscs; i++) {
+        const hue = (i - 1) * (360 / this._numDiscs);
+        const grad = this.ctx.createLinearGradient(0, 0, 0, this._discH);
+        grad.addColorStop(0, `hsl(${hue}, 70%, 60%)`);
+        grad.addColorStop(1, `hsl(${hue}, 70%, 40%)`);
+        this._discGradients.push(grad);
+    }
+
     this._phase = 'playing';
     this._phaseStart = precise_now();
   }

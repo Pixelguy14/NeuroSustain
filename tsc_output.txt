@@ -1,0 +1,12 @@
+src/engines/box-count/box-count-engine.ts(395,18): error TS2304: Cannot find name 't'.
+src/engines/hanoi/hanoi-engine.ts(44,11): error TS2300: Duplicate identifier '_phase'.
+src/engines/nback/nback-engine.ts(228,12): error TS2678: Type '"message"' is not comparable to type 'Phase'.
+src/engines/nback/nback-engine.ts(242,22): error TS2304: Cannot find name 'isMobile'.
+src/engines/nback/nback-engine.ts(358,9): error TS2367: This comparison appears to be unintentional because the types 'Phase' and '"message"' have no overlap.
+src/engines/nback/nback-engine.ts(435,9): error TS2322: Type '"message"' is not assignable to type 'Phase'.
+src/engines/nback/nback-engine.ts(460,11): error TS2367: This comparison appears to be unintentional because the types 'Phase' and '"message"' have no overlap.
+src/engines/piano-player/piano-player-engine.ts(117,11): error TS2367: This comparison appears to be unintentional because the types 'Phase' and '"message"' have no overlap.
+src/engines/piano-player/piano-player-engine.ts(258,12): error TS2678: Type '"message"' is not comparable to type 'Phase'.
+src/engines/piano-player/piano-player-engine.ts(374,9): error TS2367: This comparison appears to be unintentional because the types 'Phase' and '"message"' have no overlap.
+src/engines/piano-player/piano-player-engine.ts(519,9): error TS2322: Type '"message"' is not assignable to type 'Phase'.
+src/ui/pages/train.ts(41,7): error TS6133: 'currentRatings' is declared but its value is never read.

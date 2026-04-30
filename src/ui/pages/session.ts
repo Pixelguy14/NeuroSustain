@@ -19,10 +19,10 @@ import { StroopEngine } from '@engines/stroop/stroop-engine.ts';
 import { SymbolSearchEngine } from '@engines/symbol-search/symbol-search-engine.ts';
 import { InspectionTimeEngine } from '@engines/inspection-time/inspection-time-engine.ts';
 import { generate_uuid, format_ms } from '@shared/utils.ts';
-import { save_session, update_pillar_skill } from '@shared/db.ts';
+import { save_session, update_pillar_skill, get_ratings } from '@shared/db.ts';
 import { t } from '@shared/i18n.ts';
 import { router } from '../router.ts';
-import { TIMING } from '@shared/constants.ts';
+import { TIMING, EXERCISES } from '@shared/constants.ts';
 import { detect_fatigue } from '@core/analytics/analytics.ts';
 import { show_loading } from '../components/loading-screen.ts';
 import { render_sparkline } from '../components/sparkline.ts';
@@ -33,15 +33,34 @@ import { audioEngine } from '@core/audio/audio-engine.ts';
 let _activeEngine: BaseEngine | null = null;
 let _neuralStormTimeout: number | null = null;
 let _sessionMode: 'normal' | 'baseline' = 'normal';
+let _fatigueToast: HTMLElement | null = null;
+let _graceOverlay: HTMLElement | null = null;
+let _lastAbortTime: number = 0;
+const ABORT_COOLDOWN_MS = 1200;
 
 /** Start an exercise session */
-export function start_exercise_session(exerciseType: string, difficulty: number = 1, mode: 'normal' | 'baseline' = 'normal'): void {
-  _sessionMode = mode;
-  // If debug override exists, use it
-  const debugDiff = localStorage.getItem('DEBUG_DIFFICULTY');
-  if (debugDiff) difficulty = parseInt(debugDiff, 10);
+export function start_exercise_session(exerciseType: string, difficulty?: number, mode: 'normal' | 'baseline' = 'normal'): void {
+  const now = Date.now();
+  if (now - _lastAbortTime < ABORT_COOLDOWN_MS) return;
 
-  show_loading('loading.calibrating', true).then(() => {
+  _sessionMode = mode;
+
+  show_loading('loading.calibrating', true).then(async () => {
+    // ── Difficulty Resolution ──
+    // 1. Check debug override
+    const debugDiff = localStorage.getItem('DEBUG_DIFFICULTY');
+    if (debugDiff) {
+      difficulty = parseInt(debugDiff, 10);
+    }
+    
+    // 2. If no difficulty provided (e.g. from Dashboard), resolve from user ratings
+    if (difficulty === undefined) {
+      const exercise = EXERCISES.find(e => e.type === exerciseType);
+      const ratings = await get_ratings();
+      const rating = ratings.find(r => r.pillar === exercise?.primaryPillar)?.rating ?? 1500;
+      difficulty = Math.min(10, Math.max(1, Math.floor((rating - 1300) / 100) + 1));
+    }
+
     _launch_engine(exerciseType, false, difficulty);
   });
 }
@@ -65,6 +84,41 @@ async function _launch_engine(exerciseType: string, isNeuralStorm: boolean = fal
     container.id = 'session-container';
     canvas = document.createElement('canvas');
     container.appendChild(canvas);
+
+    // Pre-create fatigue toast (compositor-only visibility toggle)
+    _fatigueToast = document.createElement('div');
+    _fatigueToast.className = 'fatigue-toast';
+    _fatigueToast.style.cssText = `
+      position: absolute; bottom: 80px; left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+      background: hsla(225, 35%, 12%, 0.92);
+      border: 1px solid hsl(38, 90%, 55%);
+      border-radius: 10px; padding: 12px 20px;
+      font-family: Inter, sans-serif; font-size: 13px;
+      color: hsl(220, 20%, 85%); backdrop-filter: blur(12px);
+      z-index: 10; text-align: center; max-width: 320px;
+      box-shadow: 0 4px 20px hsla(38, 90%, 30%, 0.25);
+    `;
+    container.appendChild(_fatigueToast);
+
+    // Pre-create Neural Storm grace overlay (compositor-only visibility toggle)
+    _graceOverlay = document.createElement('div');
+    _graceOverlay.className = 'grace-period-overlay';
+    _graceOverlay.style.cssText = `
+      position: absolute; inset: 0; display: flex;
+      align-items: center; justify-content: center;
+      background: var(--bg-primary); z-index: 100;
+      font-family: var(--font-family); color: var(--color-text-primary);
+      font-size: var(--font-size-2xl); font-weight: 700;
+      letter-spacing: 0.1em;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.15s ease-out;
+    `;
+    _graceOverlay.textContent = 'RECALIBRATING';
+    container.appendChild(_graceOverlay);
+
     document.body.appendChild(container);
   } else {
     canvas = container.querySelector('canvas')!;
@@ -83,6 +137,7 @@ async function _launch_engine(exerciseType: string, isNeuralStorm: boolean = fal
       }
     },
     onExit: () => {
+      _lastAbortTime = Date.now();
       _activeEngine?.stop();
       _activeEngine = null;
       if (_neuralStormTimeout !== null) {
@@ -93,17 +148,11 @@ async function _launch_engine(exerciseType: string, isNeuralStorm: boolean = fal
       router.navigate(_sessionMode === 'baseline' ? '/baseline' : '/train');
     },
     onFatigueDetected: (event: FatigueEvent) => {
-      if (!isNeuralStorm) _show_fatigue_warning(container!, event);
+      if (!isNeuralStorm && _fatigueToast) _show_fatigue_warning(_fatigueToast, event);
     },
   };
 
   audioEngine.unlock();
-
-  // Stop and cleanup existing engine if one is active
-  if (_activeEngine) {
-    _activeEngine.stop();
-    _activeEngine = null;
-  }
 
   switch (exerciseType) {
     case 'ReactionTime':
@@ -213,29 +262,12 @@ function _launch_neural_storm(): void {
       document.body.appendChild(container);
     }
 
-    // Show Grace Period UI
+    // Show Grace Period UI using pre-created overlay
     if (container) {
-      const overlay = document.createElement('div');
-      overlay.className = 'grace-period-overlay';
-      overlay.style.cssText = `
-        position: absolute;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: var(--bg-primary);
-        z-index: 100;
-        font-family: var(--font-family);
-        color: var(--color-text-primary);
-        font-size: var(--font-size-2xl);
-        font-weight: 700;
-        letter-spacing: 0.1em;
-      `;
-      overlay.textContent = 'RECALIBRATING';
-      container.appendChild(overlay);
+      show_grace();
 
       setTimeout(() => {
-        overlay.remove();
+        hide_grace();
         
         // Prevent same minigame in sequence
         const availablePool = pool.filter(t => t !== lastType);
@@ -250,6 +282,21 @@ function _launch_neural_storm(): void {
         elapsed += SWITCH_INTERVAL_MS;
         _neuralStormTimeout = window.setTimeout(switch_exercise, SWITCH_INTERVAL_MS);
       }, GRACE_PERIOD_MS);
+    }
+  };
+
+  // Show grace overlay using pre-created element
+  const show_grace = () => {
+    if (_graceOverlay) {
+      _graceOverlay.style.opacity = '1';
+      _graceOverlay.style.pointerEvents = 'auto';
+    }
+  };
+
+  const hide_grace = () => {
+    if (_graceOverlay) {
+      _graceOverlay.style.opacity = '0';
+      _graceOverlay.style.pointerEvents = 'none';
     }
   };
 
@@ -475,30 +522,11 @@ function _render_results_screen(results: TrialResults, fsrs: FsrsDisplayData | n
 
 /**
  * System B: Non-blocking fatigue warning overlay.
- * Appears inside the session container, auto-dismisses after 4 seconds.
- * Does NOT interrupt the exercise — the user can continue or acknowledge.
+ * Uses the pre-created toast element — toggles visibility with
+ * compositor-only CSS properties (opacity, transform) to avoid
+ * layout recalculation during active canvas rendering.
  */
-function _show_fatigue_warning(container: HTMLElement, event: FatigueEvent): void {
-  const toast = document.createElement('div');
-  toast.style.cssText = `
-    position: absolute;
-    bottom: 80px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: hsla(225, 35%, 12%, 0.92);
-    border: 1px solid hsl(38, 90%, 55%);
-    border-radius: 10px;
-    padding: 12px 20px;
-    font-family: Inter, sans-serif;
-    font-size: 13px;
-    color: hsl(220, 20%, 85%);
-    backdrop-filter: blur(12px);
-    z-index: 10;
-    text-align: center;
-    max-width: 320px;
-    animation: fadeIn 0.3s ease-out;
-    box-shadow: 0 4px 20px hsla(38, 90%, 30%, 0.25);
-  `;
+function _show_fatigue_warning(toast: HTMLElement, event: FatigueEvent): void {
   toast.innerHTML = `
     <div class="fatigue-warning__icon">⚠️</div>
     <div class="fatigue-warning__content">
@@ -516,18 +544,23 @@ function _show_fatigue_warning(container: HTMLElement, event: FatigueEvent): voi
     </div>
   `;
 
-  container.appendChild(toast);
+  // Show with compositor-only properties
+  toast.style.opacity = '1';
+  toast.style.transform = 'translateX(-50%) translateY(0)';
+  toast.style.pointerEvents = 'auto';
 
   toast.querySelector('#fatigue-break-btn')?.addEventListener('click', () => {
     _activeEngine?.stop();
-    toast.remove();
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(-50%) translateY(20px)';
+    toast.style.pointerEvents = 'none';
     _launch_engine('FreeDraw');
   });
 
   // Auto-dismiss after 4s
   setTimeout(() => {
     toast.style.opacity = '0';
-    toast.style.transition = 'opacity 0.5s ease-out';
-    setTimeout(() => toast.remove(), 500);
+    toast.style.transform = 'translateX(-50%) translateY(20px)';
+    toast.style.pointerEvents = 'none';
   }, 4000);
 }

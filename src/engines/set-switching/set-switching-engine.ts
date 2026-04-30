@@ -9,7 +9,7 @@
 // Difficulty Scaling:
 //   1-3: 2 shapes × 2 colors, rule switch every 5 trials, 5s.
 //   4-7: 3 shapes × 3 colors, switch every 3 trials, 4s.
-//   8-10: 4 shapes × 4 colors, random switch (1-3), 3s. +SIZE.
+//   8-10: 4 shapes × 4 colors, random switch (1-3), 3s. + quantity of shapes.
 // ============================================================
 
 import { BaseEngine } from '../base-engine.ts';
@@ -74,6 +74,9 @@ export class SetSwitchingEngine extends BaseEngine {
 
   // Button geometry
   private _btnRects: { x: number; y: number; w: number; h: number; label: string }[] = [];
+  private _btnPressMs: number[] = [];
+  private _btnGradients: CanvasGradient[] = [];
+  private _boundPointerDown = (e: MouseEvent) => this._handle_input(e);
 
   constructor(canvas: HTMLCanvasElement, callbacks: EngineCallbacks) {
     super(canvas, callbacks);
@@ -84,6 +87,10 @@ export class SetSwitchingEngine extends BaseEngine {
     this._phaseStart = precise_now();
     this._configure_difficulty();
     this._pick_initial_rule();
+    
+    // Register unified listener
+    this.canvas.addEventListener('pointerdown', this._boundPointerDown);
+    
     this.start_countdown(() => this._next_trial());
   }
 
@@ -120,17 +127,11 @@ export class SetSwitchingEngine extends BaseEngine {
     ctx.fillStyle = 'hsl(225, 45%, 6%)';
     ctx.fillRect(0, 0, w, h);
 
-    // HUD
-    ctx.font = '500 14px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.8)';
-    ctx.textAlign = 'right';
-    ctx.fillText(`${this.currentTrial} / ${this.totalTrials}`, w - 32, 40);
+    // Background texture
+    this.draw_background_mesh(ctx, w, h);
 
-    if (this._currentDifficulty > 1) {
-      ctx.font = '500 11px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.fillText(t('session.difficulty', { level: this._currentDifficulty }), w - 32, 58);
-    }
+    // HUD
+    this.draw_hud(ctx, w);
 
     switch (this._phase) {
       case 'countdown':
@@ -141,7 +142,14 @@ export class SetSwitchingEngine extends BaseEngine {
         break;
 
       case 'feedback':
-        this._render_feedback(ctx, cx, cy);
+        const progress = (precise_now() - this._phaseStart) / 1000;
+        this.draw_feedback_orb(ctx, cx, cy, this._isCorrect, progress);
+        if (!this._isCorrect) {
+            ctx.font = '600 16px Outfit, sans-serif';
+            ctx.fillStyle = 'hsla(0, 0%, 100%, 0.7)';
+            ctx.textAlign = 'center';
+            ctx.fillText(this._correctAnswer, cx, cy + 40);
+        }
         break;
     }
   }
@@ -151,51 +159,56 @@ export class SetSwitchingEngine extends BaseEngine {
     if (!this._currentStimulus) return;
 
     // Rule indicator (prominent)
-    ctx.font = 'bold 14px Inter, sans-serif';
+    ctx.font = 'bold 13px Outfit, sans-serif';
     ctx.textAlign = 'center';
 
     const ruleLabel = this._currentRule === 'color' ? t('exercise.setSwitch.ruleColor')
       : this._currentRule === 'shape' ? t('exercise.setSwitch.ruleShape')
-      : t('exercise.setSwitch.ruleCount');
-    
-    const ruleColor = this._currentRule === 'color' ? 'hsl(210, 70%, 60%)'
-      : this._currentRule === 'shape' ? 'hsl(280, 60%, 60%)'
-      : 'hsl(145, 60%, 60%)';
+        : t('exercise.setSwitch.ruleCount');
+
+    const ruleColor = this._currentRule === 'color' ? 'hsl(210, 80%, 65%)'
+      : this._currentRule === 'shape' ? 'hsl(280, 75%, 70%)'
+        : 'hsl(145, 75%, 65%)';
 
     // Rule pill
-    const pillW = 200;
-    const pillH = 32;
+    const pillW = 180;
+    const pillH = 36;
     const pillX = cx - pillW / 2;
-    const pillY = 65;
+    const pillY = 75;
 
-    ctx.beginPath();
-    ctx.roundRect(pillX, pillY, pillW, pillH, pillH / 2);
-    ctx.fillStyle = ruleColor.replace(')', ', 0.15)').replace('hsl', 'hsla');
-    ctx.fill();
-    ctx.strokeStyle = ruleColor.replace(')', ', 0.5)').replace('hsl', 'hsla');
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-
+    this.draw_glass_panel(ctx, pillX, pillY, pillW, pillH, pillH / 2);
     ctx.fillStyle = ruleColor;
     ctx.textBaseline = 'middle';
     ctx.fillText(ruleLabel, cx, pillY + pillH / 2);
 
     // Time bar
     const progress = Math.min(1, elapsed / this._timeLimitMs);
-    const barW = w - 120;
+    const barW = w - 160;
     const barH = 3;
     const barX = (w - barW) / 2;
-    const barY = pillY + pillH + 12;
+    const barY = pillY + pillH + 16;
 
     ctx.fillStyle = 'hsla(220, 20%, 20%, 0.3)';
     ctx.fillRect(barX, barY, barW, barH);
-    const hue = progress < 0.6 ? 175 : progress < 0.85 ? 45 : 0;
-    ctx.fillStyle = `hsl(${hue}, 70%, 55%)`;
+    
+    if (progress < 0.6) ctx.fillStyle = 'hsl(175, 70%, 55%)';
+    else if (progress < 0.85) ctx.fillStyle = 'hsl(45, 70%, 55%)';
+    else ctx.fillStyle = 'hsl(0, 70%, 55%)';
+    
     ctx.fillRect(barX, barY, barW * (1 - progress), barH);
 
-    // Draw stimulus shape (centered)
-    const stimY = h * 0.38;
-    const stimSize = this._currentStimulus.size === 'large' ? 80 : (this._useSize ? 45 : 65);
+    // Stimulus stage (Glass panel)
+    const stageW = Math.min(320, w - 64);
+    const stageH = 160;
+    const stageY = barY + 30;
+    this.draw_glass_panel(ctx, cx - stageW / 2, stageY, stageW, stageH, 16);
+
+    // Draw stimulus shape (centered on stage)
+    const stimY = stageY + stageH / 2;
+    const isMobile = w < 600;
+    let stimSize = this._currentStimulus.size === 'large' ? 80 : (this._useSize ? 45 : 65);
+    if (isMobile && this._currentStimulus.count > 3) stimSize *= 0.8;
+    
     const stimColor = COLORS.find(c => c.name === this._currentStimulus!.colorName)?.hsl || 'hsl(0, 0%, 50%)';
 
     this._draw_shapes(ctx, this._currentStimulus, cx, stimY, stimSize, stimColor);
@@ -205,98 +218,93 @@ export class SetSwitchingEngine extends BaseEngine {
     const btnW = Math.min(140, (w - BTN_GAP * (numBtns + 1)) / numBtns);
     const totalBtnW = numBtns * btnW + (numBtns - 1) * BTN_GAP;
     const startX = cx - totalBtnW / 2;
-    const btnY = h - BTN_H - 50;
+    const btnY = h - BTN_H - 60;
 
-    this._btnRects = [];
-
+    const now = precise_now();
     for (let i = 0; i < numBtns; i++) {
       const bx = startX + i * (btnW + BTN_GAP);
       const label = this._options[i]!;
+      const pressElapsed = now - (this._btnPressMs[i] || 0);
+      const isPressed = pressElapsed < 100;
 
-      this._btnRects.push({ x: bx, y: btnY, w: btnW, h: BTN_H, label });
+      this._btnRects[i] = { x: bx, y: btnY, w: btnW, h: BTN_H, label };
 
-      ctx.beginPath();
-      ctx.roundRect(bx, btnY, btnW, BTN_H, 8);
-      ctx.fillStyle = 'hsla(225, 30%, 15%, 0.6)';
-      ctx.fill();
-      ctx.strokeStyle = 'hsla(220, 20%, 35%, 0.4)';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-
-      ctx.font = 'bold 13px Inter, sans-serif';
-      ctx.fillStyle = 'hsl(220, 15%, 75%)';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(label, bx + btnW / 2, btnY + BTN_H / 2);
+      this.draw_tactile_button(
+          ctx, bx, btnY, btnW, BTN_H,
+          label,
+          {
+              bg: (this._btnGradients[i] || 'hsla(225, 30%, 15%, 0.6)') as any,
+              stroke: isPressed ? 'hsl(175, 70%, 50%)' : 'hsla(220, 20%, 35%, 0.3)',
+              text: isPressed ? 'white' : 'hsl(220, 15%, 85%)'
+          },
+          isPressed
+      );
 
       // Keyboard hint
-      ctx.font = '400 10px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.font = '600 10px Outfit, sans-serif';
       ctx.fillStyle = 'hsla(220, 15%, 50%, 0.4)';
-      ctx.fillText(`[${i + 1}]`, bx + btnW / 2, btnY + BTN_H + 12);
+      ctx.fillText(`${i + 1}`, bx + btnW / 2, btnY + BTN_H + 16);
     }
   }
 
   private _draw_shapes(ctx: CanvasRenderingContext2D, config: ShapeConfig, x: number, y: number, size: number, color: string): void {
     const count = config.count;
-    const spacing = size * 0.8;
-    
+    const isMobile = this.width < 600;
+    const spacing = isMobile ? size * 1.1 : size * 1.5; 
+
+    ctx.save();
     ctx.shadowColor = color;
-    ctx.shadowBlur = 16;
-    
+    ctx.shadowBlur = 12;
+
     for (let i = 0; i < count; i++) {
       const offsetX = (i - (count - 1) / 2) * spacing;
       this._draw_single_shape(ctx, config.shapeName, x + offsetX, y, size, color);
     }
-    
-    ctx.shadowBlur = 0;
+
+    ctx.restore();
   }
 
   private _draw_single_shape(ctx: CanvasRenderingContext2D, shape: string, x: number, y: number, size: number, color: string): void {
-    ctx.fillStyle = color;
+    // Tactile Gradient for shape
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, size);
+    grad.addColorStop(0, color);
+    grad.addColorStop(1, color.replace('55%)', '35%)').replace('50%)', '30%)'));
+    ctx.fillStyle = grad;
+
     ctx.beginPath();
-    
     switch (shape) {
       case 'circle':
         ctx.arc(x, y, size / 2, 0, Math.PI * 2);
         break;
       case 'square':
-        ctx.roundRect(x - size / 2, y - size / 2, size, size, 4);
+        ctx.roundRect(x - size / 2, y - size / 2, size, size, 6);
         break;
       case 'triangle': {
         const h = size * 0.866;
-        ctx.moveTo(x, y - h / 2);
-        ctx.lineTo(x - size / 2, y + h / 2);
-        ctx.lineTo(x + size / 2, y + h / 2);
+        ctx.moveTo(x, y - h * 0.6);
+        ctx.lineTo(x - size / 2, y + h * 0.4);
+        ctx.lineTo(x + size / 2, y + h * 0.4);
         ctx.closePath();
         break;
       }
       case 'diamond':
-        ctx.moveTo(x, y - size / 2);
-        ctx.lineTo(x + size / 2, y);
-        ctx.lineTo(x, y + size / 2);
-        ctx.lineTo(x - size / 2, y);
+        ctx.moveTo(x, y - size / 1.8);
+        ctx.lineTo(x + size / 1.8, y);
+        ctx.lineTo(x, y + size / 1.8);
+        ctx.lineTo(x - size / 1.8, y);
         ctx.closePath();
         break;
     }
     ctx.fill();
+
+    // Subtle highlight line
+    ctx.strokeStyle = 'hsla(0, 0%, 100%, 0.2)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
   }
 
-  private _render_feedback(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
-    ctx.font = 'bold 36px Inter, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
 
-    if (this._isCorrect) {
-      ctx.fillStyle = 'hsl(145, 65%, 55%)';
-      ctx.fillText('✓', cx, cy);
-    } else {
-      ctx.fillStyle = 'hsl(0, 75%, 55%)';
-      ctx.fillText('✗', cx, cy - 16);
-      ctx.font = '400 16px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(220, 15%, 60%, 0.8)';
-      ctx.fillText(this._correctAnswer, cx, cy + 20);
-    }
-  }
 
   protected on_key_down(code: string, _timestamp: number): void {
     if (this._phase !== 'presenting') return;
@@ -313,7 +321,7 @@ export class SetSwitchingEngine extends BaseEngine {
   }
 
   protected on_cleanup(): void {
-    this.canvas.onpointerdown = null;
+    this.canvas.removeEventListener('pointerdown', this._boundPointerDown);
   }
 
   // ── Logic ───────────────────────────────────────────────
@@ -376,15 +384,15 @@ export class SetSwitchingEngine extends BaseEngine {
     const colorIdx = Math.floor(Math.random() * this._activeColors);
     const shapeIdx = Math.floor(Math.random() * this._activeShapes);
     const countIdx = Math.floor(Math.random() * this._activeCounts);
-    
+
     const size: 'small' | 'large' = this._useSize
       ? (Math.random() < 0.5 ? 'small' : 'large')
       : 'large';
- 
+
     const color = COLORS[colorIdx]!;
     const shape = SHAPES[shapeIdx]!;
     const count = countIdx + 1;
- 
+
     // Data-safe object (Machine-readable key for analytics)
     this._currentStimulus = {
       name: `${count}_${color.name}_${shape}_${size}`,
@@ -407,22 +415,22 @@ export class SetSwitchingEngine extends BaseEngine {
       this._options = ['1', '2', '3', '4'].slice(0, this._activeCounts);
     }
 
-    // Register click handler with corrected coordinate scaling
-    this.canvas.onpointerdown = (e: MouseEvent) => {
-      if (this._phase !== 'presenting') return;
-      const rect = this.canvas.getBoundingClientRect();
-      const scaleX = this.width / rect.width;
-      const scaleY = this.height / rect.height;
-      const x = (e.clientX - rect.left) * scaleX;
-      const y = (e.clientY - rect.top) * scaleY;
+    // Re-compute gradients and geometry for options
+    this._btnRects = [];
+    this._btnPressMs = new Array(this._options.length).fill(0);
+    this._btnGradients = [];
 
-      for (const btn of this._btnRects) {
-        if (x >= btn.x && x <= btn.x + btn.w && y >= btn.y && y <= btn.y + btn.h) {
-          this._submit_answer(btn.label);
-          return;
-        }
-      }
-    };
+    const numBtns = this._options.length;
+    const btnW = Math.min(140, (this.width - BTN_GAP * (numBtns + 1)) / numBtns);
+    const btnY = this.height - BTN_H - 60;
+
+    for (let i = 0; i < numBtns; i++) {
+        const bx = (this.width / 2) - (numBtns * btnW + (numBtns - 1) * BTN_GAP) / 2 + i * (btnW + BTN_GAP);
+        const grad = this.ctx.createLinearGradient(bx, btnY, bx, btnY + BTN_H);
+        grad.addColorStop(0, 'hsla(225, 30%, 18%, 0.8)');
+        grad.addColorStop(1, 'hsla(225, 35%, 12%, 0.9)');
+        this._btnGradients.push(grad);
+    }
 
     this._phase = 'presenting';
     this._phaseStart = precise_now();
@@ -437,7 +445,23 @@ export class SetSwitchingEngine extends BaseEngine {
     this._currentRule = newRule;
     audioEngine.play_transition();
   }
+  private _handle_input(e: MouseEvent): void {
+    if (this._phase !== 'presenting') return;
+    const rect = this.canvas.getBoundingClientRect();
+    const scaleX = this.width / rect.width;
+    const scaleY = this.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
 
+    for (let i = 0; i < this._btnRects.length; i++) {
+      const btn = this._btnRects[i]!;
+      if (x >= btn.x && x <= btn.x + btn.w && y >= btn.y && y <= btn.y + btn.h) {
+        this._btnPressMs[i] = precise_now();
+        this._submit_answer(btn.label);
+        return;
+      }
+    }
+  }
   private _submit_answer(answer: string | null): void {
     if (!this._currentStimulus) return;
 
@@ -473,7 +497,6 @@ export class SetSwitchingEngine extends BaseEngine {
       }
     });
 
-    this.canvas.onpointerdown = null;
     this._phase = 'feedback';
     this._phaseStart = precise_now();
   }

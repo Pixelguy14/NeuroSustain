@@ -19,6 +19,7 @@ import {
   format_currency,
   type Denomination,
 } from './currencies.ts';
+import { t } from '@shared/i18n.ts';
 
 type Phase = 'countdown' | 'playing' | 'feedback';
 
@@ -53,6 +54,30 @@ export class ChangeMakerEngine extends BaseEngine {
 
   // Denomination button geometry (computed once per trial)
   private _denomRects: { x: number; y: number; w: number; h: number }[] = [];
+  private _denomPressMs: number[] = []; // Timestamps of last press for animation
+
+  // ── Zero-Allocation Cache (System A) ──
+  private _cachedBillTotal: string = '';
+  private _cachedAmountPaid: string = '';
+  private _cachedChangeGoal: string = '';
+  private _cachedTrayTotal: string = '';
+  private _cachedDenomGradients: CanvasGradient[] = []; // Tactile gradients
+  private _cachedDenomBadges: string[] = []; // Pre-computed "n left" strings
+  private _cachedMismatch: string = '';      // Pre-computed "got != need"
+  
+  private _labelTotal: string = '';
+  private _labelPaid: string = '';
+  private _labelChangeDue: string = '';
+  private _labelYourTray: string = '';
+  private _labelClear: string = '';
+  private _labelSubmit: string = '';
+  private _labelHint: string = '';
+  private _labelOut: string = '';
+
+  private _feedbackScale: number = 0;
+  private _feedbackOpacity: number = 0;
+
+  private _boundPointerDown = (e: MouseEvent) => this._handle_input(e);
 
   constructor(canvas: HTMLCanvasElement, callbacks: EngineCallbacks) {
     super(canvas, callbacks);
@@ -61,6 +86,20 @@ export class ChangeMakerEngine extends BaseEngine {
   protected on_start(): void {
     this._locale = get_locale() === 'es' ? 'es' : 'en';
     this._denoms = this._locale === 'es' ? MXN_DENOMINATIONS : USD_DENOMINATIONS;
+    
+    // Cache static labels once per session
+    this._labelTotal = t('exercise.changeMaker.total');
+    this._labelPaid = t('exercise.changeMaker.paid');
+    this._labelChangeDue = t('exercise.changeMaker.changeDue');
+    this._labelYourTray = t('exercise.changeMaker.yourTray');
+    this._labelClear = t('exercise.changeMaker.clear');
+    this._labelSubmit = t('exercise.changeMaker.submit');
+    this._labelHint = t('exercise.changeMaker.hint');
+    this._labelOut = t('exercise.changeMaker.out');
+
+    // Register single listener for lifecycle
+    this.canvas.addEventListener('pointerdown', this._boundPointerDown);
+    
     this._phaseStart = precise_now();
     this.start_countdown(() => this._next_trial());
   }
@@ -98,17 +137,11 @@ export class ChangeMakerEngine extends BaseEngine {
     ctx.fillStyle = 'hsl(225, 45%, 6%)';
     ctx.fillRect(0, 0, w, h);
 
-    // HUD
-    ctx.font = '500 14px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.8)';
-    ctx.textAlign = 'right';
-    ctx.fillText(`${this.currentTrial} / ${this.totalTrials}`, w - 32, 40);
+    // Background texture
+    this.draw_background_mesh(ctx, w, h);
 
-    if (this._currentDifficulty > 1) {
-      ctx.font = '500 11px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
-    }
+    // HUD
+    this.draw_hud(ctx, w);
 
     switch (this._phase) {
       case 'countdown':
@@ -136,92 +169,136 @@ export class ChangeMakerEngine extends BaseEngine {
 
     ctx.fillStyle = 'hsla(220, 20%, 20%, 0.3)';
     ctx.fillRect(barX, barY, barW, barH);
-    const hue = progress < 0.6 ? 175 : progress < 0.85 ? 45 : 0;
-    ctx.fillStyle = `hsl(${hue}, 70%, 55%)`;
-    ctx.fillRect(barX, barY, barW * (1 - progress), barH);
+    const progressRemaining = 1 - progress;
+    
+    if (progress < 0.6) ctx.fillStyle = 'hsl(175, 70%, 55%)';
+    else if (progress < 0.85) ctx.fillStyle = 'hsl(45, 70%, 55%)';
+    else ctx.fillStyle = 'hsl(0, 70%, 55%)';
+    
+    ctx.fillRect(barX, barY, barW * progressRemaining, barH);
 
     // Transaction info
+    // Transaction info (Glass panel)
+    const glassY = 90;
+    const glassH = 140;
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(cx - 180, glassY, 360, glassH, 16);
+    ctx.fillStyle = 'hsla(225, 30%, 15%, 0.4)';
+    ctx.fill();
+    ctx.strokeStyle = 'hsla(175, 70%, 50%, 0.1)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    ctx.font = '400 13px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.7)';
-    ctx.fillText('TOTAL', cx - 80, 95);
-    ctx.fillText('PAID', cx + 80, 95);
+    ctx.font = '600 11px Outfit, sans-serif';
+    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.5)';
+    ctx.fillText(this._labelTotal, cx - 80, 110);
+    ctx.fillText(this._labelPaid, cx + 80, 110);
 
-    ctx.font = 'bold 22px Inter, sans-serif';
-    ctx.fillStyle = 'hsl(0, 65%, 55%)';
-    ctx.fillText(format_currency(this._billTotal, this._locale), cx - 80, 120);
-    ctx.fillStyle = 'hsl(145, 60%, 55%)';
-    ctx.fillText(format_currency(this._amountPaid, this._locale), cx + 80, 120);
+    ctx.font = 'bold 24px Outfit, sans-serif';
+    ctx.fillStyle = 'hsl(0, 75%, 65%)';
+    ctx.fillText(this._cachedBillTotal, cx - 80, 135);
+    ctx.fillStyle = 'hsl(145, 70%, 60%)';
+    ctx.fillText(this._cachedAmountPaid, cx + 80, 135);
+
+    // Change goal separator
+    ctx.beginPath();
+    ctx.setLineDash([4, 4]);
+    ctx.moveTo(cx - 140, 160);
+    ctx.lineTo(cx + 140, 160);
+    ctx.strokeStyle = 'hsla(220, 15%, 30%, 0.4)';
+    ctx.stroke();
+    ctx.setLineDash([]);
 
     // Change goal
-    ctx.font = '400 12px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.6)';
-    ctx.fillText('CHANGE DUE', cx, 148);
-    ctx.font = 'bold 20px Inter, sans-serif';
-    ctx.fillStyle = 'hsl(45, 80%, 60%)';
-    ctx.fillText(format_currency(this._changeGoal, this._locale), cx, 170);
+    ctx.font = '600 11px Outfit, sans-serif';
+    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.5)';
+    ctx.fillText(this._labelChangeDue, cx - 90, 185);
+    ctx.font = 'bold 22px Outfit, sans-serif';
+    ctx.fillStyle = 'hsl(45, 90%, 65%)';
+    ctx.textAlign = 'left';
+    ctx.fillText(this._cachedChangeGoal, cx - 40, 185);
 
-    // Tray total (user's accumulated change)
-    ctx.font = '400 12px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.6)';
-    ctx.fillText('YOUR TRAY', cx, 196);
-    ctx.font = 'bold 18px Inter, sans-serif';
+    // Tray total
+    ctx.textAlign = 'center';
+    ctx.font = '600 11px Outfit, sans-serif';
+    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.5)';
+    ctx.fillText(this._labelYourTray, cx - 90, 210);
+    ctx.font = 'bold 22px Outfit, sans-serif';
     const trayColor = this._trayTotal === this._changeGoal
-      ? 'hsl(145, 65%, 55%)'
+      ? 'hsl(145, 75%, 65%)'
       : this._trayTotal > this._changeGoal
-        ? 'hsl(0, 65%, 55%)'
-        : 'hsl(175, 70%, 55%)';
+        ? 'hsl(0, 75%, 65%)'
+        : 'hsl(175, 80%, 65%)';
     ctx.fillStyle = trayColor;
-    ctx.fillText(format_currency(this._trayTotal, this._locale), cx, 218);
+    ctx.textAlign = 'left';
+    ctx.fillText(this._cachedTrayTotal, cx - 40, 210);
+    ctx.restore();
 
-    // Denomination buttons (scrollable area)
+    // Denomination buttons
     const availDenoms = this._get_active_denoms();
+    const now = precise_now();
     for (let i = 0; i < availDenoms.length; i++) {
       const denom = availDenoms[i]!;
       const r = this._denomRects[i]!;
       if (!r) continue;
       
-      const { x: bx, y: by, w: btnW, h: denomH } = r;
+      const pressElapsed = now - (this._denomPressMs[i] || 0);
+      const pressScale = Math.max(0.92, 1 - Math.exp(-pressElapsed / 60) * 0.08);
+      
+      ctx.save();
+      ctx.translate(r.x + r.w / 2, r.y + r.h / 2);
+      ctx.scale(pressScale, pressScale);
+      
+      const bx = -r.w / 2;
+      const by = -r.h / 2;
 
-      // Token visual
+      // Drop shadow for tactile feel
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+      ctx.shadowOffsetY = 4;
+
       ctx.beginPath();
       if (denom.type === 'coin') {
-        // Circle for coins
-        const radius = Math.min(btnW, denomH) / 2 - 4;
-        ctx.arc(bx + btnW / 2, by + denomH / 2, radius, 0, Math.PI * 2);
-        ctx.fillStyle = denom.color.replace(')', ', 0.3)').replace('hsl', 'hsla');
+        const radius = Math.min(r.w, r.h) / 2 - 4;
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.fillStyle = this._cachedDenomGradients[i]!;
         ctx.fill();
         ctx.strokeStyle = denom.color;
         ctx.lineWidth = 2;
         ctx.stroke();
       } else {
-        // Rounded rect for bills
-        ctx.roundRect(bx + 4, by + 4, btnW - 8, denomH - 8, 6);
-        ctx.fillStyle = denom.color.replace(')', ', 0.2)').replace('hsl', 'hsla');
+        ctx.roundRect(bx + 4, by + 4, r.w - 8, r.h - 8, 8);
+        ctx.fillStyle = this._cachedDenomGradients[i]!;
         ctx.fill();
         ctx.strokeStyle = denom.color;
         ctx.lineWidth = 1.5;
         ctx.stroke();
       }
+      ctx.shadowColor = 'transparent';
 
       // Label
-      ctx.font = 'bold 13px Inter, sans-serif';
-      ctx.fillStyle = denom.color;
+      ctx.font = 'bold 13px Outfit, sans-serif';
+      ctx.fillStyle = 'white';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(denom.label, bx + btnW / 2, by + denomH / 2);
+      ctx.fillText(denom.label, 0, 0);
 
-      // Inventory remaining badge
+      // Inventory
       const total = this._trayCounts[i] || 0;
       const added = this._userCounts[i] || 0;
       const left = total - added;
       
-      ctx.font = 'bold 10px Inter, sans-serif';
-      ctx.fillStyle = left > 0 ? 'hsla(220, 15%, 55%, 0.8)' : 'hsl(0, 65%, 55%)';
+      ctx.font = '800 9px Outfit, sans-serif';
+      ctx.fillStyle = left > 0 ? 'hsla(0, 0%, 100%, 0.7)' : 'hsl(0, 80%, 70%)';
       ctx.textAlign = 'right';
-      ctx.fillText(left > 0 ? `${left} left` : 'OUT', bx + btnW - 6, by + 12);
+      ctx.fillText(left > 0 ? this._cachedDenomBadges[i]! : this._labelOut, r.w / 2 - 8, -r.h / 2 + 12);
+      
+      ctx.restore();
     }
 
     // Submit button
@@ -229,24 +306,30 @@ export class ChangeMakerEngine extends BaseEngine {
     const rows = Math.ceil(availDenoms.length / cols);
     const startY = 250;
     const subY = startY + rows * (DENOM_H + DENOM_GAP) + 16;
-    const subW = 100;
-    
-    // Clear Tray Button
-    const clearW = 90;
+    const clearW = 120;
+    const subW = 120;
+    const gap = 12;
+    const totalW = clearW + subW + gap;
+    const buttonsX = cx - totalW / 2;
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
     ctx.beginPath();
-    ctx.roundRect(cx - subW / 2 - clearW - 10, subY, clearW, 40, 8);
+    ctx.roundRect(buttonsX, subY, clearW, 40, 8);
     ctx.fillStyle = this._trayTotal > 0 ? 'hsla(0, 60%, 25%, 0.6)' : 'hsla(225, 25%, 15%, 0.4)';
     ctx.fill();
     ctx.strokeStyle = this._trayTotal > 0 ? 'hsl(0, 65%, 50%)' : 'hsla(220, 20%, 30%, 0.3)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
-    ctx.font = 'bold 12px Inter, sans-serif';
+    
+    ctx.font = 'bold 12px Outfit, sans-serif';
     ctx.fillStyle = this._trayTotal > 0 ? 'hsl(0, 70%, 65%)' : 'hsla(220, 15%, 50%, 0.5)';
-    ctx.fillText('✕ Clear', cx - subW / 2 - clearW / 2 - 10, subY + 20);
+    ctx.fillText(this._labelClear, buttonsX + clearW / 2, subY + 20);
 
     // Submit Button
     ctx.beginPath();
-    ctx.roundRect(cx - subW / 2 + clearW / 2 + 5, subY, subW, 40, 8);
+    ctx.roundRect(buttonsX + clearW + gap, subY, subW, 40, 8);
     ctx.fillStyle = this._trayTotal === this._changeGoal
       ? 'hsla(145, 50%, 25%, 0.8)'
       : 'hsla(225, 25%, 15%, 0.4)';
@@ -256,39 +339,56 @@ export class ChangeMakerEngine extends BaseEngine {
       : 'hsla(220, 20%, 30%, 0.3)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
-    ctx.font = 'bold 14px Inter, sans-serif';
+
+    ctx.font = 'bold 14px Outfit, sans-serif';
     ctx.fillStyle = this._trayTotal === this._changeGoal
       ? 'hsl(145, 65%, 55%)'
       : 'hsla(220, 15%, 50%, 0.5)';
-    ctx.fillText('✓ Submit', cx + clearW / 2 + 5, subY + 20);
+    ctx.fillText(this._labelSubmit, buttonsX + clearW + gap + subW / 2, subY + 20);
 
     // Undo hint
-    ctx.font = '400 10px Inter, sans-serif';
+    ctx.font = '800 9px Outfit, sans-serif';
     ctx.fillStyle = 'hsla(220, 15%, 50%, 0.4)';
-    ctx.fillText('[Backspace] Undo  ·  [C] Clear  ·  [Enter] Submit', cx, subY + 56);
+    ctx.fillText(this._labelHint, cx, subY + 56);
   }
 
   private _render_feedback(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
-    ctx.font = 'bold 36px Inter, sans-serif';
+    const elapsed = precise_now() - this._phaseStart;
+    this._feedbackScale = Math.min(1.2, 0.8 + Math.exp(-elapsed / 150) * 0.4);
+    this._feedbackOpacity = Math.min(1, elapsed / 200);
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(this._feedbackScale, this._feedbackScale);
+    ctx.globalAlpha = this._feedbackOpacity;
+
+    // Glowing orb background (zero-allocation)
+    ctx.beginPath();
+    ctx.arc(0, 0, 120, 0, Math.PI * 2);
+    const color = this._isCorrect ? 'hsl(145, 80%, 50%)' : 'hsl(0, 80%, 50%)';
+    ctx.fillStyle = color;
+    ctx.globalAlpha = this._feedbackOpacity * 0.15;
+    ctx.fill();
+    ctx.globalAlpha = this._feedbackOpacity;
+
+    ctx.font = 'bold 48px Outfit, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
     if (this._isCorrect) {
-      ctx.fillStyle = 'hsl(145, 65%, 55%)';
-      ctx.fillText('✓', cx, cy - 16);
-      ctx.font = '400 16px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(220, 15%, 60%, 0.8)';
-      ctx.fillText(format_currency(this._changeGoal, this._locale), cx, cy + 20);
+      ctx.fillStyle = 'hsl(145, 80%, 60%)';
+      ctx.fillText('✓', 0, -20);
+      ctx.font = '600 18px Outfit, sans-serif';
+      ctx.fillStyle = 'hsla(0, 0%, 100%, 0.8)';
+      ctx.fillText(this._cachedChangeGoal, 0, 30);
     } else {
-      ctx.fillStyle = 'hsl(0, 75%, 55%)';
-      ctx.fillText('✗', cx, cy - 16);
-      ctx.font = '400 14px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(220, 15%, 60%, 0.8)';
-      ctx.fillText(
-        `${format_currency(this._trayTotal, this._locale)} ≠ ${format_currency(this._changeGoal, this._locale)}`,
-        cx, cy + 20
-      );
+      ctx.fillStyle = 'hsl(0, 85%, 65%)';
+      ctx.fillText('✗', 0, -20);
+      ctx.font = '600 16px Outfit, sans-serif';
+      ctx.fillStyle = 'hsla(0, 0%, 100%, 0.8)';
+      ctx.fillText(this._cachedMismatch, 0, 30);
     }
+    ctx.restore();
   }
 
   protected on_key_down(code: string, _timestamp: number): void {
@@ -320,7 +420,7 @@ export class ChangeMakerEngine extends BaseEngine {
   }
 
   protected on_cleanup(): void {
-    this.canvas.onpointerdown = null;
+    this.canvas.removeEventListener('pointerdown', this._boundPointerDown);
   }
 
   // ── Logic ───────────────────────────────────────────────
@@ -394,51 +494,78 @@ export class ChangeMakerEngine extends BaseEngine {
     const startY = 250;
 
     this._denomRects = [];
+    this._denomPressMs = [];
+    this._cachedDenomGradients = [];
+    this._cachedDenomBadges = [];
+    
     for (let i = 0; i < activeDenoms.length; i++) {
+      const denom = activeDenoms[i]!;
       const col = i % cols;
       const row = Math.floor(i / cols);
       const bx = startX + col * (btnW + DENOM_GAP);
       const by = startY + row * (DENOM_H + DENOM_GAP);
       this._denomRects.push({ x: bx, y: by, w: btnW, h: DENOM_H });
+      this._denomPressMs.push(0);
+      
+      // Pre-compute Tactile Gradient
+      const grad = this.ctx.createLinearGradient(bx, by, bx, by + DENOM_H);
+      grad.addColorStop(0, denom.color);
+      grad.addColorStop(1, denom.color.replace('%, 50%)', '%, 35%)').replace('%, 45%)', '%, 30%)'));
+      this._cachedDenomGradients.push(grad);
+      
+      // Cache Badge
+      const total = this._trayCounts[i] || 0;
+      this._cachedDenomBadges.push(t('exercise.changeMaker.left', { n: total }));
     }
 
-    // Register click handler
-    this.canvas.onpointerdown = (e: MouseEvent) => {
-      if (this._phase !== 'playing') return;
-      const rect = this.canvas.getBoundingClientRect();
-      const scaleX = this.width / rect.width;
-      const scaleY = this.height / rect.height;
-      const x = (e.clientX - rect.left) * scaleX;
-      const y = (e.clientY - rect.top) * scaleY;
-
-      for (let i = 0; i < this._denomRects.length; i++) {
-        const r = this._denomRects[i]!;
-        if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
-          this._add_denomination(i);
-          return;
-        }
-      }
-
-      const cx = this.width / 2;
-      const activeDenoms = this._get_active_denoms();
-      const cols = Math.min(5, activeDenoms.length);
-      const rows = Math.ceil(activeDenoms.length / cols);
-      const subY = 250 + rows * (DENOM_H + DENOM_GAP) + 16;
-      
-      if (y >= subY && y <= subY + 40) {
-        const subW = 100;
-        const clearW = 90;
-        if (x >= cx - subW / 2 + clearW / 2 + 5 && x <= cx + subW / 2 + clearW / 2 + 5) {
-          this._submit(this._trayTotal === this._changeGoal);
-        }
-        else if (x >= cx - subW / 2 - clearW - 10 && x <= cx - subW / 2 - 10) {
-          this._clear_tray();
-        }
-      }
-    };
+    // Cache Currency Strings
+    this._cachedBillTotal = format_currency(this._billTotal, this._locale);
+    this._cachedAmountPaid = format_currency(this._amountPaid, this._locale);
+    this._cachedChangeGoal = format_currency(this._changeGoal, this._locale);
+    this._cachedTrayTotal = format_currency(this._trayTotal, this._locale);
+    this._cachedMismatch = t('exercise.changeMaker.mismatch', { got: this._cachedTrayTotal, need: this._cachedChangeGoal });
 
     this._phase = 'playing';
     this._phaseStart = precise_now();
+  }
+
+  private _handle_input(e: MouseEvent): void {
+    if (this._phase !== 'playing') return;
+    const rect = this.canvas.getBoundingClientRect();
+    const scaleX = this.width / rect.width;
+    const scaleY = this.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+
+    for (let i = 0; i < this._denomRects.length; i++) {
+      const r = this._denomRects[i]!;
+      if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
+        this._denomPressMs[i] = precise_now();
+        this._add_denomination(i);
+        return;
+      }
+    }
+
+    const cx = this.width / 2;
+    const activeDenoms = this._get_active_denoms();
+    const cols = Math.min(5, activeDenoms.length);
+    const rows = Math.ceil(activeDenoms.length / cols);
+    const subY = 250 + rows * (DENOM_H + DENOM_GAP) + 16;
+    
+    if (y >= subY && y <= subY + 40) {
+      const clearW = 120;
+      const subW = 120;
+      const gap = 12;
+      const totalW = clearW + subW + gap;
+      const buttonsX = cx - totalW / 2;
+
+      if (x >= buttonsX + clearW + gap && x <= buttonsX + clearW + gap + subW) {
+        this._submit(this._trayTotal === this._changeGoal);
+      }
+      else if (x >= buttonsX && x <= buttonsX + clearW) {
+        this._clear_tray();
+      }
+    }
   }
 
   private _add_denomination(index: number): void {
@@ -458,6 +585,11 @@ export class ChangeMakerEngine extends BaseEngine {
     this._trayHistory.push(index);
     if (!this._firstMoveMs) this._firstMoveMs = precise_now() - this._phaseStart;
     
+    // Update local caches
+    this._cachedDenomBadges[index] = left > 0 ? t('exercise.changeMaker.left', { n: left }) : this._labelOut;
+    this._cachedTrayTotal = format_currency(this._trayTotal, this._locale);
+    this._cachedMismatch = t('exercise.changeMaker.mismatch', { got: this._cachedTrayTotal, need: this._cachedChangeGoal });
+    
     audioEngine.play_tick();
   }
 
@@ -467,6 +599,13 @@ export class ChangeMakerEngine extends BaseEngine {
       const denoms = this._get_active_denoms();
       this._userCounts[lastIndex]!--;
       this._trayTotal -= denoms[lastIndex]!.value;
+      
+      // Update local caches
+      const left = (this._trayCounts[lastIndex] || 0) - (this._userCounts[lastIndex] || 0);
+      this._cachedDenomBadges[lastIndex] = left > 0 ? t('exercise.changeMaker.left', { n: left }) : this._labelOut;
+      this._cachedTrayTotal = format_currency(this._trayTotal, this._locale);
+      this._cachedMismatch = t('exercise.changeMaker.mismatch', { got: this._cachedTrayTotal, need: this._cachedChangeGoal });
+
       audioEngine.play_tick();
     }
   }
@@ -474,8 +613,17 @@ export class ChangeMakerEngine extends BaseEngine {
   private _clear_tray(): void {
     if (this._trayTotal === 0) return;
     this._trayTotal = 0;
-    this._userCounts = new Array(this._get_active_denoms().length).fill(0) as number[];
-    this._trayHistory = [];
+    this._userCounts.fill(0);
+    this._trayHistory.length = 0;
+
+    // Refresh all badges
+    for (let i = 0; i < this._cachedDenomBadges.length; i++) {
+        const left = this._trayCounts[i] || 0;
+        this._cachedDenomBadges[i] = t('exercise.changeMaker.left', { n: left });
+    }
+    this._cachedTrayTotal = format_currency(this._trayTotal, this._locale);
+    this._cachedMismatch = t('exercise.changeMaker.mismatch', { got: this._cachedTrayTotal, need: this._cachedChangeGoal });
+
     audioEngine.play_tick();
   }
 
@@ -508,7 +656,6 @@ export class ChangeMakerEngine extends BaseEngine {
       }
     });
 
-    this.canvas.onpointerdown = null;
     this._phase = 'feedback';
     this._phaseStart = precise_now();
   }

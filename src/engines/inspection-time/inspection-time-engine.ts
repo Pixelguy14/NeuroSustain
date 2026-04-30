@@ -48,6 +48,8 @@ export class InspectionTimeEngine extends BaseEngine {
 
   // Shape type per trial (0 = vertical line, 1 = circle, 2 = square)
   private _shapeType: number = 0;
+  private _btnPressMs: Map<number, number> = new Map();
+  private _btnGradients: Map<number, CanvasGradient> = new Map();
 
   constructor(canvas: HTMLCanvasElement, callbacks: EngineCallbacks) {
     super(canvas, callbacks);
@@ -70,6 +72,7 @@ export class InspectionTimeEngine extends BaseEngine {
       for (let i = 0; i < this._btnRects.length; i++) {
         const r = this._btnRects[i]!;
         if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
+          this._btnPressMs.set(i, precise_now());
           this._submit(i);
           return;
         }
@@ -131,17 +134,11 @@ export class InspectionTimeEngine extends BaseEngine {
     ctx.fillStyle = 'hsl(225, 45%, 6%)';
     ctx.fillRect(0, 0, w, h);
 
-    // HUD
-    ctx.font = '500 14px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.8)';
-    ctx.textAlign = 'right';
-    ctx.fillText(`${this.currentTrial} / ${this.totalTrials}`, w - 32, 40);
+    // Background texture
+    this.draw_background_mesh(ctx, w, h);
 
-    if (this._currentDifficulty > 1) {
-      ctx.font = '500 11px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
-    }
+    // HUD
+    this.draw_hud(ctx, w);
 
     switch (this._phase) {
       case 'countdown':
@@ -170,10 +167,14 @@ export class InspectionTimeEngine extends BaseEngine {
   }
 
   private _render_fixation(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
+    // Glass stage behind fixation
+    const stageSize = 120;
+    this.draw_glass_panel(ctx, cx - stageSize / 2, cy - stageSize / 2, stageSize, stageSize, 20);
+
     // Fixation cross
-    ctx.strokeStyle = 'hsla(220, 15%, 55%, 0.6)';
-    ctx.lineWidth = 3;
-    const size = 20;
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 2;
+    const size = 12;
     ctx.beginPath();
     ctx.moveTo(cx - size, cy);
     ctx.lineTo(cx + size, cy);
@@ -181,13 +182,18 @@ export class InspectionTimeEngine extends BaseEngine {
     ctx.lineTo(cx, cy + size);
     ctx.stroke();
 
-    ctx.font = '400 12px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.5)';
+    ctx.font = '800 10px Outfit, sans-serif';
+    ctx.fillStyle = 'hsla(175, 70%, 50%, 0.6)';
     ctx.textAlign = 'center';
-    ctx.fillText(t('exercise.patternBreaker.focus'), cx, cy + 50);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(t('exercise.patternBreaker.focus').toUpperCase(), cx, cy + 40);
   }
 
   private _render_shapes(ctx: CanvasRenderingContext2D, showAnomaly: boolean): void {
+    const stageW = (this._shapePositions[2]!.x - this._shapePositions[0]!.x) + this._shapeBaseSize + 60;
+    const stageH = this._shapeBaseSize + 60;
+    this.draw_glass_panel(ctx, (this.width - stageW) / 2, this.height / 2 - stageH / 2, stageW, stageH, 16);
+
     for (let i = 0; i < 3; i++) {
       const pos = this._shapePositions[i]!;
       const isTarget = showAnomaly && i === this._targetPosition;
@@ -195,7 +201,9 @@ export class InspectionTimeEngine extends BaseEngine {
         ? this._shapeBaseSize * (1 - this._changeMagnitude)
         : this._shapeBaseSize;
 
-      ctx.fillStyle = 'hsla(200, 65%, 55%, 0.9)';
+      ctx.fillStyle = 'white';
+      ctx.shadowColor = 'hsla(200, 65%, 55%, 0.8)';
+      ctx.shadowBlur = 10;
 
       switch (this._shapeType) {
         case 0: // Vertical line
@@ -231,6 +239,7 @@ export class InspectionTimeEngine extends BaseEngine {
           }
           break;
       }
+      ctx.shadowBlur = 0;
     }
   }
 
@@ -259,102 +268,101 @@ export class InspectionTimeEngine extends BaseEngine {
     const minY = Math.max(0, this._shapePositions[0]!.y - 20);
     const maxY = Math.min(this.height, this._shapePositions[0]!.y + this._shapeBaseSize + 20);
 
-    // Fill the shape area with hash pattern
-    ctx.fillStyle = 'hsl(225, 30%, 10%)';
+    // Fill the shape area with a dark base
+    ctx.fillStyle = 'hsl(225, 40%, 10%)';
     ctx.fillRect(minX, minY, maxX - minX, maxY - minY);
 
     // Apply static noise from offscreen canvas
     if (this._maskCanvas) {
-      ctx.globalAlpha = 0.8;
+      ctx.globalAlpha = 0.5;
       ctx.drawImage(
         this._maskCanvas,
-        minX, minY, maxX - minX, maxY - minY, // Source
-        minX, minY, maxX - minX, maxY - minY  // Destination
+        minX, minY, maxX - minX, maxY - minY,
+        minX, minY, maxX - minX, maxY - minY
       );
       ctx.globalAlpha = 1.0;
     }
 
-    // Draw dense hash lines on top
-    ctx.strokeStyle = 'hsla(220, 20%, 35%, 0.7)';
-    ctx.lineWidth = 3;
-    const step = 16;
+    // Draw dense geometric pattern
+    ctx.strokeStyle = 'hsla(200, 60%, 50%, 0.4)';
+    ctx.lineWidth = 2;
+    const step = 8;
     for (let x = minX; x < maxX; x += step) {
       ctx.beginPath();
       ctx.moveTo(x, minY);
-      ctx.lineTo(x + (maxY - minY) * 0.3, maxY);
+      ctx.lineTo(x + 20, maxY);
       ctx.stroke();
     }
-    for (let x = minX; x < maxX; x += step) {
+    for (let x = maxX; x > minX; x -= step) {
       ctx.beginPath();
       ctx.moveTo(x, minY);
-      ctx.lineTo(x - (maxY - minY) * 0.3, maxY);
+      ctx.lineTo(x - 20, maxY);
       ctx.stroke();
     }
+
+    // Outer stage border for the mask
+    ctx.strokeStyle = 'hsla(200, 60%, 45%, 0.3)';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
   }
 
   private _render_response(ctx: CanvasRenderingContext2D, cx: number, _w: number): void {
-    ctx.font = '500 16px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 70%, 0.9)';
+    const cy = this.height / 2;
+    ctx.font = '800 10px Outfit, sans-serif';
+    ctx.fillStyle = 'hsla(175, 70%, 50%, 0.6)';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(t('exercise.inspectionTime.whichChanged'), cx, this.height / 2 - 80);
+    ctx.fillText(t('exercise.inspectionTime.whichChanged').toUpperCase(), cx, cy - 80);
 
     // Three response buttons
+    const now = precise_now();
     for (let i = 0; i < 3; i++) {
       const r = this._btnRects[i]!;
+      const isPressed = now - (this._btnPressMs.get(i) || 0) < 100;
 
-      ctx.beginPath();
-      ctx.roundRect(r.x, r.y, r.w, r.h, 12);
-      ctx.fillStyle = 'hsla(225, 30%, 15%, 0.8)';
-      ctx.fill();
-      ctx.strokeStyle = 'hsla(200, 60%, 45%, 0.5)';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      // Label
-      ctx.font = 'bold 20px Inter, sans-serif';
-      ctx.fillStyle = 'hsl(200, 65%, 60%)';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(['◀', '●', '▶'][i]!, r.x + r.w / 2, r.y + r.h / 2);
+      this.draw_tactile_button(
+          ctx, r.x, r.y, r.w, r.h,
+          ['◀', '●', '▶'][i]!,
+          {
+              bg: (this._btnGradients.get(i) || 'hsla(225, 30%, 15%, 0.8)') as any,
+              stroke: isPressed ? 'white' : 'hsla(200, 60%, 45%, 0.4)',
+              text: isPressed ? 'white' : 'hsl(200, 65%, 60%)'
+          },
+          isPressed
+      );
 
       // Position label
-      ctx.font = '400 11px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(220, 15%, 55%, 0.5)';
+      ctx.font = '800 8px Outfit, sans-serif';
+      ctx.fillStyle = 'hsla(220, 15%, 50%, 0.4)';
       const posLabel = [t('exercise.inspectionTime.left'), t('exercise.inspectionTime.center'), t('exercise.inspectionTime.right')][i]!;
-      ctx.fillText(posLabel, r.x + r.w / 2, r.y + r.h - 10);
+      ctx.fillText(posLabel.toUpperCase(), r.x + r.w / 2, r.y + r.h + 12);
     }
 
     // Keyboard hints
-    ctx.font = '400 12px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 50%, 0.4)';
-    ctx.fillText('Press 1, 2, or 3', cx, this._btnRects[0]!.y + this._btnRects[0]!.h + 25);
+    ctx.font = '800 9px Outfit, sans-serif';
+    ctx.fillStyle = 'hsla(220, 15%, 50%, 0.3)';
+    ctx.fillText('[1]          [2]          [3]', cx, this._btnRects[0]!.y + this._btnRects[0]!.h + 30);
   }
 
   private _render_feedback_result(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
-    ctx.font = 'bold 48px Inter, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+    const progress = (precise_now() - this._phaseStart) / 1500;
+    this.draw_feedback_orb(ctx, cx, cy, this._isCorrect, progress);
 
-    if (this._isCorrect) {
-      ctx.fillStyle = 'hsl(145, 65%, 55%)';
-      ctx.fillText('✓', cx, cy - 20);
-    } else {
-      ctx.fillStyle = 'hsl(0, 75%, 55%)';
-      ctx.fillText('✗', cx, cy - 20);
-      ctx.font = '500 16px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(220, 15%, 60%, 0.8)';
+    if (!this._isCorrect) {
+      ctx.font = '800 11px Outfit, sans-serif';
+      ctx.fillStyle = 'hsla(0, 0%, 100%, 0.6)';
+      ctx.textAlign = 'center';
       const pos = [t('exercise.inspectionTime.left'), t('exercise.inspectionTime.center'), t('exercise.inspectionTime.right')][this._targetPosition]!;
       ctx.fillText(
-        t('exercise.inspectionTime.result', { pos }),
-        cx, cy + 24
+        t('exercise.inspectionTime.result', { pos }).toUpperCase(),
+        cx, cy + this.lastOrbRadius + 20
       );
     }
 
     // Show exposure info
-    ctx.font = '400 12px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 45%, 0.6)';
-    ctx.fillText(`Flash: ${this._exposureMs}ms`, cx, cy + 55);
+    ctx.font = '800 9px Outfit, sans-serif';
+    ctx.fillStyle = 'hsla(220, 15%, 45%, 0.4)';
+    ctx.fillText(`FLASH EXPOSURE: ${this._exposureMs}MS`, cx, cy + this.lastOrbRadius + 36);
   }
 
   protected on_key_down(code: string, _timestamp: number): void {
@@ -362,7 +370,9 @@ export class InspectionTimeEngine extends BaseEngine {
 
     const match = code.match(/^(?:Digit|Numpad)([123])$/);
     if (match) {
-      this._submit(parseInt(match[1]!, 10) - 1);
+      const idx = parseInt(match[1]!, 10) - 1;
+      this._btnPressMs.set(idx, precise_now());
+      this._submit(idx);
     }
   }
 
@@ -420,13 +430,20 @@ export class InspectionTimeEngine extends BaseEngine {
     const btnY = this.height / 2 + 10;
 
     this._btnRects = [];
+    this._btnGradients.clear();
     for (let i = 0; i < 3; i++) {
+      const rx = btnStartX + i * (btnW + btnGap);
       this._btnRects.push({
-        x: btnStartX + i * (btnW + btnGap),
+        x: rx,
         y: btnY,
         w: btnW,
         h: btnH,
       });
+
+      const grad = this.ctx.createLinearGradient(rx, btnY, rx, btnY + btnH);
+      grad.addColorStop(0, 'hsla(225, 30%, 20%, 0.8)');
+      grad.addColorStop(1, 'hsla(225, 30%, 10%, 0.9)');
+      this._btnGradients.set(i, grad);
     }
 
 

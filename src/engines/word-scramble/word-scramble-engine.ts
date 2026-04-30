@@ -49,6 +49,7 @@ export class WordScrambleEngine extends BaseEngine {
   private _usedTileIndices: Set<number> = new Set();
   private _tileRects: { x: number; y: number; w: number; h: number }[] = [];
   private _inputAreaRect: { x: number; y: number; w: number; h: number } | null = null;
+  private _btnGradients: CanvasGradient[] = [];
   private _currentDefinition?: string;
 
   constructor(canvas: HTMLCanvasElement, callbacks: EngineCallbacks) {
@@ -57,8 +58,12 @@ export class WordScrambleEngine extends BaseEngine {
 
   protected on_start(): void {
     this._phaseStart = precise_now();
-    this.start_countdown(() => this._next_trial());
-    this._load_data();
+    // Await data before starting the countdown UI
+    this._load_data().then(() => {
+      this.start_countdown(() => this._next_trial());
+    }).catch(() => {
+      console.error("Failed to load dictionary.");
+    });
   }
 
   private async _load_data(): Promise<void> {
@@ -106,17 +111,11 @@ export class WordScrambleEngine extends BaseEngine {
     ctx.fillStyle = 'hsl(225, 45%, 6%)';
     ctx.fillRect(0, 0, w, h);
 
-    // HUD
-    ctx.font = '500 14px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.8)';
-    ctx.textAlign = 'right';
-    ctx.fillText(`${this.currentTrial} / ${this.totalTrials}`, w - 32, 40);
+    // Background texture
+    this.draw_background_mesh(ctx, w, h);
 
-    if (this._currentDifficulty > 1) {
-      ctx.font = '500 11px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(175, 70%, 50%, 0.5)';
-      ctx.fillText(`LV ${this._currentDifficulty}`, w - 32, 58);
-    }
+    // HUD
+    this.draw_hud(ctx, w);
 
     switch (this._phase) {
       case 'countdown':
@@ -127,7 +126,14 @@ export class WordScrambleEngine extends BaseEngine {
         break;
 
       case 'feedback':
-        this._render_feedback(ctx, cx, cy);
+        const progress = (precise_now() - this._phaseStart) / 1500;
+        this.draw_feedback_orb(ctx, cx, cy, this._isCorrect, progress);
+        if (!this._isCorrect) {
+          ctx.font = '800 12px Outfit, sans-serif';
+          ctx.fillStyle = 'hsla(0, 0%, 100%, 0.6)';
+          ctx.textAlign = 'center';
+          ctx.fillText(this._currentWord.toUpperCase(), cx, cy + this.lastOrbRadius + 20);
+        }
         break;
     }
   }
@@ -150,12 +156,23 @@ export class WordScrambleEngine extends BaseEngine {
 
     // Scrambled word — letter tiles
     const letters = this._scrambledLetters;
-    const tileW = 38;
-    const tileH = 48;
-    const tileGap = 8;
+    const isMobile = this.width < 600;
+    let tileW = 42;
+    let tileH = 54;
+    let tileGap = 10;
+    
+    // Scale down for long words on mobile
+    const rawTotalW = letters.length * tileW + (letters.length - 1) * tileGap;
+    if (isMobile && rawTotalW > this.width - 40) {
+      const scale = (this.width - 40) / rawTotalW;
+      tileW *= scale;
+      tileH *= scale;
+      tileGap *= scale;
+    }
+
     const totalTileW = letters.length * tileW + (letters.length - 1) * tileGap;
     const tileStartX = cx - totalTileW / 2;
-    const tileY = 120;
+    const tileY = 130;
 
     this._tileRects = [];
 
@@ -165,22 +182,25 @@ export class WordScrambleEngine extends BaseEngine {
       this._tileRects.push({ x: tx, y: tileY, w: tileW, h: tileH });
 
       ctx.save();
-      ctx.globalAlpha = isUsed ? 0.2 : 1;
+      if (isUsed) ctx.globalAlpha = 0.2;
       
-      ctx.beginPath();
-      ctx.roundRect(tx, tileY, tileW, tileH, 6);
-      ctx.fillStyle = 'hsla(225, 30%, 15%, 0.6)';
-      ctx.fill();
-      ctx.strokeStyle = isUsed ? 'hsla(220, 20%, 30%, 0.3)' : 'hsla(175, 60%, 40%, 0.4)';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-
+      this.draw_glass_panel(ctx, tx, tileY, tileW, tileH, 8);
+      
       if (!isUsed) {
-        ctx.font = 'bold 22px Inter, sans-serif';
-        ctx.fillStyle = 'hsl(175, 70%, 60%)';
+        ctx.fillStyle = this._btnGradients[i] || 'white';
+        ctx.beginPath();
+        ctx.roundRect(tx + 2, tileY + 2, tileW - 4, tileH - 4, 6);
+        ctx.fill();
+
+        ctx.font = '800 22px Outfit, sans-serif';
+        ctx.fillStyle = 'white';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(letters[i]!, tx + tileW / 2, tileY + tileH / 2);
+      } else {
+        ctx.strokeStyle = 'hsla(220, 20%, 30%, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(tx, tileY, tileW, tileH);
       }
       ctx.restore();
     }
@@ -192,31 +212,48 @@ export class WordScrambleEngine extends BaseEngine {
     this._inputAreaRect = { x: cx - inputW / 2, y: inputY, w: inputW, h: inputH };
 
     // HINTS
-    ctx.font = '500 13px Inter, sans-serif';
+    ctx.font = '600 11px Outfit, sans-serif';
     ctx.textAlign = 'center';
     
     if (elapsed > this._timeLimitMs * 0.6 && this._currentDefinition) {
-      ctx.fillStyle = 'hsla(45, 80%, 65%, 0.9)';
-      ctx.fillText(t('exercise.wordScramble.hintDef', { def: this._currentDefinition }), cx, inputY - 36);
+      ctx.fillStyle = 'hsla(45, 80%, 65%, 0.8)';
+      const text = t('exercise.wordScramble.hintDef', { def: this._currentDefinition }).toUpperCase();
+      const words = text.split(' ');
+      let lines: string[] = [];
+      let currentLine = '';
+      for (const word of words) {
+        const testLine = currentLine + word + ' ';
+        if (ctx.measureText(testLine).width > this.width * 0.8 && currentLine !== '') {
+          lines.push(currentLine.trim());
+          currentLine = word + ' ';
+        } else {
+          currentLine = testLine;
+        }
+      }
+      lines.push(currentLine.trim());
+      
+      let lineY = inputY - 45 - (lines.length - 1) * 14;
+      for (const line of lines) {
+        ctx.fillText(line, cx, lineY);
+        lineY += 14;
+      }
     } else if (elapsed > this._timeLimitMs * 0.8) {
-      ctx.fillStyle = 'hsla(45, 80%, 60%, 0.9)';
-      ctx.fillText(t('exercise.wordScramble.hintBoth', { start: this._currentWord.charAt(0), end: this._currentWord.charAt(this._currentWord.length - 1) }), cx, inputY - 36);
-    } else if (elapsed > this._timeLimitMs * 0.3) {
       ctx.fillStyle = 'hsla(45, 80%, 60%, 0.8)';
-      ctx.fillText(t('exercise.wordScramble.hintStart', { start: this._currentWord.charAt(0) }), cx, inputY - 36);
+      ctx.fillText(t('exercise.wordScramble.hintBoth', { start: this._currentWord.charAt(0), end: this._currentWord.charAt(this._currentWord.length - 1) }).toUpperCase(), cx, inputY - 45);
+    } else if (elapsed > this._timeLimitMs * 0.3) {
+      ctx.fillStyle = 'hsla(45, 80%, 60%, 0.7)';
+      ctx.fillText(t('exercise.wordScramble.hintStart', { start: this._currentWord.charAt(0) }).toUpperCase(), cx, inputY - 45);
     }
 
-    ctx.font = '400 12px Inter, sans-serif';
-    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.6)';
+    ctx.font = '800 10px Outfit, sans-serif';
+    ctx.fillStyle = 'hsla(220, 15%, 55%, 0.5)';
     ctx.textAlign = 'center';
-    ctx.fillText(get_locale() === 'es' ? 'Toca las letras para armar:' : 'Tap letters to build:', cx, inputY - 16);
+    ctx.fillText(get_locale() === 'es' ? 'TOCA LAS LETRAS' : 'TAP LETTERS TO BUILD', cx, inputY - 18);
 
     // Input area background
-    ctx.beginPath();
-    ctx.roundRect(cx - inputW / 2, inputY, inputW, inputH, 12);
-    ctx.fillStyle = 'hsla(225, 30%, 10%, 0.5)';
-    ctx.fill();
+    this.draw_glass_panel(ctx, cx - inputW / 2, inputY, inputW, inputH, 12);
     ctx.strokeStyle = this._userInput.length > 0 ? 'hsla(175, 60%, 50%, 0.4)' : 'hsla(220, 20%, 30%, 0.2)';
+    ctx.lineWidth = 1.5;
     ctx.stroke();
 
     // Render current word in input area as small tiles too (for "Reactive" feel)
@@ -230,41 +267,23 @@ export class WordScrambleEngine extends BaseEngine {
 
     activeLetters.forEach((char, i) => {
       const tx = sStartX + i * (sTileW + sTileGap);
-      ctx.beginPath();
-      ctx.roundRect(tx, sY, sTileW, sTileH, 4);
-      ctx.fillStyle = 'hsla(225, 30%, 20%, 0.8)';
-      ctx.fill();
-      ctx.strokeStyle = 'hsla(175, 60%, 50%, 0.5)';
+      this.draw_glass_panel(ctx, tx, sY, sTileW, sTileH, 6);
+      ctx.strokeStyle = 'hsla(175, 60%, 50%, 0.4)';
       ctx.stroke();
 
-      ctx.font = 'bold 18px Inter, sans-serif';
-      ctx.fillStyle = 'hsl(220, 20%, 90%)';
+      ctx.font = '800 18px Outfit, sans-serif';
+      ctx.fillStyle = 'white';
       ctx.fillText(char, tx + sTileW / 2, sY + sTileH / 2);
     });
 
     if (this._userInput.length === 0) {
-      ctx.font = 'italic 16px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(220, 15%, 40%, 0.5)';
-      ctx.fillText('…', cx, inputY + inputH / 2);
+      ctx.font = '800 16px Outfit, sans-serif';
+      ctx.fillStyle = 'hsla(220, 15%, 40%, 0.3)';
+      ctx.fillText('...', cx, inputY + inputH / 2);
     }
   }
 
-  private _render_feedback(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
-    ctx.font = 'bold 36px Inter, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
 
-    if (this._isCorrect) {
-      ctx.fillStyle = 'hsl(145, 65%, 55%)';
-      ctx.fillText('✓', cx, cy - 16);
-    } else {
-      ctx.fillStyle = 'hsl(0, 75%, 55%)';
-      ctx.fillText('✗', cx, cy - 16);
-      ctx.font = '400 18px Inter, sans-serif';
-      ctx.fillStyle = 'hsla(220, 15%, 60%, 0.8)';
-      ctx.fillText(this._currentWord, cx, cy + 24);
-    }
-  }
 
   protected on_key_event(e: KeyboardEvent, _timestamp: number): void {
     if (this._phase !== 'playing') return;
@@ -275,17 +294,21 @@ export class WordScrambleEngine extends BaseEngine {
     }
 
     if (e.key === 'Backspace') {
-      this._userInput = this._userInput.slice(0, -1);
+      this._handle_undo(); // Route directly to existing undo logic
       return;
     }
 
     // Capture i18n input (letters including accents/ñ)
     if (e.key.length === 1 && e.key.match(/[a-záéíóúñ]/i)) {
-      if (this._userInput.length < this._currentWord.length + 2) {
-        this._userInput += e.key.toUpperCase();
-        if (!this._firstKeystrokeMs) {
-          this._firstKeystrokeMs = precise_now() - this._phaseStart;
-        }
+      const targetChar = e.key.toUpperCase();
+      
+      // Find the FIRST matching letter in the rack that hasn't been used yet
+      const tileIndex = this._scrambledLetters.findIndex(
+        (char, idx) => char === targetChar && !this._usedTileIndices.has(idx)
+      );
+
+      if (tileIndex !== -1) {
+        this._handle_rack_tap(tileIndex);
       }
     }
   }
@@ -307,19 +330,31 @@ export class WordScrambleEngine extends BaseEngine {
 
     const maxDiff = diff <= 3 ? 2 : diff <= 7 ? 4 : 5;
     const minDiff = diff <= 3 ? 1 : diff <= 7 ? 2 : 3;
-    const pool = this._allWords
+    let pool = this._allWords
       .map((item, idx) => ({ item, idx }))
       .filter(({ item, idx }) => item.difficulty >= minDiff && item.difficulty <= maxDiff && !this._usedIndices.has(idx));
 
     if (pool.length === 0) {
       this._usedIndices.clear();
-      return this._next_trial();
+      // Fallback: relax difficulty constraints if the exact band is exhausted or empty
+      pool = this._allWords.map((item, idx) => ({ item, idx }));
+      
+      if (pool.length === 0) {
+        // Failsafe if dictionary is completely empty
+        this._currentWord = "ERROR";
+        this._currentDefinition = "No words loaded";
+      } else {
+        const pick = pool[Math.floor(Math.random() * pool.length)]!;
+        this._currentWord = pick.item.word;
+        this._currentDefinition = pick.item.definition;
+        this._usedIndices.add(pick.idx);
+      }
+    } else {
+      const pick = pool[Math.floor(Math.random() * pool.length)]!;
+      this._currentWord = pick.item.word;
+      this._currentDefinition = pick.item.definition;
+      this._usedIndices.add(pick.idx);
     }
-
-    const pick = pool[Math.floor(Math.random() * pool.length)]!;
-    this._currentWord = pick.item.word;
-    this._currentDefinition = pick.item.definition;
-    this._usedIndices.add(pick.idx);
 
     // Scramble (ensure it's actually different)
     this._scrambled = this._shuffle_word(this._currentWord);
@@ -333,6 +368,23 @@ export class WordScrambleEngine extends BaseEngine {
     this._userInput = '';
     this._tapHistory = [];
     this._firstKeystrokeMs = null;
+
+    // Pre-compute gradients
+    this._btnGradients = [];
+    const tileW = 42;
+    const tileH = 54;
+    const tileGap = 10;
+    const totalTileW = this._scrambledLetters.length * tileW + (this._scrambledLetters.length - 1) * tileGap;
+    const tileStartX = (this.width / 2) - totalTileW / 2;
+    const tileY = 130;
+
+    for (let i = 0; i < this._scrambledLetters.length; i++) {
+        const tx = tileStartX + i * (tileW + tileGap);
+        const grad = this.ctx.createLinearGradient(tx, tileY, tx, tileY + tileH);
+        grad.addColorStop(0, 'hsla(175, 70%, 55%, 0.9)');
+        grad.addColorStop(1, 'hsla(175, 70%, 45%, 1.0)');
+        this._btnGradients.push(grad);
+    }
 
     this._phase = 'playing';
     this._phaseStart = precise_now();

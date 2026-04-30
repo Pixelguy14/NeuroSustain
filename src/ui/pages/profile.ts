@@ -298,15 +298,7 @@ async function _populate_profile(page: HTMLElement): Promise<void> {
       const rating = r ? r.rating : GLICKO2_DEFAULTS.INITIAL_RATING;
       
       const card = document.createElement('div');
-      card.style.cssText = `
-        background: hsla(225, 30%, 12%, 0.4);
-        border: 1px solid hsla(175, 70%, 50%, 0.15);
-        border-radius: 8px;
-        padding: var(--space-sm) var(--space-md);
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      `;
+      card.className = 'pillar-rating-card';
       
       const difficulty = Math.max(1, Math.min(10, ((rating - 1300) / 100) + 1)).toFixed(1);
       const percentile = calculate_percentile(rating);
