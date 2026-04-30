@@ -67,7 +67,7 @@ export function render_profile(): HTMLElement {
       <div class="profile-field" style="border-bottom: none; flex-direction: column; align-items: flex-start; gap: var(--space-sm);">
         <span class="profile-field__label">${t('profile.dataSovereignty')}</span>
         <p style="font-size: 12px; color: var(--color-text-dim); line-height: 1.5; margin-bottom: var(--space-xs);">
-           NeuroSustain operates on a <strong>Local-First</strong> architecture. Your neural profile, reaction times, and training history stay on this device. Exports are available for clinicians.
+           ${t('profile.dataSovereigntyDesc')}
         </p>
         <div style="display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-top: var(--space-xs);">
           <button class="btn btn--primary btn--small" id="btn-export-pdf" style="background: hsla(175, 70%, 50%, 0.15); border-color: hsla(175, 70%, 50%, 0.3); color: hsl(175, 70%, 70%); display: flex; align-items: center; gap: 6px;">
@@ -98,7 +98,7 @@ export function render_profile(): HTMLElement {
         <div id="hardware-status" style="width: 100%; background: hsla(225, 30%, 12%, 0.4); border: 1px solid var(--glass-border); border-radius: 8px; padding: var(--space-md); display: flex; flex-direction: column; gap: var(--space-sm);">
           <div style="display: flex; align-items: center; justify-content: space-between;">
             <div style="display: flex; flex-direction: column; gap: 2px;">
-              <span style="font-size: 11px; color: var(--color-text-dim); text-transform: uppercase;">Current Grade</span>
+              <span style="font-size: 11px; color: var(--color-text-dim); text-transform: uppercase;">${t('profile.currentGrade', { defaultValue: 'Current Grade' })}</span>
               <span id="hardware-grade-label" style="font-size: 16px; font-weight: 700;">—</span>
             </div>
             <button class="btn btn--ghost btn--small" id="btn-recalibrate" style="display: flex; align-items: center; gap: 6px;">

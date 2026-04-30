@@ -55,8 +55,8 @@ export function render_baseline(stepIndex: number = 0): HTMLElement {
       </div>
 
       <header class="baseline-header">
-        <h1 class="baseline-title">Establish Baseline: Step ${stepIndex + 1}/3</h1>
-        <p class="baseline-subtitle">We need to measure your raw cognitive capacity to calibrate the AI difficulty engine.</p>
+        <h1 class="baseline-title">${t('baseline.stepTitle', { step: stepIndex + 1 })}</h1>
+        <p class="baseline-subtitle">${t('baseline.stepDesc')}</p>
       </header>
 
       <div class="glass-panel baseline-card">

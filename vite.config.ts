@@ -21,6 +21,7 @@ export default defineConfig({
         name: 'NeuroSustain — Cognitive Training',
         short_name: 'NeuroSustain',
         description: 'Evidence-based cognitive training to sustain and strengthen your neural pathways.',
+        start_url: '.',
         theme_color: '#0a0f1e',
         background_color: '#0a0f1e',
         display: 'standalone',

@@ -36,7 +36,7 @@ export async function render_pillar_detail(pillar: CognitivePillar): Promise<HTM
       <!-- About Section -->
       <section class="glass-panel pillar-info-card">
         <h2 class="section-title">${t('pillarDetail.about')}</h2>
-        <p class="pillar-description">${t(`pillar.${pillar}.desc`)}</p>
+        <p class="pillar-description">${t(`${meta.labelKey}.desc`)}</p>
         
         <div class="pillar-rating-box">
           <div class="pillar-rating-box__label">${t('pillarDetail.rating')}</div>
@@ -55,11 +55,11 @@ export async function render_pillar_detail(pillar: CognitivePillar): Promise<HTM
         </div>
         <div class="pillar-stats-summary">
           <div class="mini-stat">
-            <span class="mini-stat__label">Sessions</span>
+            <span class="mini-stat__label">${t('pillarDetail.sessions', { defaultValue: 'Sessions' })}</span>
             <span class="mini-stat__value">${sessions.length}</span>
           </div>
           <div class="mini-stat">
-            <span class="mini-stat__label">Avg. Accuracy</span>
+            <span class="mini-stat__label">${t('pillarDetail.avgAccuracy', { defaultValue: 'Avg. Accuracy' })}</span>
             <span class="mini-stat__value">
               ${sessions.length > 0 
                 ? Math.round((sessions.reduce((a, b) => a + b.accuracy, 0) / sessions.length) * 100) 
